@@ -357,6 +357,15 @@ module source
 #endif
 #endif
 
+#ifdef USE_VARIABLE_EDOT
+ real(kind=rp), parameter :: t_start_edot = &
+#ifdef t_start_edot_make
+  t_start_edot_make
+#else
+  0.0_rp
+#endif
+#endif
+
 #ifdef OUTPUT_NSTEPS
  integer, parameter :: nsteps_dump = &
 #ifdef nsteps_dump_make
@@ -11676,6 +11685,7 @@ contains
 #endif
 
 #ifdef USE_EDOT
+#ifndef VARIABLE_EDOT
 
      do k=lx3,ux3
       do j=lx2,ux2
@@ -11688,6 +11698,22 @@ contains
       end do
      end do
 
+#endif
+#ifdef VARIABLE_EDOT
+     if (lgrid%time>=t_start_edot) then
+      do k=lx3,ux3
+       do j=lx2,ux2
+        do i=lx1,ux1
+
+         lgrid%res(i_rhoe,i,j,k) = lgrid%res(i_rhoe,i,j,k) - &
+         lgrid%edot(i,j,k)
+
+        end do
+       end do
+      end do
+     end if
+
+#endif
 #endif
 
 #ifdef COROTATING_FRAME
@@ -11843,7 +11869,7 @@ contains
      if (lgrid%time<tmax_damp) then
       nu_damp_tmp = nu_damp
      else if (lgrid%time<tend_damp) then
-      nu_damp_tmp = nu_damp*cos((rph*CONST_PI)*(lgrid%time-tmax_damp/(tend_damp-tmax_damp))
+      nu_damp_tmp = nu_damp*cos((rph*CONST_PI)*(lgrid%time-tmax_damp)/(tend_damp-tmax_damp))
      else
       nu_damp_tmp = rp0
      endif
