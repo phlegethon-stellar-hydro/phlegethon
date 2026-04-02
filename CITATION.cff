@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: Leidi
+    given-names: Giovanni
+    orcid: https://orcid.org/0000-0001-7413-7200
+  - family-names: Holas
+    given-names: Alexander
+    orcid: https://orcid.org/0000-0001-5184-6928
+title: phlegethon
+version: 2026.4.1
+date-released: 2026-04-02
+doi: NA
+license: AGPLv3.0
+repository-code: 'https://github.com/phlegethon-stellar-hydro/phlegethon'
+abstract: >-
+    Phlegethon stellar hydro code.
