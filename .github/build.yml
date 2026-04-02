@@ -1,0 +1,41 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-x86_64-archlinux:
+    name: Build x86_64 (Arch Linux)
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel-20260329.0.507017
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel gcc gcc-fortran openmpi hdf5-openmpi pkgconf
+
+      - name: Compile tests
+        run: |
+          echo "================================"
+          echo "Testing compilation on x86_64 (Arch Linux)"
+          echo "================================"
+          cd tests
+          for dir in */; do
+            if [ -f "$dir/Makefile" ]; then
+              echo "Building test: $dir"
+              (cd "$dir" && make clean && make FFLAGS="-Wall -Wextra -Werror" CFLAGS="-Wall -Wextra -Werror") || {
+                echo "FAILED: $dir"
+                exit 1
+              }
+              echo "✓ $dir compiled successfully"
+            fi
+          done
+
+      - name: Post-build summary
+        if: always()
+        run: echo "All test problems compiled successfully on x86_64 (Arch Linux)!"
