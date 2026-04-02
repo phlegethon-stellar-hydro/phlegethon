@@ -184,8 +184,8 @@ def spj_list(path=""):
  
 class h5spj:
 
-    def __init__(self,filename,path='./',path_to_grids='./',mode='i',data_path=data,helm_table='helm_table_timmes_x1.dat',pig_table='401x401_pig_table_h2_offset.dat',
-    NRHO=271,NT=101,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
+    def __init__(self,filename,path='./',path_to_grids='./',mode='i',data_path=data,helm_table='helm_table_timmes_x2.dat',pig_table='401x401_pig_table_h2_offset.dat',
+    NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
 
         if(mode=='n'):
             filename = path+'spj_n{:05}.h5'.format(filename)
@@ -594,8 +594,8 @@ def plane_list(path=""):
 
 class h5plane:
 
-    def __init__(self,filename,path='./',path_to_grids='./',mode='i',data_path=data,helm_table='helm_table_timmes_x1.dat',pig_table='401x401_pig_table_h2_offset.dat',
-    NRHO=271,NT=101,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
+    def __init__(self,filename,path='./',path_to_grids='./',mode='i',data_path=data,helm_table='helm_table_timmes_x2.dat',pig_table='401x401_pig_table_h2_offset.dat',
+    NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
         if(mode=='n'):
             filename = path+'planes_n{:05}.h5'.format(filename)
         if(mode=='i'):
@@ -1173,8 +1173,8 @@ def file_list(path=""):
 
 class h5grid:
 
-    def __init__(self,filename,path='./',mode='i',data_path=data,helm_table='helm_table_timmes_x1.dat',pig_table='401x401_pig_table_h2_offset.dat',
-    NRHO=271,NT=101,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
+    def __init__(self,filename,path='./',mode='i',data_path=data,helm_table='helm_table_timmes_x2.dat',pig_table='401x401_pig_table_h2_offset.dat',
+    NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
         if(mode=='n'):
             filename = path+'grid_n{:05}.h5'.format(filename)
         if(mode=='i'):
