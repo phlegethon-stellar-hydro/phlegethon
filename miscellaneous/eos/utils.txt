@@ -1,0 +1,2 @@
+f2py -c eos.f90 -m eos_fort --opt='-O3'
+

@@ -1,0 +1,35 @@
+# Phlegethon Build Configuration - HoreKa Cluster
+# =====================================================
+#
+# Usage: Copy this file to ../Makefile.config
+#        cp Make.local/Make.HoreKa ../Makefile.config
+
+FC = mpifort
+FFLAGS = -O3 -mtune=native -march=native -ftree-vectorize -ftree-vectorizer-verbose=0 -funroll-loops -fforce-addr -Wall -Wextra
+FFLAGS += $(shell pkg-config --cflags ompi-f90)
+
+INCLUDE = -I/software/all/lib/hdf5/1.14_gnu_13_openmpi_5.0/include
+LIBS = -L/software/all/lib/hdf5/1.14_gnu_13_openmpi_5.0/lib
+HDF5_LIB = -lhdf5 -lhdf5_fortran -lz
+RPATH = -Wl,-rpath=/software/all/lib/hdf5/1.14_gnu_13_openmpi_5.0/lib
+
+LIBS += $(shell pkg-config --libs ompi-f90)
+
+# Common settings
+BUILD_DIR ?= obj
+FC_ADD_DEF ?= -D
+
+# Construct FC_OPTS from OPTS and define EXE
+FC_OPTS += $(foreach opt,$(OPTS),$(FC_ADD_DEF) $(opt))
+EXE = run.$(APPNAME)
+
+# Display configuration being used
+$(info ----------------------------------------)
+$(info Phlegethon Build Configuration)
+$(info Configuration: HoreKa)
+$(info FC: $(FC))
+$(info FFLAGS: $(FFLAGS))
+$(info INCLUDE: $(INCLUDE))
+$(info LIBS: $(LIBS))
+$(info HDF5_LIB: $(HDF5_LIB))
+$(info ----------------------------------------)

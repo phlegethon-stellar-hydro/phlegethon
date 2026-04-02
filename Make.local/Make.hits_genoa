@@ -1,0 +1,31 @@
+# Phlegethon Build Configuration - HITS Genoa Cluster
+# =====================================================
+# 
+# Usage: Copy this file to ../Makefile.config
+#        cp Make.local/Make.hits_genoa ../Makefile.config
+
+FC = mpifort
+FFLAGS = -O3 -mtune=native -march=native -ftree-vectorize -ftree-vectorizer-verbose=0 -funroll-loops -fforce-addr -Wall -Wextra
+INCLUDE = -I/hits/sw/shared/genoa/a89/apps/HDF5/1.14.3-gompi-2023b/include
+LIBS = -L/hits/sw/shared/genoa/a89/apps/HDF5/1.14.3-gompi-2023b/lib
+HDF5_LIB = -lhdf5 -lhdf5_fortran -lz
+RPATH = -Wl,-rpath=/hits/sw/shared/genoa/a89/apps/HDF5/1.14.3-gompi-2023b/lib
+
+# Common settings
+BUILD_DIR ?= obj
+FC_ADD_DEF ?= -D
+
+# Construct FC_OPTS from OPTS and define EXE
+FC_OPTS += $(foreach opt,$(OPTS),$(FC_ADD_DEF) $(opt))
+EXE = run.$(APPNAME)
+
+# Display configuration being used
+$(info ----------------------------------------)
+$(info Phlegethon Build Configuration)
+$(info Configuration: HITS genoa)
+$(info FC: $(FC))
+$(info FFLAGS: $(FFLAGS))
+$(info INCLUDE: $(INCLUDE))
+$(info LIBS: $(LIBS))
+$(info HDF5_LIB: $(HDF5_LIB))
+$(info ----------------------------------------)
