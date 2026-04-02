@@ -1,0 +1,6 @@
+build
+*.pyc
+.DS_Store
+
+# Data that needs to get downloaded for licensing reasons
+data/helm_table_timmes_x1.dat
