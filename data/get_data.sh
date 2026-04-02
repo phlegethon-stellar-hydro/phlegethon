@@ -6,7 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ARCHIVE_URL="https://cococubed.com/codes/eos/helmholtz.tbz"
 ARCHIVE_FILE="helmholtz.tbz"
-TARGET_FILE="helm_table_timmes_x1.dat"
+TARGET_FILE="helm_table_timmes_x2.dat"
 
 REACLIB_URL="https://reaclib.jinaweb.org/difout.php?action=cfreaclib2&library=default&rateall=1&cached=&no910=0"
 REACLIB_TARGET_FILE="jina_reaclib_default"

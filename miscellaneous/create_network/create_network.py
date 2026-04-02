@@ -40,7 +40,7 @@ path_to_data = '../../data/'
 full_output = True
 use_weak_rates = True
 
-jina_reaclib_file = 'results03291232'
+jina_reaclib_file = 'jina_reaclib_default'
 
 #----------------------------------------------------------#
 

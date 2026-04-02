@@ -35,9 +35,9 @@ OPTS += Mach_cutoff_make=1.0e-4_rp
 #eos
 OPTS += ADVECT_YE_IABAR
 OPTS += HELMHOLTZ_EOS
-OPTS += path_to_helm_table=\"$(DATA)/helm_table_timmes_x1.dat\"
-OPTS += helm_nT_make=101
-OPTS += helm_nrho_make=271
+OPTS += path_to_helm_table=\"$(DATA)/helm_table_timmes_x2.dat\"
+OPTS += helm_nT_make=201
+OPTS += helm_nrho_make=541
 OPTS += helm_ltlo_make=3.0_rp
 OPTS += helm_lthi_make=13.0_rp
 OPTS += helm_ldlo_make=-12.0_rp
