@@ -1035,15 +1035,15 @@ class h5plane:
 
         return self.full[id_gam3]
 
-    def planeshow(self,out,ichx=12,ichy=6, \
+    def planeshow(self,out,ichx=4,ichy=4, \
     figdpi=500,figname=None, \
-    x_lbl=r'$x$',y_lbl=r'$y$', \
-    cb_lbl='',cb_pad=0.05,cb_size="5%",cb_pos='right', \
+    x_lbl=None,y_lbl=None, \
+    cb_lbl='',cb_pad=0.05,cb_size=0.1,cb_pos='right', \
     time_in_days=True,coords_in_Rsun=True, \
     Rstar=-1, \
     showfig=True, \
     use_latex=False, \
-    fontsize=15, \
+    fontsize=5, \
     **kwargs):
 
      label_fontsize = 1.1*fontsize
@@ -1077,42 +1077,55 @@ class h5plane:
       if(self.ix>=0):
        x = coords[1]
        y = coords[2]
+       xlbl = r'$y$'
+       ylbl = r'$z$'
       if(self.iy>=0):
        x = coords[0]
        y = coords[2]
+       xlbl = r'$x$'
+       ylbl = r'$z$'
      if(self.iz>=0):
        x = coords[0]
        y = coords[1]
+       xlbl = r'$x$'
+       ylbl = r'$y$'
 
      if(self.grid0.geometry=='2d-polar' or self.grid0.geometry=='2d-spherical'):
        x = coords[0]
        y = coords[1]
+       xlbl = r'$x$'
+       ylbl = r'$y$'
 
      if(self.grid0.geometry=='3d-spherical'):
       if(self.ix>=0):
        x = coords[0]
        y = coords[1]
+       xlbl = r'$x$'
+       ylbl = r'$y$'
       if(self.iy>=0):
        x = coords[1]
        y = coords[0]
+       xlbl = r'$y$'
+       ylbl = r'$x$'
       if(self.iz>=0):
        x = np.sqrt(coords[0]**2+coords[1]**2)
        y = coords[2]
-
+       xlbl = r'$\sqrt{x^2+y^2}$'
+       ylbl = r'$z$'
      if(coords_in_Rsun):
       x /= CONST_RSUN
       y /= CONST_RSUN
-      x_lbl+=r'$\ [\mathrm{R}_\odot]$'
-      y_lbl+=r'$\ [\mathrm{R}_\odot]$'
+      xlbl+=r'$\ [\mathrm{R}_\odot]$'
+      ylbl+=r'$\ [\mathrm{R}_\odot]$'
      else:
       if(Rstar>0):
        x /= Rstar
        y /= Rstar
-       x_lbl+=r'$\ [\mathrm{R}_\star]$'
-       y_lbl+=r'$\ [\mathrm{R}_\star]$'
+       xlbl+=r'$\ [\mathrm{R}_\star]$'
+       ylbl+=r'$\ [\mathrm{R}_\star]$'
       else:
-       x_lbl+=r'$\ [\mathrm{cm}]$'
-       y_lbl+=r'$\ [\mathrm{cm}]$'
+       xlbl+=r'$\ [\mathrm{cm}]$'
+       ylbl+=r'$\ [\mathrm{cm}]$'
 
      shape_plane = out.shape
      shape_grid = x.shape
@@ -1123,6 +1136,11 @@ class h5plane:
 
      im = axs.pcolormesh(x,y,out,shading='nearest',**kwargs)
      axs.axes.set_aspect('equal')
+   
+     if(x_lbl==None):
+      x_lbl = xlbl
+     if(y_lbl==None):
+      y_lbl = ylbl
 
      axs.set_xlabel(x_lbl)
      axs.set_ylabel(y_lbl)
@@ -1141,6 +1159,8 @@ class h5plane:
       orientation='horizontal'
 
      cb = fig.colorbar(im,cax=cax,label=cb_lbl,orientation=orientation)
+
+     return fig,axs
 
      if(figname!=None):
       savefig(figname,dpi=figdpi)
@@ -1922,16 +1942,16 @@ class h5grid:
 ## Plotting functions
 ###############################################################################################
 
-    def gridshow(self,out,ichx=12,ichy=6, \
+    def gridshow(self,out,ichx=4,ichy=4, \
     figdpi=500,figname=None, \
-    axs=None, multiplot=False, show_cb=True,\
-    x_lbl=r'$x$',y_lbl=r'$y$', \
-    cb_lbl='',cb_pad=0.05,cb_size="5%",cb_pos='right', \
+    show_cb=True,\
+    x_lbl=None,y_lbl=None, \
+    cb_lbl='',cb_pad=0.05,cb_size=0.1,cb_pos='right', \
         time_in_days=True,coords_in_Rsun=True, \
     showfig=True, \
     Rstar=-1, \
     use_latex=False, \
-    fontsize=15, \
+    fontsize=5, \
     **kwargs):
 
      label_fontsize = 1.1*fontsize
@@ -1957,10 +1977,7 @@ class h5grid:
      else:
       ioff()
 
-     if axs is None:
-        fig, axs = subplots(figsize=(ichx,ichy))
-     else:
-        fig = axs.figure
+     fig, axs = subplots(figsize=(ichx,ichy))
 
      coords = self.coords(ix=self.ix,iy=self.iy,iz=self.iz)
 
@@ -1968,45 +1985,66 @@ class h5grid:
       if(self.ix>=0):
        x = coords[1]
        y = coords[2]
+       xlbl = r'$y$'
+       ylbl = r'$z$'
       if(self.iy>=0):
        x = coords[0]
        y = coords[2]
+       xlbl = r'$x$'
+       ylbl = r'$z$'
      if(self.iz>=0):
        x = coords[0]
        y = coords[1]
-
+       xlbl = r'$x$'
+       ylbl = r'$y$'
+ 
      if(self.geometry=='2d-polar' or self.geometry=='2d-spherical'):
        x = coords[0]
        y = coords[1]
-
+       xlbl = r'$x$'
+       ylbl = r'$y$'
+ 
      if(self.geometry=='3d-spherical'):
       if(self.ix>=0):
        x = coords[0]
        y = coords[1]
+       xlbl = r'$x$'
+       ylbl = r'$y$'
+ 
       if(self.iy>=0):
        x = coords[1]
        y = coords[0]
+       xlbl = r'$y$'
+       ylbl = r'$x$'
+ 
       if(self.iz>=0):
        x = np.sqrt(coords[0]**2+coords[1]**2)
        y = coords[2]
-
+       xlbl = r'$\sqrt{x^2+y^2}$'
+       ylbl = r'$z$'
+ 
      if(coords_in_Rsun):
       x /= CONST_RSUN
       y /= CONST_RSUN
-      x_lbl+=r'$\ [\mathrm{R}_\odot]$'
-      y_lbl+=r'$\ [\mathrm{R}_\odot]$'
+      xlbl+=r'$\ [\mathrm{R}_\odot]$'
+      ylbl+=r'$\ [\mathrm{R}_\odot]$'
      else:
       if(Rstar>0):
        x /= Rstar
        y /= Rstar
-       x_lbl+=r'$\ [\mathrm{R}_\star]$'
-       y_lbl+=r'$\ [\mathrm{R}_\star]$'
+       xlbl+=r'$\ [\mathrm{R}_\star]$'
+       ylbl+=r'$\ [\mathrm{R}_\star]$'
       else:
-       x_lbl+=r'$\ [\mathrm{cm}]$'
-       y_lbl+=r'$\ [\mathrm{cm}]$'
+       xlbl+=r'$\ [\mathrm{cm}]$'
+       ylbl+=r'$\ [\mathrm{cm}]$'
 
      im = axs.pcolormesh(x,y,out,shading='nearest',**kwargs)
      axs.axes.set_aspect('equal')
+
+     if(x_lbl==None):
+       x_lbl = xlbl
+     if(y_lbl==None):
+       y_lbl = ylbl
 
      axs.set_xlabel(x_lbl)
      axs.set_ylabel(y_lbl)
@@ -2028,9 +2066,11 @@ class h5grid:
       cb = fig.colorbar(im,cax=cax,label=cb_lbl,orientation=orientation)
      else:
       cax.axis('off')
-     
+
      if(figname!=None):
       savefig(figname,dpi=figdpi)
+
+     return fig,axs
 
      if(showfig):
       show()

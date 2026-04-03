@@ -2,15 +2,15 @@ from phleos import *
 from phloutput import *
 
 #table parameters
-NRHO = 271
-NT = 101
+NRHO = 541
+NT = 201
 LOGRHOMIN = -12.0
 LOGRHOMAX = 15.0
 LOGTMIN = 3.0
 LOGTMAX = 13.0
 
 #load table
-eos_table = eos_fort.eos_fort_mod.load_table('/home/giovanni-leidi/Phlegethon/data/helm_table_timmes_x1.dat',NRHO,NT,LOGRHOMIN,LOGRHOMAX,LOGTMIN,LOGTMAX)
+eos_table = eos_fort.eos_fort_mod.load_table('%shelm_table_timmes_x2.dat'%(data),NRHO,NT,LOGRHOMIN,LOGRHOMAX,LOGTMIN,LOGTMAX)
 
 #eos mode
 eos_mode = ['ions','radiation','elepos','coulomb']
