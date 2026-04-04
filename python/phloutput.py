@@ -23,7 +23,10 @@ height = ptheight * inchpt
 scrdpi = 100
 savedpi = 300
 
-fontsize = 9
+ichx_g = 10
+ichy_g = 10
+cb_size_g = 0.4
+fontsize = 15
 label_fontsize = 1.1*fontsize
 legend_fontsize = 0.9*fontsize
 rcParams['font.size'] = fontsize
@@ -498,7 +501,7 @@ class h5spj:
 
         return self.full[id_gam3]
 
-    def mollweide(self,out,ichx=12,ichy=6, \
+    def mollweide(self,out,ichx=ichx_g,ichy=ichy_g, \
     figdpi=500,figname=None, \
     cb_lbl='',cb_pad=0.05,cb_pos='horizontal', \
     time_in_days=True, \
@@ -506,7 +509,7 @@ class h5spj:
     showfig=True, \
     showgrid=False, \
     use_latex=False, \
-    fontsize=15, \
+    fontsize=fontsize, \
     **kwargs):
 
      label_fontsize = 1.1*fontsize
@@ -1035,15 +1038,15 @@ class h5plane:
 
         return self.full[id_gam3]
 
-    def planeshow(self,out,ichx=4,ichy=4, \
+    def planeshow(self,out,ichx=ichx_g,ichy=ichy_g, \
     figdpi=500,figname=None, \
     x_lbl=None,y_lbl=None, \
-    cb_lbl='',cb_pad=0.05,cb_size=0.1,cb_pos='right', \
+    cb_lbl='',cb_pad=0.05,cb_size=cb_size_g,cb_pos='right', \
     time_in_days=True,coords_in_Rsun=True, \
     Rstar=-1, \
     showfig=True, \
     use_latex=False, \
-    fontsize=5, \
+    fontsize=fontsize, \
     **kwargs):
 
      label_fontsize = 1.1*fontsize
@@ -1942,16 +1945,16 @@ class h5grid:
 ## Plotting functions
 ###############################################################################################
 
-    def gridshow(self,out,ichx=4,ichy=4, \
+    def gridshow(self,out,ichx=ichx_g,ichy=ichy_g, \
     figdpi=500,figname=None, \
     show_cb=True,\
     x_lbl=None,y_lbl=None, \
-    cb_lbl='',cb_pad=0.05,cb_size=0.1,cb_pos='right', \
+    cb_lbl='',cb_pad=0.05,cb_size=cb_size_g,cb_pos='right', \
         time_in_days=True,coords_in_Rsun=True, \
     showfig=True, \
     Rstar=-1, \
     use_latex=False, \
-    fontsize=5, \
+    fontsize=fontsize, \
     **kwargs):
 
      label_fontsize = 1.1*fontsize
@@ -2087,7 +2090,7 @@ class h5grid:
                     time_in_days=True,coords_in_Rsun=True, \
                     showfig=True, \
                     use_latex=False, \
-                    fontsize=15,ichx=12,ichy=6,**kwargs):
+                    fontsize=fontsize,ichx=ichx_g,ichy=ichy_g,**kwargs):
         if ib_bins is None:
             ib_bins = int(self.nx1 * 0.5)
         label_fontsize = 1.1*fontsize
