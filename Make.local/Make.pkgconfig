@@ -6,32 +6,29 @@
 #        cp Make.local/Make.pkgconfig ../Makefile.config
 
 # Try to use pkg-config to find HDF5
-# First try hdf5-fortran (macOS/generic)
-HDF5_CFLAGS := $(shell pkg-config --cflags hdf5 2>/dev/null)
-HDF5_LIBS := $(shell pkg-config --libs hdf5 2>/dev/null)
-HDF5_PKG := hdf5
 
-# If hdf5-fortran not found, try hdf5-openmpi (Ubuntu with OpenMPI)
-ifeq ($(HDF5_CFLAGS),)
-    HDF5_CFLAGS := $(shell pkg-config --cflags hdf5-openmpi 2>/dev/null)
-    HDF5_LIBS := $(shell pkg-config --libs hdf5-openmpi 2>/dev/null)
-    HDF5_PKG := hdf5-openmpi
-endif
+
+#hdf5-openmpi (Ubuntu with OpenMPI)
+HDF5_CFLAGS := $(shell pkg-config --cflags hdf5-openmpi 2>/dev/null)
+HDF5_LIBS   := $(shell pkg-config --libs hdf5-openmpi 2>/dev/null)
+HDF5_PKG    := hdf5-openmpi
 
 # If pkg-config succeeds, use it
 ifneq ($(HDF5_CFLAGS),)
+
     INCLUDE = $(HDF5_CFLAGS)
     # Extract library directory from HDF5_LIBS for RPATH
-    LIB_DIR = $(shell pkg-config --variable=libdir $(HDF5_PKG) 2>/dev/null)
+    LIB_DIR := $(shell pkg-config --variable=libdir $(HDF5_PKG) 2>/dev/null)
     ifneq ($(LIB_DIR),)
         LIBS = -L$(LIB_DIR)
-        RPATH = -Wl,-rpath=$(LIB_DIR)
+        RPATH = -Wl,-rpath,$(LIB_DIR)
     endif
-    HDF5_LIB = $(HDF5_LIBS)
+
+    HDF5_LIB = $(HDF5_LIBS) \
+               -lhdf5_fortran -lhdf5
+
 else
-    # pkg-config failed, try common locations
-    $(warning pkg-config could not find hdf5 or hdf5-openmpi. Trying common locations...)
-    
+
     # Try Homebrew on macOS
     BREW_HDF5 := $(shell brew --prefix hdf5 2>/dev/null)
     ifneq ($(BREW_HDF5),)
@@ -44,14 +41,16 @@ else
         # Try system default
         $(warning Could not auto-detect HDF5. Using system defaults.)
         $(warning If compilation fails, copy a machine-specific config from Make.local/)
-        INCLUDE = 
-        LIBS = 
-        RPATH = 
+        INCLUDE =
+        LIBS =
+        RPATH =
         HDF5_LIB = -lhdf5_fortran -lhdf5 -lz
     endif
+
 endif
 
-FFLAGS = -O3 -mtune=native -march=x86-64 -ftree-vectorize -ftree-vectorizer-verbose=0 -funroll-loops -fforce-addr -Wall -Wextra
+
+FFLAGS = -O3 -fPIC -mtune=native -march=x86-64 -ftree-vectorize -funroll-loops -Wall -Wextra
 
 # Apple silicon
 UNAME_S := $(shell uname -s)
@@ -69,18 +68,19 @@ HDF5_LIB = -lhdf5_fortran -lhdf5_hl_fortran -lhdf5 -lz
 RPATH   = -Wl,-rpath,$(HDF5_PREFIX)/lib
 
 # Override invalid x86 flags
-FFLAGS := $(filter-out -march=x86-64 -mtune=generic,$(FFLAGS))
+FFLAGS := $(filter-out -march=x86-64 -mtune=native,$(FFLAGS))
 
 endif
 endif
 
 # Common settings
 FC = mpifort
+
 BUILD_DIR ?= obj
 FC_ADD_DEF ?= -D
 
 # Construct FC_OPTS from OPTS and define EXE
-FC_OPTS += $(foreach opt,$(OPTS),$(FC_ADD_DEF) $(opt))
+FC_OPTS += $(foreach opt,$(OPTS),$(FC_ADD_DEF)$(opt))
 EXE = run.$(APPNAME)
 
 # Display configuration being used
