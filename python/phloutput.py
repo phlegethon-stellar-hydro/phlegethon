@@ -1617,6 +1617,25 @@ class h5grid:
          self.eos_evaluated = True
 
         return self.full[id_nabla_ad]
+    
+    def bvf2(self,ix=-1,iy=-1,iz=-1):
+        g = self.grav(ix=ix,iy=iy,iz=iz)
+        g_mag = np.sqrt(np.sum(g**2,axis=0))
+        P = self.P(ix=ix,iy=iy,iz=iz)
+        dP_dr = self.grad_r(P,ix=ix,iy=iy,iz=iz)
+        delta = self.delta(ix=ix,iy=iy,iz=iz)
+        phi = self.phi(ix=ix,iy=iy,iz=iz)
+        Hp = -P/dP_dr
+        nabla_ad = self.nabla_ad(ix=ix,iy=iy,iz=iz)
+        nabla = self.nabla(ix=ix,iy=iy,iz=iz)
+        nabla_mu = self.nabla_mu(ix=ix,iy=iy,iz=iz)
+
+        bvf2 = (g_mag*delta/Hp)*(nabla_ad-nabla+phi*nabla_mu/delta)
+        return bvf2 
+    
+    def bvf(self,ix=-1,iy=-1,iz=-1):
+        bvf2 = self.bvf2(ix=ix,iy=iy,iz=iz)
+        return np.real(np.sqrt(bvf2+0j))
 
     def s(self,ix=-1,iy=-1,iz=-1):
 
