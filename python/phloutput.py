@@ -1936,6 +1936,43 @@ class h5grid:
                     grad_r = grad_r[:,iy,:]
                 elif iz>=0:
                     grad_r = grad_r[:,:,iz]
+           else:
+                coords = self.coords(ix=self.ix,iy=self.iy,iz=self.iz)
+                if self.sdims==3:
+                    x = coords[0]
+                    x_1d = x[:,0,0]
+                    y = coords[1]
+                    y_1d = y[0,:,0]
+                    z = coords[2]
+                    z_1d = z[0,0,:]
+                    grad_data_cartesian = np.gradient(data, x_1d, y_1d, z_1d)
+                    grad_r = grad_data_cartesian[1]
+                if self.sdims==2:
+                    x = coords[0]
+                    x_1d = x[:,0]
+                    y = coords[1]
+                    y_1d = y[0,:]
+                    grad_data_cartesian = np.gradient(data, x_1d, y_1d)
+                    grad_r = grad_data_cartesian[1]
+                if ix>=0:
+                    grad_r = grad_r[ix,:,:]
+                elif iy>=0:
+                    grad_r = grad_r[:,iy,:]
+                elif iz>=0:
+                    grad_r = grad_r[:,:,iz]
+
+        elif self.geometry=='2d-polar':
+                coords = self.coords(ix=self.ix,iy=self.iy,iz=self.iz)
+                x = coords[0]
+                x_1d = x[:,0]
+                phi = coords[1]
+                phi_1d = phi[0,:]
+                grad_data_2dpolar = np.gradient(data, x_1d,axis=0)
+                grad_r = grad_data_2dpolar
+        elif self.geometry=='2d-spherical':
+                r = self.r(ix=ix,iy=iy,iz=iz)[:,0]
+                grad_r = np.gradient(data, r, axis=0)
+
         else:
             print('grad_r is not implemented for this geometry!')
             grad_r = None
