@@ -1962,15 +1962,15 @@ class h5grid:
                     grad_r = grad_r[:,:,iz]
 
         elif self.geometry=='2d-polar':
-                coords = self.coords(ix=self.ix,iy=self.iy,iz=self.iz)
-                x = coords[0]
-                x_1d = x[:,0]
-                phi = coords[1]
-                phi_1d = phi[0,:]
-                grad_data_2dpolar = np.gradient(data, x_1d,axis=0)
-                grad_r = grad_data_2dpolar
+                r = self.r(ix=ix,iy=iy,iz=iz)[:,0]
+                grad_r = np.gradient(data, r, axis=0)
+
         elif self.geometry=='2d-spherical':
                 r = self.r(ix=ix,iy=iy,iz=iz)[:,0]
+                grad_r = np.gradient(data, r, axis=0)
+
+        elif self.geometry=='3d-spherical':
+                r = self.r(ix=ix,iy=iy,iz=iz)[:,0,0]
                 grad_r = np.gradient(data, r, axis=0)
 
         else:
