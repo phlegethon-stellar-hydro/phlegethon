@@ -1901,7 +1901,7 @@ class h5grid:
               mass = rho_radial * dx  * rr**2 * np.pi * 2
               mass_axis = np.cumsum(mass)
         else:
-           print('geometry not yetu implemented!')
+           print('r2maxis is not implemented for this geometry!')
         return mass_axis             
               
     def grad_r(self,data,ix=-1,iy=-1,iz=-1):
