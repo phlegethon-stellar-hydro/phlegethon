@@ -7096,7 +7096,6 @@ contains
 
         if(lgrid%is_solid(i,j,k)==0) then
 
-         !check left
          if(lgrid%is_solid(i-1,j,k)==1) then
 
           do iv=1,nvars
@@ -7137,7 +7136,6 @@ contains
 
          endif
 
-         !check right
          if(lgrid%is_solid(i+1,j,k)==1) then
 
           do iv=1,nvars
@@ -8214,7 +8212,6 @@ contains
 
         if(lgrid%is_solid(i,j,k)==0) then
 
-         !check left
          if(lgrid%is_solid(i,j-1,k)==1) then
 
           do iv=1,nvars
@@ -8255,7 +8252,6 @@ contains
 
          endif
 
-         !check right
          if(lgrid%is_solid(i,j+1,k)==1) then
 
           do iv=1,nvars
@@ -9390,7 +9386,6 @@ contains
 
         if(lgrid%is_solid(i,j,k)==0) then
 
-         !check left
          if(lgrid%is_solid(i,j,k-1)==1) then
 
           do iv=1,nvars
@@ -9431,7 +9426,6 @@ contains
 
          endif
 
-         !check right
          if(lgrid%is_solid(i,j,k+1)==1) then
 
           do iv=1,nvars
@@ -12141,7 +12135,6 @@ contains
 
         if(lgrid%is_solid(i,j,k)==0) then
 
-         !check left
          if(lgrid%is_solid(i-1,j,k)==1) then
 
           lgrid%prim(i_rho,i-1,j,k)=rp2*lgrid%prim(i_rho,i,j,k)-lgrid%prim(i_rho,i+1,j,k)
@@ -12163,7 +12156,6 @@ contains
 
          endif
 
-         !check right
          if(lgrid%is_solid(i+1,j,k)==1) then
 
           lgrid%prim(i_rho,i+1,j,k)=rp2*lgrid%prim(i_rho,i,j,k)-lgrid%prim(i_rho,i-1,j,k)
@@ -12275,7 +12267,6 @@ contains
 
         if(lgrid%is_solid(i,j,k)==0) then
 
-         !check left
          if(lgrid%is_solid(i,j-1,k)==1) then
 
           lgrid%prim(i_rho,i,j-1,k)=rp2*lgrid%prim(i_rho,i,j,k)-lgrid%prim(i_rho,i,j+1,k)
@@ -12297,7 +12288,6 @@ contains
 
          endif
 
-         !check right
          if(lgrid%is_solid(i,j+1,k)==1) then
 
           lgrid%prim(i_rho,i,j+1,k)=rp2*lgrid%prim(i_rho,i,j,k)-lgrid%prim(i_rho,i,j-1,k)
@@ -12402,7 +12392,6 @@ contains
 
         if(lgrid%is_solid(i,j,k)==0) then
 
-         !check left
          if(lgrid%is_solid(i,j,k-1)==1) then
 
           lgrid%prim(i_rho,i,j,k-1)=rp2*lgrid%prim(i_rho,i,j,k)-lgrid%prim(i_rho,i,j,k+1)
@@ -12424,7 +12413,6 @@ contains
 
          endif
 
-         !check right
          if(lgrid%is_solid(i,j,k+1)==1) then
 
           lgrid%prim(i_rho,i,j,k+1)=rp2*lgrid%prim(i_rho,i,j,k)-lgrid%prim(i_rho,i,j,k-1)
@@ -15717,7 +15705,6 @@ contains
 
 #ifdef GEOMETRY_CUBED_SPHERE
 #if sdims_make==2
- !inherited from SLH
  subroutine create_geometry(lgrid,mgrid)
    type(locgrid), intent(inout) :: lgrid
    type(mpigrid), intent(inout) :: mgrid
@@ -15908,8 +15895,6 @@ contains
     end do
    end do
 
-   !--------------------------------------------------------!
-
    do k=lbound(lgrid%coords,4),ubound(lgrid%coords,4)
     do j=lbound(lgrid%coords,3),ubound(lgrid%coords,3)
      do i=lbound(lgrid%coords,2),ubound(lgrid%coords,2)
@@ -15971,8 +15956,6 @@ contains
      end do
     end do
    end do
-
-   !--------------------------------------------------------!
 
    do k=lbound(lgrid%coords_x1,4),ubound(lgrid%coords_x1,4)
     do j=lbound(lgrid%coords_x1,3),ubound(lgrid%coords_x1,3)
@@ -17134,40 +17117,44 @@ contains
  
 #endif
  
-      end if
-       
-      xc = lgrid%coords(1,i,j,k)
-      yc = lgrid%coords(2,i,j,k)
+        xc = lgrid%coords(1,i,j,k)
+        yc = lgrid%coords(2,i,j,k)
 #if sdims_make==3
-      zc = lgrid%coords(3,i,j,k)
+        zc = lgrid%coords(3,i,j,k)
 #endif
 
-      h1x = xc - lgrid%coords(1,i-1,j,k)
-      h2x = lgrid%coords(1,i+1,j,k) - xc
+        h1x = xc - lgrid%coords(1,i-1,j,k)
+        h2x = lgrid%coords(1,i+1,j,k) - xc
 
-      c1x = -rp1/(h1x+h2x)
-      c3x = -c1x
+        tmp = h1x+h2x
+        c1x = -h1x/(h2x*tmp)
+        c2x = (h1x-h2x)/(h1x*h2x)
+        c3x = h2x/(h1x*tmp)
 
-      h1y = yc - lgrid%coords(2,i,j-1,k)
-      h2y = lgrid%coords(2,i,j+1,k) - yc
+        h1y = yc - lgrid%coords(2,i,j-1,k)
+        h2y = lgrid%coords(2,i,j+1,k) - yc
 
-      c1y = -rp1/(h1y+h2y)
-      c3y = -c1y
+        tmp = h1y+h2y
+        c1y = -h1y/(h2y*tmp)
+        c2y = (h1y-h2y)/(h1y*h2y)
+        c3y = h2y/(h1y*tmp)
 
 #if sdims_make==3
-      h1z = zc - lgrid%coords(3,i,j,k-1)
-      h2z = lgrid%coords(3,i,j,k+1) - zc
+        h1z = zc - lgrid%coords(3,i,j,k-1)
+        h2z = lgrid%coords(3,i,j,k+1) - zc
 
-      c1z = -rp1/(h1z+h2z)
-      c3z = -c1z
+        tmp = h1z+h2z
+        c1z = -h1z/(h2z*tmp)
+        c2z = (h1z-h2z)/(h1z*h2z)
+        c3z = h2z/(h1z*tmp)
 #endif
- 
-      if(lgrid%is_solid(i,j,k)==0) then
 
-       lgrid%grav(1,i,j,k) = -(c3x*lgrid%phi_cc(i+1,j,k)+c1x*lgrid%phi_cc(i-1,j,k))
-       lgrid%grav(2,i,j,k) = -(c3y*lgrid%phi_cc(i,j+1,k)+c1y*lgrid%phi_cc(i,j-1,k))
+        tmp = lgrid%phi_cc(i,j,k)
+
+        lgrid%grav(1,i,j,k) = c1x*lgrid%phi_cc(i+1,j,k)+c2x*tmp+c3x*lgrid%phi_cc(i-1,j,k)
+        lgrid%grav(2,i,j,k) = c1y*lgrid%phi_cc(i,j+1,k)+c2y*tmp+c3y*lgrid%phi_cc(i,j-1,k)
 #if sdims_make==3
-       lgrid%grav(3,i,j,k) = -(c3z*lgrid%phi_cc(i,j,k+1)+c1z*lgrid%phi_cc(i,j,k-1))
+        lgrid%grav(3,i,j,k) = c1z*lgrid%phi_cc(i,j,k+1)+c2z*tmp+c3z*lgrid%phi_cc(i,j,k-1)
 #endif
 
       else
@@ -18152,27 +18139,35 @@ contains
       h1x = xc - lgrid%coords(1,i-1,j,k)
       h2x = lgrid%coords(1,i+1,j,k) - xc
 
-      c1x = -rp1/(h1x+h2x)
-      c3x = -c1x
+      tmp = h1x+h2x
+      c1x = -h1x/(h2x*tmp)
+      c2x = (h1x-h2x)/(h1x*h2x)
+      c3x = h2x/(h1x*tmp)
 
       h1y = yc - lgrid%coords(2,i,j-1,k)
       h2y = lgrid%coords(2,i,j+1,k) - yc
 
-      c1y = -rp1/(h1y+h2y)
-      c3y = -c1y
+      tmp = h1y+h2y
+      c1y = -h1y/(h2y*tmp)
+      c2y = (h1y-h2y)/(h1y*h2y)
+      c3y = h2y/(h1y*tmp)
 
 #if sdims_make==3
       h1z = zc - lgrid%coords(3,i,j,k-1)
       h2z = lgrid%coords(3,i,j,k+1) - zc
 
-      c1z = -rp1/(h1z+h2z)
-      c3z = -c1z
+      tmp = h1z+h2z
+      c1z = -h1z/(h2z*tmp)
+      c2z = (h1z-h2z)/(h1z*h2z)
+      c3z = h2z/(h1z*tmp)
 #endif
 
-      lgrid%grav(1,i,j,k) = -(c3x*lgrid%phi_cc(i+1,j,k)+c1x*lgrid%phi_cc(i-1,j,k))
-      lgrid%grav(2,i,j,k) = -(c3y*lgrid%phi_cc(i,j+1,k)+c1y*lgrid%phi_cc(i,j-1,k))
+      tmp = lgrid%phi_cc(i,j,k)
+
+      lgrid%grav(1,i,j,k) = c1x*lgrid%phi_cc(i+1,j,k)+c2x*tmp+c3x*lgrid%phi_cc(i-1,j,k)
+      lgrid%grav(2,i,j,k) = c1y*lgrid%phi_cc(i,j+1,k)+c2y*tmp+c3y*lgrid%phi_cc(i,j-1,k)
 #if sdims_make==3
-      lgrid%grav(3,i,j,k) = -(c3z*lgrid%phi_cc(i,j,k+1)+c1z*lgrid%phi_cc(i,j,k-1))
+      lgrid%grav(3,i,j,k) = c1z*lgrid%phi_cc(i,j,k+1)+c2z*tmp+c3z*lgrid%phi_cc(i,j,k-1)
 #endif
 
     end do
@@ -18315,6 +18310,7 @@ contains
 
  end subroutine compute_timmes_kappa
 
+ !This implementation is based on sig99.tar.xz available at https://cococubed.com/code_pages/kap.shtml (last accessed 10 April 2026).
  subroutine sig99(temp,den,xmass,zion,aion,ionmax,pep,xne,eta,opac)
 
 ! this routine approximates an opacity.
@@ -19285,7 +19281,6 @@ contains
 
         if(lgrid%is_solid(i,j,k)==0) then
 
-         !check left
          if(lgrid%is_solid(i-1,j,k)==1) then
 
           lgrid%prim(i_rho,i-1,j,k)=rp2*lgrid%prim(i_rho,i,j,k)-lgrid%prim(i_rho,i+1,j,k)
@@ -19307,7 +19302,6 @@ contains
 
          endif
 
-         !check right
          if(lgrid%is_solid(i+1,j,k)==1) then
 
           lgrid%prim(i_rho,i+1,j,k)=rp2*lgrid%prim(i_rho,i,j,k)-lgrid%prim(i_rho,i-1,j,k)
@@ -19417,7 +19411,6 @@ contains
 
         if(lgrid%is_solid(i,j,k)==0) then
 
-         !check left
          if(lgrid%is_solid(i,j-1,k)==1) then
 
           lgrid%prim(i_rho,i,j-1,k)=rp2*lgrid%prim(i_rho,i,j,k)-lgrid%prim(i_rho,i,j+1,k)
@@ -19439,7 +19432,6 @@ contains
 
          endif
 
-         !check right
          if(lgrid%is_solid(i,j+1,k)==1) then
 
           lgrid%prim(i_rho,i,j+1,k)=rp2*lgrid%prim(i_rho,i,j,k)-lgrid%prim(i_rho,i,j-1,k)
@@ -19540,7 +19532,6 @@ contains
 
         if(lgrid%is_solid(i,j,k)==0) then
 
-         !check left
          if(lgrid%is_solid(i,j,k-1)==1) then
 
           lgrid%prim(i_rho,i,j,k-1)=rp2*lgrid%prim(i_rho,i,j,k)-lgrid%prim(i_rho,i,j,k+1)
@@ -19562,7 +19553,6 @@ contains
 
          endif
 
-         !check right
          if(lgrid%is_solid(i,j,k+1)==1) then
 
           lgrid%prim(i_rho,i,j,k+1)=rp2*lgrid%prim(i_rho,i,j,k)-lgrid%prim(i_rho,i,j,k-1)
@@ -19908,6 +19898,7 @@ contains
 
 #ifdef USE_NEULOSS
 
+ !This implementation is based on sneut5.tbz available at https://cococubed.com/code_pages/nuloss.shtml (last accessed 10 April 2026).
  subroutine sneut5(temp,den,abar,zbar,snu)
       implicit none
 
@@ -22105,8 +22096,6 @@ contains
  loc_eos35 = helm_table_var(9,ih,jh+1)
  loc_eos36 = helm_table_var(9,ih+1,jh+1)
 
- !f
-
  x2 = x*x
  x3 = x2*x
  x4 = x3*x
@@ -22138,8 +22127,6 @@ contains
  p0mt = -rp6*omy5 + rp15*omy4 - rp10*omy3 + rp1
  p1mt =  (rp3*omy5 - rp8*omy4 + rp6*omy3 - omy)*dT
  p2mt =  (rph*(-omy5 + rp3*omy4 - rp3*omy3 + omy2))*dT2
-
- !df_drho
 
  dp0r =  (-rp30*x4 + rp60*x3 - rp30*x2)*idrho
  dp1r =  (-rp15*x4 + rp32*x3 - rp18*x2 + rp1)
@@ -22190,8 +22177,6 @@ contains
  tmp = rhos*rhos
  P = tmp*df_drho
 
- !-------------------------------------------!
-
  p0r = rp2*x3-rp3*x2+rp1 
  p1r = (x3-rp2*x2+x)*drho
  
@@ -22203,8 +22188,6 @@ contains
  
  p0mt = rp2*omy3-rp3*omy2+rp1 
  p1mt = -(omy3-rp2*omy2+omy)*dT 
-
- !eta
 
  loc_eos1 = eta_table(1,ih,jh)
  loc_eos2 = eta_table(1,ih+1,jh)
@@ -22240,8 +22223,6 @@ contains
  loc_eos14*p1mr*p1t + &
  loc_eos15*p1r*p1mt + &
  loc_eos16*p1mr*p1mt 
-
- !xf
 
  loc_eos1 = xf_table(1,ih,jh)
  loc_eos2 = xf_table(1,ih+1,jh)
@@ -22428,8 +22409,6 @@ contains
  loc_eos35 = helm_table_var(9,ih,jh+1)
  loc_eos36 = helm_table_var(9,ih+1,jh+1)
 
- !f
-
  x2 = x*x
  x3 = x2*x
  x4 = x3*x
@@ -22500,8 +22479,6 @@ contains
  loc_eos35*p2r*p2mt + &
  loc_eos36*p2mr*p2mt
 
- !df_drho
-
  dp0r =  (-rp30*x4 + rp60*x3 - rp30*x2)*idrho
  dp1r =  (-rp15*x4 + rp32*x3 - rp18*x2 + rp1)
  dp2r =  (rph*(-rp5*x4 + rp12*x3 - rp9*x2 + rp2*x))*drho
@@ -22547,8 +22524,6 @@ contains
  loc_eos34*dp2mr*p2t + &
  loc_eos35*dp2r*p2mt + &
  loc_eos36*dp2mr*p2mt
-
- !df_dT
 
  dp0t =  (-rp30*y4 + rp60*y3 - rp30*y2)*idT
  dp1t =  (-rp15*y4 + rp32*y3 - rp18*y2 + rp1)
@@ -22596,8 +22571,6 @@ contains
  loc_eos35*p2r*dp2mt + &
  loc_eos36*p2mr*dp2mt
 
- !df_drhodT
-
  df_drhodT = &
  loc_eos1*dp0r*dp0t + &
  loc_eos2*dp0mr*dp0t + &
@@ -22635,8 +22608,6 @@ contains
  loc_eos34*dp2mr*dp2t + &
  loc_eos35*dp2r*dp2mt + &
  loc_eos36*dp2mr*dp2mt
-
- !df_dT2
 
  ddp0t =  (-rp120*y3 + rp180*y2 - rp60*y)*idT2
  ddp1t =  (-rp60*y3 + rp96*y2 - rp36*y)*idT
@@ -22683,8 +22654,6 @@ contains
  loc_eos34*p2mr*ddp2t + &
  loc_eos35*p2r*ddp2mt + &
  loc_eos36*p2mr*ddp2mt
-
- !-------------------------------------------!
 
  p0r = rp2*x3-rp3*x2+rp1
  p1r = (x3-rp2*x2+x)*drho
@@ -22983,8 +22952,6 @@ contains
  loc_eos35 = helm_table_var(9,ih,jh+1)
  loc_eos36 = helm_table_var(9,ih+1,jh+1)
 
- !f
-
  x2 = x*x
  x3 = x2*x
  x4 = x3*x
@@ -23016,8 +22983,6 @@ contains
  p0mt = -rp6*omy5 + rp15*omy4 - rp10*omy3 + rp1
  p1mt =  (rp3*omy5 - rp8*omy4 + rp6*omy3 - omy)*dT
  p2mt =  (rph*(-omy5 + rp3*omy4 - rp3*omy3 + omy2))*dT2
-
- !df_drho
 
  dp0r =  (-rp30*x4 + rp60*x3 - rp30*x2)*idrho
  dp1r =  (-rp15*x4 + rp32*x3 - rp18*x2 + rp1)
@@ -23065,8 +23030,6 @@ contains
  loc_eos35*dp2r*p2mt + &
  loc_eos36*dp2mr*p2mt
 
- !df_dT
-
  dp0t =  (-rp30*y4 + rp60*y3 - rp30*y2)*idT
  dp1t =  (-rp15*y4 + rp32*y3 - rp18*y2 + rp1)
  dp2t =  (rph*(-rp5*y4 + rp12*y3 - rp9*y2 + rp2*y))*dT
@@ -23074,8 +23037,6 @@ contains
  dp0mt = -(-rp30*omy4 + rp60*omy3 - rp30*omy2)*idT
  dp1mt =  (-rp15*omy4 + rp32*omy3 - rp18*omy2 + rp1)
  dp2mt = -(rph*(-rp5*omy4 + rp12*omy3 - rp9*omy2 + rp2*omy))*dT
-
- !df_drhodT
 
  df_drhodT = rp0
 
@@ -23324,8 +23285,6 @@ contains
  loc_eos35 = helm_table_var(9,ih,jh+1)
  loc_eos36 = helm_table_var(9,ih+1,jh+1)
 
- !f
-
  x2 = x*x
  x3 = x2*x
  x4 = x3*x
@@ -23396,8 +23355,6 @@ contains
  loc_eos35*p2r*p2mt + &
  loc_eos36*p2mr*p2mt
 
- !df_dT
-
  dp0t =  (-rp30*y4 + rp60*y3 - rp30*y2)*idT
  dp1t =  (-rp15*y4 + rp32*y3 - rp18*y2 + rp1)
  dp2t =  (rph*(-rp5*y4 + rp12*y3 - rp9*y2 + rp2*y))*dT
@@ -23443,8 +23400,6 @@ contains
  loc_eos34*p2mr*dp2t + &
  loc_eos35*p2r*dp2mt + &
  loc_eos36*p2mr*dp2mt
-
- !df_dT2
 
  df_dT2 = rp0
 
@@ -23856,8 +23811,6 @@ contains
  p1mt =  (rp3*omy5 - rp8*omy4 + rp6*omy3 - omy)*dT
  p2mt =  (rph*(-omy5 + rp3*omy4 - rp3*omy3 + omy2))*dT2
 
- !df_drho
-
  dp0r =  (-rp30*x4 + rp60*x3 - rp30*x2)*idrho
  dp1r =  (-rp15*x4 + rp32*x3 - rp18*x2 + rp1)
  dp2r =  (rph*(-rp5*x4 + rp12*x3 - rp9*x2 + rp2*x))*drho
@@ -23903,8 +23856,6 @@ contains
  loc_eos34*dp2mr*p2t + &
  loc_eos35*dp2r*p2mt + &
  loc_eos36*dp2mr*p2mt
-
- !-------------------------------------------!
 
  p0r = rp2*x3-rp3*x2+rp1
  p1r = (x3-rp2*x2+x)*drho
@@ -24202,8 +24153,6 @@ contains
  loc_eos35 = pig_table_var(9,ih,jh+1)
  loc_eos36 = pig_table_var(9,ih+1,jh+1)
 
- !f
-
  x2 = x*x
  x3 = x2*x
  x4 = x3*x
@@ -24274,8 +24223,6 @@ contains
  loc_eos35*p2r*p2mt + &
  loc_eos36*p2mr*p2mt
 
- !df_drho
-
  dp0r =  (-rp30*x4 + rp60*x3 - rp30*x2)*idrho
  dp1r =  (-rp15*x4 + rp32*x3 - rp18*x2 + rp1)
  dp2r =  (rph*(-rp5*x4 + rp12*x3 - rp9*x2 + rp2*x))*drho
@@ -24321,8 +24268,6 @@ contains
  loc_eos34*dp2mr*p2t + &
  loc_eos35*dp2r*p2mt + &
  loc_eos36*dp2mr*p2mt
-
- !df_dT
 
  dp0t =  (-rp30*y4 + rp60*y3 - rp30*y2)*idT
  dp1t =  (-rp15*y4 + rp32*y3 - rp18*y2 + rp1)
@@ -24370,8 +24315,6 @@ contains
  loc_eos35*p2r*dp2mt + &
  loc_eos36*p2mr*dp2mt
 
- !df_drhodT
-
  df_drhodT = &
  loc_eos1*dp0r*dp0t + &
  loc_eos2*dp0mr*dp0t + &
@@ -24409,8 +24352,6 @@ contains
  loc_eos34*dp2mr*dp2t + &
  loc_eos35*dp2r*dp2mt + &
  loc_eos36*dp2mr*dp2mt
-
- !df_dT2
 
  ddp0t =  (-rp120*y3 + rp180*y2 - rp60*y)*idT2
  ddp1t =  (-rp60*y3 + rp96*y2 - rp36*y)*idT
@@ -24457,8 +24398,6 @@ contains
  loc_eos34*p2mr*ddp2t + &
  loc_eos35*p2r*ddp2mt + &
  loc_eos36*p2mr*ddp2mt
-
- !-------------------------------------------!
 
  p0r = rp2*x3-rp3*x2+rp1
  p1r = (x3-rp2*x2+x)*drho
@@ -24658,8 +24597,6 @@ contains
  loc_eos35 = pig_table_var(9,ih,jh+1)
  loc_eos36 = pig_table_var(9,ih+1,jh+1)
 
- !f
-
  x2 = x*x
  x3 = x2*x
  x4 = x3*x
@@ -24691,8 +24628,6 @@ contains
  p0mt = -rp6*omy5 + rp15*omy4 - rp10*omy3 + rp1
  p1mt =  (rp3*omy5 - rp8*omy4 + rp6*omy3 - omy)*dT
  p2mt =  (rph*(-omy5 + rp3*omy4 - rp3*omy3 + omy2))*dT2
-
- !df_drho
 
  dp0r =  (-rp30*x4 + rp60*x3 - rp30*x2)*idrho
  dp1r =  (-rp15*x4 + rp32*x3 - rp18*x2 + rp1)
@@ -24740,8 +24675,6 @@ contains
  loc_eos35*dp2r*p2mt + &
  loc_eos36*dp2mr*p2mt
 
- !df_dT
-
  dp0t =  (-rp30*y4 + rp60*y3 - rp30*y2)*idT
  dp1t =  (-rp15*y4 + rp32*y3 - rp18*y2 + rp1)
  dp2t =  (rph*(-rp5*y4 + rp12*y3 - rp9*y2 + rp2*y))*dT
@@ -24749,8 +24682,6 @@ contains
  dp0mt = -(-rp30*omy4 + rp60*omy3 - rp30*omy2)*idT
  dp1mt =  (-rp15*omy4 + rp32*omy3 - rp18*omy2 + rp1)
  dp2mt = -(rph*(-rp5*omy4 + rp12*omy3 - rp9*omy2 + rp2*omy))*dT
-
- !df_drhodT
 
  df_drhodT = rp0
 
@@ -24927,8 +24858,6 @@ contains
  loc_eos35 = pig_table_var(9,ih,jh+1)
  loc_eos36 = pig_table_var(9,ih+1,jh+1)
 
- !f
-
  x2 = x*x
  x3 = x2*x
  x4 = x3*x
@@ -24999,8 +24928,6 @@ contains
  loc_eos35*p2r*p2mt + &
  loc_eos36*p2mr*p2mt
 
- !df_dT
-
  dp0t =  (-rp30*y4 + rp60*y3 - rp30*y2)*idT
  dp1t =  (-rp15*y4 + rp32*y3 - rp18*y2 + rp1)
  dp2t =  (rph*(-rp5*y4 + rp12*y3 - rp9*y2 + rp2*y))*dT
@@ -25046,8 +24973,6 @@ contains
  loc_eos34*p2mr*dp2t + &
  loc_eos35*p2r*dp2mt + &
  loc_eos36*p2mr*dp2mt
-
- !df_dT2
 
  df_dT2 = rp0
 
