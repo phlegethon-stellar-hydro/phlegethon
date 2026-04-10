@@ -1,11 +1,10 @@
 import numpy as np
-import scipy
 import matplotlib.pyplot as plt
 import json
 from pathlib import Path
 from scipy.interpolate import interp1d
 from scipy.integrate import cumulative_trapezoid
-import stelo.eos as helm_eos
+import phleos as phleos
 
 # -----------------------------------------------------------------------------
 # Module Organization
@@ -533,15 +532,15 @@ def write_output_bundle(
 # -----------------------------------------------------------------------------
 # Includes:
 # - RK4 marching kernels for uniform and composition-gradient integration,
-# - EOS inversion helper (`p,s -> rho,T`),
 # - profile smoothing and input preparation,
 # - dispatch routine that selects integration path,
 # - potential post-processing utility.
 class HSEIntegrator:
     # Construction and shared EOS state ---------------------------------------
-    def __init__(self, eos_backend=helm_eos, eos_mode=None):
+    def __init__(self, eos_backend=phleos,eos_table=None, eos_mode=None):
         """Initialize integrator with an EOS backend and optional default EOS mode."""
         self.eos = eos_backend
+        self.eos_table = eos_table
         self.eos_mode = eos_mode
 
     def _mode(self, eos_mode):
@@ -590,46 +589,47 @@ class HSEIntegrator:
         abar0, zbar0 = comp_fn(r_arr[start_idx])
         p_hse[start_idx] = p
         T_hse[start_idx] = T
-        rho_hse[start_idx] = self.eos.eos_calc_ptgiven_azbar(p, T, abar0, zbar0, mode=mode)[0]
+        _, rho_hse[start_idx] = self.eos.PT_given(self.eos_table, p, T, abar0, zbar0, eos_mode=mode)
 
         for i, j in self._walk_indices(start_idx, end_idx):
             r = r_arr[i]
             delta_r = r_arr[j] - r
             abar_i, zbar_i = comp_fn(r)
-            rho = self.eos.eos_calc_ptgiven_azbar(p, T, abar_i, zbar_i, mode=mode)[0]
+            _, rho = self.eos.PT_given(self.eos_table, p, T, abar_i, zbar_i, eos_mode=mode)
             k1_p = rho * grav_fn(r)
             Hpk1 = self.pressure_scale_height(p, k1_p)
-            nabla_ad = self.eos.eos_calc_tgiven_azbar(rho, T, abar_i, zbar_i, mode=mode)[3]["nabla_ad"]
+
+            nabla_ad = self.eos.rhoT_given(self.eos_table, rho, T, abar_i, zbar_i, eos_mode=mode)[phleos.id_nabla_ad]
             k1_T = -T * (nabla_ad + nabladif_fn(r)) / Hpk1
 
             r_2 = r + delta_r / 2
             abar_2, zbar_2 = comp_fn(r_2)
             p_2 = p + delta_r / 2 * k1_p
             T_2 = T + delta_r / 2 * k1_T
-            rho = self.eos.eos_calc_ptgiven_azbar(p_2, T_2, abar_2, zbar_2, mode=mode)[0]
+            _, rho = self.eos.PT_given(self.eos_table, p_2, T_2, abar_2, zbar_2, eos_mode=mode)
             k2_p = rho * grav_fn(r_2)
             Hpk2 = self.pressure_scale_height(p_2, k2_p)
-            nabla_ad = self.eos.eos_calc_tgiven_azbar(rho, T_2, abar_2, zbar_2, mode=mode)[3]["nabla_ad"]
+            nabla_ad = self.eos.rhoT_given(self.eos_table, rho, T_2, abar_2, zbar_2, eos_mode=mode)[phleos.id_nabla_ad]
             k2_T = -T_2 * (nabla_ad + nabladif_fn(r_2)) / Hpk2
 
             r_3 = r + delta_r / 2
             abar_3, zbar_3 = comp_fn(r_3)
             p_3 = p + delta_r / 2 * k2_p
             T_3 = T + delta_r / 2 * k2_T
-            rho = self.eos.eos_calc_ptgiven_azbar(p_3, T_3, abar_3, zbar_3, mode=mode)[0]
+            _, rho = self.eos.PT_given(self.eos_table, p_3, T_3, abar_3, zbar_3, eos_mode=mode)
             k3_p = rho * grav_fn(r_3)
             Hpk3 = self.pressure_scale_height(p_3, k3_p)
-            nabla_ad = self.eos.eos_calc_tgiven_azbar(rho, T_3, abar_3, zbar_3, mode=mode)[3]["nabla_ad"]
+            nabla_ad = self.eos.rhoT_given(self.eos_table, rho, T_3, abar_3, zbar_3, eos_mode=mode)[phleos.id_nabla_ad]
             k3_T = -T_3 * (nabla_ad + nabladif_fn(r_3)) / Hpk3
 
             r_4 = r + delta_r
             abar_4, zbar_4 = comp_fn(r_4)
             p_4 = p + delta_r * k3_p
             T_4 = T + delta_r * k3_T
-            rho = self.eos.eos_calc_ptgiven_azbar(p_4, T_4, abar_4, zbar_4, mode=mode)[0]
+            _, rho = self.eos.PT_given(self.eos_table, p_4, T_4, abar_4, zbar_4, eos_mode=mode)
             k4_p = rho * grav_fn(r_4)
             Hpk4 = self.pressure_scale_height(p_4, k4_p)
-            nabla_ad = self.eos.eos_calc_tgiven_azbar(rho, T_4, abar_4, zbar_4, mode=mode)[3]["nabla_ad"]
+            nabla_ad = self.eos.rhoT_given(self.eos_table, rho, T_4, abar_4, zbar_4, eos_mode=mode)[phleos.id_nabla_ad]
             k4_T = -T_4 * (nabla_ad + nabladif_fn(r_4)) / Hpk4
 
             p = p + delta_r / 6 * (k1_p + 2 * k2_p + 2 * k3_p + k4_p)
@@ -637,7 +637,7 @@ class HSEIntegrator:
             abar_j, zbar_j = comp_fn(r_arr[j])
             p_hse[j] = p
             T_hse[j] = T
-            rho_hse[j] = self.eos.eos_calc_ptgiven_azbar(p, T, abar_j, zbar_j, mode=mode)[0]
+            _, rho_hse[j] = self.eos.PT_given(self.eos_table, p, T, abar_j, zbar_j, eos_mode=mode)
 
     def _integration_diag(self, r_arr, anchor_idx, r_request):
         """Build integration diagnostics payload."""
@@ -788,55 +788,6 @@ class HSEIntegrator:
             return p_hse, T_hse, rho_hse, r_hse, diag
         return p_hse, T_hse, rho_hse, r_hse
 
-    # EOS inversion helpers ----------------------------------------------------
-    def calc_psgiven(self, p: float, s: float, abar: float, zbar: float, mode: str = None, rho: float = None, temp: float = None, full_output: bool = False) -> tuple:
-        """Solve EOS for density and temperature given pressure and entropy."""
-        mode = self._mode(mode)
-        if rho is None:
-            rho = 1e8
-        if temp is None:
-            temp = 1e8
-
-        def func(x):
-            if full_output:
-                print(x)
-            rho_v, temp_v = x
-            if rho_v < 0 or temp_v < 0:
-                return np.abs([rho_v, temp_v]) * 1e7
-
-            _, _, p_, full = self.eos.eos_calc_tgiven_azbar(rho_v, temp_v, abar, zbar, mode=mode)
-            s_ = full["s"]
-            res = np.array([(p_ - p) / p, (s_ - s) / s])
-            jac = np.array([[full["dpdrho"] / p, full["dpdt"] / p], [full["dsdrho"] / s, full["dsdt"] / s]])
-            return res, jac
-
-        for temp_try in [x * temp for x in [1.0, 0.5, 2.0]]:
-            res = scipy.optimize.root(func, [rho, temp_try], jac=True)
-            if res.success:
-                break
-        else:
-            raise RuntimeError("eos_psgiven did not converge")
-
-        rho, temp = res.x
-        return rho, temp
-
-    def eos_calc_psgiven(self, *args, dtype=None, **kwargs) -> tuple:
-        """Vectorized wrapper around `calc_psgiven` for array-like inputs.
-
-        Parameters
-        ----------
-        dtype : optional
-            If provided, cast returned array outputs to this dtype.
-        """
-        vec = np.vectorize(self.calc_psgiven, excluded=["mode", "full_output"])
-        out = vec(*args, **kwargs)
-        if dtype is None:
-            return out
-
-        if isinstance(out, tuple):
-            return tuple(np.asarray(part, dtype=dtype) for part in out)
-        return np.asarray(out, dtype=dtype)
-
     # Integration path with prescribed temperature ----------------------------
     def integration_tgiven(
         self,
@@ -870,33 +821,33 @@ class HSEIntegrator:
 
         def _march(start_idx, end_idx, p_init):
             Ps[start_idx] = p_init
-            rhos[start_idx] = self.eos.eos_calc_ptgiven_azbar(Ps[start_idx], Ts[start_idx], abars[start_idx], zbars[start_idx], mode=mode)[0]
+            rhos[start_idx] = self.eos.PT_given(self.eos_table, Ps[start_idx], Ts[start_idx], abars[start_idx], zbars[start_idx], eos_mode=mode)[1]
 
             for i, j in self._walk_indices(start_idx, end_idx):
                 rn = rs[i]
                 dr = rs[j] - rn
                 pn = Ps[i]
-                rhon = self.eos.eos_calc_ptgiven_azbar(pn, Ts[i], abars[i], zbars[i], mode=mode)[0]
+                _, rhon = self.eos.PT_given(self.eos_table, pn, Ts[i], abars[i], zbars[i], eos_mode=mode)
                 k1 = rhon * gm(rn)
 
                 r2 = rn + dr / 2.0
                 p2 = pn + k1 * dr / 2.0
-                rho2 = self.eos.eos_calc_ptgiven_azbar(p2, Tm(r2), abarm(r2), zbarm(r2), mode=mode)[0]
+                _, rho2 = self.eos.PT_given(self.eos_table, p2, Tm(r2), abarm(r2), zbarm(r2), eos_mode=mode)
                 k2 = rho2 * gm(r2)
 
                 r3 = rn + dr / 2.0
                 p3 = pn + k2 * dr / 2.0
-                rho3 = self.eos.eos_calc_ptgiven_azbar(p3, Tm(r3), abarm(r3), zbarm(r3), mode=mode)[0]
+                _, rho3 = self.eos.PT_given(self.eos_table, p3, Tm(r3), abarm(r3), zbarm(r3), eos_mode=mode)
                 k3 = rho3 * gm(r3)
 
                 r4 = rn + dr
                 p4 = pn + k3 * dr
-                rho4 = self.eos.eos_calc_ptgiven_azbar(p4, Tm(r4), abarm(r4), zbarm(r4), mode=mode)[0]
+                _, rho4 = self.eos.PT_given(self.eos_table, p4, Tm(r4), abarm(r4), zbarm(r4), eos_mode=mode)
                 k4 = rho4 * gm(r4)
 
                 p_next = pn + dr / 6.0 * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
                 Ps[j] = p_next
-                rhos[j] = self.eos.eos_calc_ptgiven_azbar(p_next, Ts[j], abars[j], zbars[j], mode=mode)[0]
+                _, rhos[j] = self.eos.PT_given(self.eos_table, p_next, Ts[j], abars[j], zbars[j], eos_mode=mode)
 
         _march(anchor_idx, Nr - 1, P0)
         if anchor_idx > 0:
@@ -1027,9 +978,9 @@ class HSEIntegrator:
 
         if use_eos_p0:
             if use_non_uniform_composition:
-                press_0 = self.eos.eos_calc_tgiven_azbar(rho_start, temp_start, abar_start, zbar_start, mode=mode)[2]
+                press_0 = self.eos.rhoT_given(self.eos_table, rho_start, temp_start, abar_start, zbar_start, eos_mode=mode)[phleos.id_P]
             else:
-                press_0 = self.eos.eos_calc_tgiven_azbar(rho_start, temp_start, abar_mean, zbar_mean, mode=mode)[2]
+                press_0 = self.eos.rhoT_given(self.eos_table, rho_start, temp_start, abar_mean, zbar_mean, eos_mode=mode)[phleos.id_P]
             if verbose:
                 print(f"Initial pressure P0 computed using Helmholtz EOS at r_start={r_start_eff}: {press_0}")
         else:
@@ -1802,16 +1753,6 @@ def integration_rk4_compgrad(*args, **kwargs):
     return _default_integrator.integration_rk4_compgrad(*args, **kwargs)
 
 
-def calc_psgiven(*args, **kwargs):
-    """Module-level wrapper for pressure+entropy EOS solve."""
-    return _default_integrator.calc_psgiven(*args, **kwargs)
-
-
-def eos_calc_psgiven(*args, **kwargs):
-    """Module-level vectorized wrapper for pressure+entropy EOS solve."""
-    return _default_integrator.eos_calc_psgiven(*args, **kwargs)
-
-
 def integration_tgiven(*args, **kwargs):
     """Module-level wrapper for integration with prescribed temperature profile."""
     return _default_integrator.integration_tgiven(*args, **kwargs)
@@ -1843,11 +1784,11 @@ def g_potential(*args, **kwargs):
 # Includes:
 # - `make_eos_profile_ufunc`: field accessor generator from Helmholtz EOS output,
 # - `compute_eos_profiles`: bulk dictionary builder for multiple EOS fields.
-def make_eos_profile_ufunc(field: str, eos_mode=None, dtype=None):
+def make_eos_profile_ufunc(field: str, eos_mode=None, dtype=None, eos_table=None):
     """Return a vectorized Helmholtz-EOS accessor for a thermodynamic field.
 
     The returned callable expects ``(rho, temp, abar, zbar)`` and returns
-    ``full[field]`` from ``helm_eos.eos_calc_tgiven_azbar``.
+    ``full[field]`` from ``phleos.eos_rhoTgiven``.
 
     Parameters
     ----------
@@ -1855,10 +1796,42 @@ def make_eos_profile_ufunc(field: str, eos_mode=None, dtype=None):
         If provided, cast outputs to this dtype.
     """
 
+    if eos_table is None:
+        eos_table = _default_integrator.eos_table
+    if eos_table is None:
+        raise ValueError("eos_table is required for compute_eos_profiles/make_eos_profile_ufunc")
+
+    field_map = {
+        "P": phleos.id_P,
+        "e": phleos.id_E,
+        "dpdrho": phleos.id_dPdrho,
+        "dpdt": phleos.id_dPdT,
+        "dEdrho": phleos.id_dEdrho,
+        "dEdT": phleos.id_dEdT,
+        "cv": phleos.id_cv,
+        "chiT": phleos.id_chiT,
+        "chirho": phleos.id_chirho,
+        "gamma_1": phleos.id_gam1,
+        "sound": phleos.id_sound,
+        "cp": phleos.id_cp,
+        "gamma_2": phleos.id_gam2,
+        "gamma_3": phleos.id_gam3,
+        "nabla_ad": phleos.id_nabla_ad,
+        "s": phleos.id_s,
+        "dsdrho": phleos.id_dsdrho,
+        "dsdt": phleos.id_dsdT,
+        "delta": phleos.id_delta,
+        "eta": phleos.id_eta,
+        "nep": phleos.id_nep,
+        "phi": phleos.id_phi,
+        "dPdA": phleos.id_dPdA,
+    }
+    field_idx = field_map[field] if isinstance(field, str) else int(field)
+
     raw = np.frompyfunc(
-        lambda rho_, temp_, abar_, zbar_: helm_eos.eos_calc_tgiven_azbar(
-            rho_, temp_, abar_, zbar_, mode=eos_mode
-        )[3][field],
+        lambda rho_, temp_, abar_, zbar_: phleos.rhoT_given(
+            eos_table, rho_, temp_, abar_, zbar_, eos_mode=eos_mode
+        )[field_idx],
         4,
         1,
     )
@@ -1872,7 +1845,7 @@ def make_eos_profile_ufunc(field: str, eos_mode=None, dtype=None):
     return typed
 
 
-def compute_eos_profiles(rho, temp, abar, zbar, fields, eos_mode=None, dtype=None):
+def compute_eos_profiles(rho, temp, abar, zbar, fields, eos_mode=None, dtype=None, eos_table=None):
     """Compute a dictionary of EOS fields for given profile inputs.
 
     Parameters
@@ -1882,12 +1855,12 @@ def compute_eos_profiles(rho, temp, abar, zbar, fields, eos_mode=None, dtype=Non
     fields : iterable[str]
         Keys available in the Helmholtz EOS ``full`` dictionary.
     eos_mode : optional
-        EOS mode forwarded to ``helm_eos.eos_calc_tgiven_azbar``.
+        EOS mode forwarded to ``phleos.eos_rhoTgiven``.
     dtype : optional
         If provided, cast all field arrays to this dtype.
     """
 
     return {
-        field: make_eos_profile_ufunc(field, eos_mode=eos_mode, dtype=dtype)(rho, temp, abar, zbar)
+        field: make_eos_profile_ufunc(field, eos_mode=eos_mode, dtype=dtype, eos_table=eos_table)(rho, temp, abar, zbar)
         for field in fields
     }

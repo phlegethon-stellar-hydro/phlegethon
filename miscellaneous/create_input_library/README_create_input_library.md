@@ -83,8 +83,9 @@ These controls are meant to make notebook plotting behavior reproducible across 
 
 ### EOS and source data
 
-- `eos_mode` (list/str passed to stelo EOS)
-	- Forwarded into EOS calls in reintegration and diagnostics.
+- `eos_mode` (list[str] or str passed to PHLEOS wrappers)
+	- Forwarded to `phleos.rhoT_given(...)` and `phleos.PT_given(...)` in both preparation/integration and EOS diagnostics.
+	- Typical component sets include combinations of `ideal`, `ions`, `radiation`, `elepos`, `coulomb`, and `pig` (depending on your EOS/table setup).
 - `mesa_path` (str)
 	- Path to source MESA profile file.
 - `helm_table_path` (str)
@@ -285,8 +286,10 @@ $$
 	- True: execute integrator.
 	- False: skip integrator, only run pre-integration steps and visulize only MESA profiles.
 - `use_eos_p0` (bool)
-	- True: compute initial pressure $P_0$ from EOS using local $\rho$, $T$, and composition. This sometimes improves the stability of the integration.
-	- False: use interpolated MESA pressure at the anchor radius.
+	- True: compute initial pressure $P_0$ from EOS using prepared profiles at the snapped anchor radius $r_{\rm anchor}$:
+		- non-uniform composition: local $\rho(r_{\rm anchor}), T(r_{\rm anchor}), \bar A(r_{\rm anchor}), \bar Z(r_{\rm anchor})$,
+		- uniform composition: local $\rho(r_{\rm anchor}), T(r_{\rm anchor})$ with scalar $(\bar A,\bar Z)$ from the selected uniform strategy.
+	- False: use prepared/interpolated pressure at $r_{\rm anchor}$.
 - `use_non_uniform_composition` (bool)
 	- True: use $\bar{A}(r)$ and $\bar{Z}(r)$ interpolants.
 	- False: collapse composition to global scalar values according to `uniform_composition_strategy`.
@@ -308,7 +311,7 @@ $$
 	- Requested anchor radius $r_{\rm req}$ is always snapped to the nearest grid point $r_{\rm anchor}$.
 	- If $r_{\rm req}$ is outside the grid domain, this naturally selects the nearest boundary grid point.
 - `eos_output_dtype` (str or None)
-	- Optional dtype cast for EOS diagnostic arrays.
+	- Optional dtype cast for EOS diagnostic arrays returned by `compute_eos_profiles(...)` (used in visual diagnostics).
 	- `None`: keep default (usually `float64`).
 	- Common choices: `"float64"` (best precision), `"float32"` (less memory), `"float16"` (smallest, least precise).
 
@@ -516,6 +519,7 @@ If `create_input.ipynb` does not match your workflow, you can import the Python 
 	- Plotting utilities used by diagnostics, reusable in custom scripts.
 - `compute_eos_profiles`, `make_eos_profile_ufunc`
 	- Helpers for bulk EOS-derived thermodynamic profile extraction.
+	- Supported named fields currently include: `P`, `e`, `dpdrho`, `dpdt`, `dEdrho`, `dEdT`, `cv`, `chiT`, `chirho`, `gamma_1`, `gamma_2`, `gamma_3`, `cp`, `nabla_ad`, `s`, `dsdrho`, `dsdt`, `delta`, `eta`, `nep`, `phi`, `sound`, `dPdA`.
 
 ### 6.2 Suggested importable tools from mesa_minireader.py
 
