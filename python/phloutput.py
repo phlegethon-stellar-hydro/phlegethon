@@ -1617,6 +1617,25 @@ class h5grid:
          self.eos_evaluated = True
 
         return self.full[id_nabla_ad]
+    
+    def bvf2(self,ix=-1,iy=-1,iz=-1):
+        g = self.grav(ix=ix,iy=iy,iz=iz)
+        g_mag = np.sqrt(np.sum(g**2,axis=0))
+        P = self.P(ix=ix,iy=iy,iz=iz)
+        dP_dr = self.grad_r(P,ix=ix,iy=iy,iz=iz)
+        delta = self.delta(ix=ix,iy=iy,iz=iz)
+        phi = self.phi(ix=ix,iy=iy,iz=iz)
+        Hp = -P/dP_dr
+        nabla_ad = self.nabla_ad(ix=ix,iy=iy,iz=iz)
+        nabla = self.nabla(ix=ix,iy=iy,iz=iz)
+        nabla_mu = self.nabla_mu(ix=ix,iy=iy,iz=iz)
+
+        bvf2 = (g_mag*delta/Hp)*(nabla_ad-nabla+phi*nabla_mu/delta)
+        return bvf2 
+    
+    def bvf(self,ix=-1,iy=-1,iz=-1):
+        bvf2 = self.bvf2(ix=ix,iy=iy,iz=iz)
+        return np.real(np.sqrt(bvf2+0j))
 
     def s(self,ix=-1,iy=-1,iz=-1):
 
@@ -1901,7 +1920,7 @@ class h5grid:
               mass = rho_radial * dx  * rr**2 * np.pi * 2
               mass_axis = np.cumsum(mass)
         else:
-           print('geometry not yetu implemented!')
+           print('r2maxis is not implemented for this geometry!')
         return mass_axis             
               
     def grad_r(self,data,ix=-1,iy=-1,iz=-1):
@@ -1936,6 +1955,43 @@ class h5grid:
                     grad_r = grad_r[:,iy,:]
                 elif iz>=0:
                     grad_r = grad_r[:,:,iz]
+           else:
+                coords = self.coords(ix=self.ix,iy=self.iy,iz=self.iz)
+                if self.sdims==3:
+                    x = coords[0]
+                    x_1d = x[:,0,0]
+                    y = coords[1]
+                    y_1d = y[0,:,0]
+                    z = coords[2]
+                    z_1d = z[0,0,:]
+                    grad_data_cartesian = np.gradient(data, x_1d, y_1d, z_1d)
+                    grad_r = grad_data_cartesian[1]
+                if self.sdims==2:
+                    x = coords[0]
+                    x_1d = x[:,0]
+                    y = coords[1]
+                    y_1d = y[0,:]
+                    grad_data_cartesian = np.gradient(data, x_1d, y_1d)
+                    grad_r = grad_data_cartesian[1]
+                if ix>=0:
+                    grad_r = grad_r[ix,:,:]
+                elif iy>=0:
+                    grad_r = grad_r[:,iy,:]
+                elif iz>=0:
+                    grad_r = grad_r[:,:,iz]
+
+        elif self.geometry=='2d-polar':
+                r = self.r(ix=ix,iy=iy,iz=iz)[:,0]
+                grad_r = np.gradient(data, r, axis=0)
+
+        elif self.geometry=='2d-spherical':
+                r = self.r(ix=ix,iy=iy,iz=iz)[:,0]
+                grad_r = np.gradient(data, r, axis=0)
+
+        elif self.geometry=='3d-spherical':
+                r = self.r(ix=ix,iy=iy,iz=iz)[:,0,0]
+                grad_r = np.gradient(data, r, axis=0)
+
         else:
             print('grad_r is not implemented for this geometry!')
             grad_r = None
