@@ -58,8 +58,8 @@ def file_list(path=""):
 
 class phlgrid:
 
-   def __init__(self,filename,path='./',mode='i',data_path=data,helm_table='helm_table_timmes_x1.dat',pig_table='401x401_pig_table_h2_offset.dat',
-   NRHO=271,NT=101,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
+   def __init__(self,filename,path='./',mode='i',data_path=data,helm_table='helm_table_timmes_x2.dat',pig_table='401x401_pig_table_h2_offset.dat',
+   NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0,make_coarse=0,is_0th=False):
 
         if(mode=='n'):
             filename = path+'grid_n{:05}.h5'.format(filename)
@@ -84,9 +84,9 @@ class phlgrid:
         self.x3l = self.grid0['x3l'][()]
         self.x3u = self.grid0['x3u'][()]
         self.sdims = self.grid0['sdims'][()]
-        self.nx1 = self.grid0['nx1'][()]
-        self.nx2 = self.grid0['nx2'][()]
-        self.nx3 = self.grid0['nx3'][()]
+        self.nx1 = int(self.grid0['nx1'][()])
+        self.nx2 = int(self.grid0['nx2'][()])
+        self.nx3 = int(self.grid0['nx3'][()])
 
         self.advect_yeiabar = self.grid0.attrs['advect_yeiabar'].decode('ASCII')
         self.advect_species = self.grid0.attrs['advect_species'].decode('ASCII')
@@ -96,6 +96,10 @@ class phlgrid:
          self.use_coulomb_corrections = self.grid0.attrs['use_coulomb_corrections'].decode('ASCII')
         except:
          self.use_coulomb_corrections = 'false'
+        try:
+         self.use_pig = self.grid0.attrs['use_pig'].decode('ASCII')
+        except:
+         self.use_pig = 'false'
 
         try:
          self.use_gravity_solver = self.grid0.attrs['use_gravity_solver'].decode('ASCII')
@@ -296,7 +300,7 @@ class phlgrid:
 
         self.ekin = 0.5*(self.vx1*self.vx1+self.vx2*self.vx2+self.vx3*self.vx3)
 
-        self.full = rhoT_given(self.eos_table,rho,self.T,abar=self.abar,zbar=self.zbar,
+        self.full = rhoT_given(self.eos_table,self.rho,self.T,abar=self.abar,zbar=self.zbar,
         gamma_ideal=self.gamma_gas,eos_mode=self.eos_mode)
         self.eos_evaluated = True
 
@@ -336,7 +340,7 @@ class phlgrid:
       if(self.geometry!='cartesian'):
        return np.mean(q,axis=(0,1))
       elif(self.geometry=='cartesian') and (self.use_internal_boundaries=='true'):
-       val, bin_edges = np.histogram(self.r, weights=q, bins=self.bins, range=(0,self.r[0,self.bins,self.bins])) # FR2808 I added maximum radius cube face
+       val, bin_edges = np.histogram(self.r, weights=q, bins=self.bins, range=(0,self.r[0,self.bins,self.bins])) 
        rbar, qbar = 0.5 * (bin_edges[:-1] + bin_edges[1:]), val/self.num
        return qbar
       else:

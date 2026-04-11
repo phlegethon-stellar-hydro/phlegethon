@@ -2133,8 +2133,6 @@ class h5grid:
 
      if(showfig):
       show()
-     elif(multiplot):
-      pass
      else:
       close()
 
