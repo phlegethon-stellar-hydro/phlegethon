@@ -12,11 +12,11 @@ import scipy.interpolate as interp1d
 from scipy.interpolate import CubicSpline as interp1d
 from scipy.optimize import curve_fit
 
-path_to_sim = '/hits/basement/pso/leidigi/cbm-alberto/192x192x192-delta_nabla-0.3-nabla_mu-0.1-b-1.0e-01-no-thermal-eq/' #path to grid snapshots
-path_to_output = '/hits/basement/pso/leidigi/Phlegethon/miscellaneous/get_rprofs/data/' #path to repository where to store the radial profiles
-pycmd = '/hits/basement/pso/leidigi/Phlegethon/miscellaneous/get_rprofs/extract_rprofs.py' #python command
-ntasks = 50 #number of chunks into which the time series is split
-ncores_per_task = 1 #number of cores allocated per task
+path_to_sim = '/hits/basement/pso/leidigi/ccsn_progenitor/hydro/' #path to grid snapshots
+path_to_output = '/hits/basement/pso/leidigi/ccsn_progenitor/analysis/MHD-512x512x512/' #path to repository where to store the radial profiles
+pycmd = '/hits/basement/pso/leidigi/ccsn_progenitor/analysis/extract_rprofs.py' #python command
+ntasks = 30 #number of chunks into which the time series is split
+ncores_per_task = 32 #number of cores allocated per task
 delta = 1 #pace at which snapshots are read
 rebin = 0 #0 for False, 1 for True. This option performs a x2 compression on the grid snapshots before computing radial profiles
 partition = 'rome.p'
