@@ -113,6 +113,10 @@ g = h5grid(-1)
 g.gridshow(g.mach())
 ```
 
+## Documentation
+
+Documentation can be consulted at TOFILL
+
 ## Authors
 
 **PHLEGETHON** was originally written by Giovanni Leidi and is continuously under active development. Current support is provided by:
