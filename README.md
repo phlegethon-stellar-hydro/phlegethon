@@ -30,7 +30,7 @@ cd phlegethon
 
 ### 2. System dependencies (Debian-based systems)
 
-Run the following command to install curl, an MPI-fortran compiler, and [hdf5](https://www.hdfgroup.org/solutions/hdf5/) with parallel I/O capabilities
+Run the following command to install curl, an MPI-Fortran compiler, and [hdf5](https://www.hdfgroup.org/solutions/hdf5/) with parallel I/O capabilities
 
 ```bash
 sudo apt install -y curl build-essential gfortran libopenmpi-dev openmpi-bin openmpi-common libhdf5-openmpi-dev hdf5-tools
@@ -86,9 +86,9 @@ source .bashrc
 
 ### 8. Choose a build configuration
 
-Phlegethon uses `pkg-config` to auto-detect the MPI-fortran compiler and the hdf5 library. In case you need to specify machine-dependent settings (see also `Make.local/README.md`):
+Phlegethon uses `pkg-config` to auto-detect the MPI-Fortran compiler and the hdf5 library. In case you need to specify machine-dependent settings (see also `Make.local/README.md`):
 
-- Create a new build-configuration file in `Make.local/`, specifiying the path to the MPI-fortran compiler and the hdf5 library
+- Create a new build-configuration file in `Make.local/`, specifiying the path to the MPI-Fortran compiler and the hdf5 library
 - Edit the `include` path in `Makefile.config` to link the costum configuration, e.g.,
 ```bash
 include ../../Make.local/Make.leidi
@@ -115,12 +115,22 @@ g.gridshow(g.mach())
 
 ## Authors
 
-**PHLEGETHON** was originally written by Giovanni Leidi and it is continously under development. It is currently supported by:
+**PHLEGETHON** was originally written by Giovanni Leidi and is continuously under active development. Current support is provided by:
 - Giovanni Leidi
 - Alexander Holas
 - Kristian Vitovsky
 - Jonas Reichert
 - Korinna Bayer
+  
+If you have any questions about the code, please contact us at giovanni.leidi@h-its.org or alex.holas@h-its.org.
+
+## Citation
+
+If you use **PHLEGETHON** in your work, please cite it using the following BibTeX entry for its associated method paper:
+- TOFILL
+
+For reproducibility, please also cite the exact code version used, available on Zenodo. The latest version is:
+- TOFILL
 
 ## License 
 
