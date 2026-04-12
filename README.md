@@ -1,6 +1,6 @@
 # Phlegethon
 <p align="left">
-  <img src="logo.png" width="300"/>
+  <img src="logo.svg" width="300"/>
 </p>
 
 **PHLEGETHON** is a fully compressible, Eulerian magnetohydrodynamic (MHD) code designed for multidimensional simulations in stellar astrophysics. The code uses a time-explicit, second-order, finite-volume method optimized to model a wide range of dynamical regimes, from very low-Mach-number turbulent convection in the deep interior of stars to supersonic flows in subsurface convection zones. **PHLEGETHON** runs on CPUs and uses MPI-based parallelization via domain decomposition.
