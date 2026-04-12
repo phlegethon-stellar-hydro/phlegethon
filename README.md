@@ -117,7 +117,7 @@ g.gridshow(g.mach())
 
 **PHLEGETHON** was originally written by Giovanni Leidi and it is continously under development. It is currently supported by:
 - Giovanni Leidi
-- Alex Holas
+- Alexander Holas
 - Kristian Vitovsky
 - Jonas Reichert
 - Korinna Bayer
