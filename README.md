@@ -123,6 +123,7 @@ Documentation can be consulted at TOFILL
 - Giovanni Leidi
 - Alexander Holas
 - Kristian Vitovsky
+- Federico Rizzuti
 - Jonas Reichert
 - Korinna Bayer
   
