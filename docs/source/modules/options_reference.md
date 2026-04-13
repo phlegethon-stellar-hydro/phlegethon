@@ -6,7 +6,7 @@ Most Phlegethon configuration is done at compile time through `OPTS += ...` entr
 `Makefile` options are passed as:
 
 ```make
-OPTS += USE_DOUBLE_PRECISION
+OPTS += USE_MHD
 OPTS += nx1_make=64
 OPTS += cfl_make=0.8_rp
 ```
@@ -21,7 +21,7 @@ Some of the options refer to sections, equations, or tables of the instrument pa
 | Option | Meaning |
 | --- | --- |
 | `SRC = ../../source`  | Path to source directory. |
-| `DATA = ../../data`   | Path to "data" directory (containing the EoS tables and nuclear data). |
+| `DATA = ../../data`   | Path to `data` directory (containing the EoS tables and nuclear data). |
 
 ### 2. Grid variables
 | Option | Meaning |
@@ -35,7 +35,7 @@ Some of the options refer to sections, equations, or tables of the instrument pa
 | `ddx3_make=64`  | Number of local domains in the `x3` direction. |
 | `ngc_make=2`  | Number of ghost cells (see Sect. 2.1). |
 | `nas_make=15`  | Number of active/passive scalars. |
-| `nspecies_make=12`  | Number of species participating in a nuclear reaction network (`nspecies<=nas`). |
+| `nspecies_make=12`  | Number of species participating in a nuclear reaction network (`nspecies_make<=nas_make`). |
 | `nreacs_make=38`  | Number of reactions in the nuclear network. |
 
 ### 2. Grid geometry
@@ -67,11 +67,11 @@ For `GEOMETRY_CUBED_SPHERE`, the following parameters must be defined at compile
 | --- | --- |
 | `COROTATING_FRAME `| Solves the governing equations in the co-rotating frame defined by the angular frequency vector `lgrid%omega_rot(1:3)` specified in the user in `app.F90`. |
 | `USE_CONSTANT_ACCELERATION` | Applies a constant-acceleration body force to the system. In `app.F90`, the grid components of the acceleration vector must be defined in `lgrid%acc(1:sdims_make)`. |
-| `USE_MHD` | Enables ideal magnetohydrodynamics (solved with the CT-contact algorithm of [Gardiner+05](https://ui.adsabs.harvard.edu/abs/2005JCoPh.205..509G/abstract). In `app.F90`, the face-centered magnetic field components must be filled, e.g., `lgrid%b_x1(i,j,k)` etc. |
+| `USE_MHD` | Enables ideal magnetohydrodynamics (solved with the CT-contact algorithm of [Gardiner+05](https://ui.adsabs.harvard.edu/abs/2005JCoPh.205..509G/abstract)). In `app.F90`, the face-centered magnetic field components must be filled, e.g., `lgrid%b_x1(i,j,k)` etc. |
 | `Mach_ct_make=1e-6_rp` | Minimum local Mach number to enable the (upwind) contact version of constrained transport. |
 | `USE_RESISTIVITY` | Adds magnetic resistivity to the induction equation (note: not to the energy equation and only for Cartesian grids). For this option, the cell-centered value of the magnetic diffusion coefficient `lgrid%eta(i,j,k)` must be provided in `app.F90`. |
 | `ADVECT_YE_IABAR` | Advects `ye` and the inverse of `abar` as active scalars. In the code, the mean molecular weight is then computed from these two quantities assuming a fully ionized medium. If this option is chosen , `nas` must be at least `2` to accomodate the two additional variables in `lgrid%prim`. In `app.F90`, they can be accessed with the indixes `i_ye` and `i_iabar`. Other active scalars can be defined starting from the index `i_iabar+1`. |
-|`ADVECT_SPECIES` | If declared, advects `nspecies` chemical species as active scalars. In the code, the mean molecular weight is then computed from the mass fractional abundances of the species assuming a fully ionized mixture. If this option is chosen , `nas` must be at least `nspecies` to accomodate the species in `lgrid%prim`. The species index goes from `i_as1` to `i_as1+nspecies`. In `app.F90`, before calling the `initialize_simulation` subroutine, `lgrid%A(:)` and `lgrid%Z(1:nspecies_make)` must be filled for each element (starting from index `1` to index `nspecies`) by providing the mass number and the charge number of the element, respectively. Make sure that the sum of the mass fractional abundances of the species is 1, otherwise the mean molecular weight of the gas will be wrong. Do not use this option in combination with `ADVECT_YE_IABAR`. |
+|`ADVECT_SPECIES` | If declared, advects `nspecies` chemical species as active scalars. In the code, the mean molecular weight is then computed from the mass fractional abundances of the species assuming a fully ionized mixture. If this option is chosen , `nas_make` must be at least `nspecies_make` to accomodate the species in `lgrid%prim`. The species index goes from `i_as1` to `i_as1+nspecies`. In `app.F90`, before calling the `initialize_simulation` subroutine, `lgrid%A(:)` and `lgrid%Z(1:nspecies_make)` must be filled for each element (starting from index `1` to index `nspecies_make`) by providing the mass number and the charge number of the element, respectively. Make sure that the sum of the mass fractional abundances of the species is 1, otherwise the mean molecular weight of the gas will be wrong. Do not use this option in combination with `ADVECT_YE_IABAR`. |
 | `USE_GRAVITY` | Enables space dependent gravity (Newtonian gravity only). The cell-centered components of gravity must be filled in `app.F90` in `lgrid%grav(:,i,j,k)`. |
 | `CONST_GRAV_UNITY` | Sets `G=1` in the code |
 | `EVOLVE_ETOT` | Evolves the total energy per unit volume, i.e., $e \rightarrow e +  \phi$. In `app.F90`, the cell-centered and face-centered gravitational potential must be filled as, e.g., `lgrid%phi_cc(i,j,k)`, `lgrid%phi_x1(i,j,k)`, etc.  |
@@ -147,14 +147,14 @@ Alternatively, one can use the `PIG` Eos of Vetter et al. 2026, in prep.
 | --- | --- |
 | `PIG_EOS` | Computes a partially-ionized-gas EoS using biquintic interpolation of the free energy (PIG, tabulated) + thermal radiation. All ionization states of a bunch of elements and the electron number density are computed using Maxwell--Boltzmann statistics, and radiation is in thermal equilibrium with the gas. As in the mode `USE_PRAD`, `lgrid%temp(i,j,k)` must be filled in `app.F90`. |
 | `path_to_pig_table=\"$(DATA)/pig_table.dat\"` | This variable contains the path to the PIG EoS table and needs to be defined every time `PIG_EOS` is used. |
-|`pig_nT_make=101` | Number of nodes in the temperature axis in the PIG table. |
-|`pig_nrho_make=271` | Number of nodes in the density axis in the PIG table. |
-|`pig_ltlo_make=3.0_rp` | Minimum of $\mathrm{log}_{10}(T)$ in the PIG table. |
-|`pig_lthi_make=13.0_rp` | Maximum of $\mathrm{log}_{10}(T)$ in the PIG table. |
-|`pig_ldlo_make=-12.0_rp` | Minimum of $\mathrm{log}_{10}(\rho)$ in the PIG table. |
-|`pig_ldhi_make=15.0_rp` | Maximum of $\mathrm{log}_{10}(\rho)$ in the PIG table. |
+|`pig_nT_make=401` | Number of nodes in the temperature axis in the PIG table. |
+|`pig_nrho_make=401` | Number of nodes in the density axis in the PIG table. |
+|`pig_ltlo_make=1.0_rp` | Minimum of $\mathrm{log}_{10}(T)$ in the PIG table. |
+|`pig_lthi_make=8.0_rp` | Maximum of $\mathrm{log}_{10}(T)$ in the PIG table. |
+|`pig_ldlo_make=-20.0_rp` | Minimum of $\mathrm{log}_{10}(\rho)$ in the PIG table. |
+|`pig_ldhi_make=0.0_rp` | Maximum of $\mathrm{log}_{10}(\rho)$ in the PIG table. |
 
-With `USE_PRAD`, `HELMHOLTZ_EOS`, or `PIG_EOS`, the option `USE_FASTEOS` reconstructs a pair of states for sound speed and internal energy at every grid cell interface to avoid calling the Helmholtz EoS within the Riemann solver subroutine (see Sect. 2.6). If this option is used in combination with `USE_WB`, the equilibrium state for the thermodynamic variable `gammae` must be provided at cell centers and cell faces (i.e., `lgrid%eq_gammae_cc`, `lgrid%eq_gammae_x1`, etc., see `./tests/hotbubble-2.0-helmholtz`).
+With `USE_PRAD`, `HELMHOLTZ_EOS`, or `PIG_EOS`, the option `USE_FASTEOS` reconstructs a pair of states for sound speed and internal energy at every grid cell interface to avoid calling the Helmholtz EoS within the Riemann solver subroutine (see Sect. 2.6). If this option is used in combination with `USE_WB`, the equilibrium state for the thermodynamic variable `gammae` must be provided at cell centers and cell faces (i.e., `lgrid%eq_gammae_cc(i,j,k)`, `lgrid%eq_gammae_x1(i,j,k)`, etc., see `./tests/hotbubble-2.0-helmholtz`).
 
 ### 7. Time Integration (see Sect. 2.9)
 

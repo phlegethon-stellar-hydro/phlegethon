@@ -62,7 +62,7 @@ mamba activate phl_env
 - Install required Python packages:
 
 ```bash
-mamba install python numpy matplotlib scipy h5py ipython meson
+mamba install python numpy matplotlib scipy h5py ipython meson ninja
 ```
 
 ### 5. Download Helmholtz EoS table and JINA REACLIB rates
