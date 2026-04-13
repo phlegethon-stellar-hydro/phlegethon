@@ -9,21 +9,12 @@ import phleos as phleos
 # -----------------------------------------------------------------------------
 # Module Organization
 # -----------------------------------------------------------------------------
-# 1) Configuration and table helpers
+# 1) Configuration, profile preparation, and output helpers
 # 2) HSE integration core (`HSEIntegrator`)
-# 3) Plotting/reporting helpers (`HSEPlotter`)
+# 3) Plotting and diagnostics helpers (`HSEPlotter`)
 # 4) Module-level convenience wrappers
 # 5) EOS profile accessor helpers
 #
-# Includes:
-# - backend setup helpers for notebook plotting,
-# - data table assembly/validation,
-# - integration and EOS calculation classes,
-# - plotting and visual diagnostics,
-# - top-level wrappers for notebook-friendly calls.
-#
-# This file intentionally exposes both class APIs and thin module wrappers to
-# support notebook-style workflows and script imports with minimal friction.
 
 # -----------------------------------------------------------------------------
 # Physical Constants
@@ -37,11 +28,16 @@ R_GAS = 83144621.0
 
 
 # -----------------------------------------------------------------------------
-# Configuration / Output Assembly Helpers
+# Configuration / Output Helpers / Preparation before integration
 # -----------------------------------------------------------------------------
 # Includes:
 # - `configure_plot_backend`: selects/activates Matplotlib backend in IPython,
 # - `build_output_table`: validates requested output columns and stacks arrays.
+# - `derive_runtime_settings`: resolves notebook toggles into execution settings.
+# - `tweak_enuc_profile`: shifts/renormalizes enuc profile on the radius grid.
+# - `extrapolate_profiles_to_lower_radius`: extends profiles below MESA rmin.
+# - `build_run_summary`: computes HSE residual stats and run metadata payload.
+# - `write_output_bundle`: writes `.in` and `.npz` outputs plus metadata.
 def configure_plot_backend(mode="auto", enabled=True, ip=None, verbose=True):
     """Configure a Matplotlib backend in IPython/Jupyter with graceful fallback.
 
@@ -625,9 +621,10 @@ def write_output_bundle(
 # -----------------------------------------------------------------------------
 # Includes:
 # - RK4 marching kernels for uniform and composition-gradient integration,
-# - profile smoothing and input preparation,
-# - dispatch routine that selects integration path,
-# - potential post-processing utility.
+# - anchor/index helpers for bidirectional marching,
+# - profile smoothing and integration-input preparation,
+# - dispatch routine selecting integration path by mode/composition,
+# - gravitational-potential post-processing utility.
 class HSEIntegrator:
     # Construction and shared EOS state ---------------------------------------
     def __init__(self, eos_backend=phleos,eos_table=None, eos_mode=None):
@@ -1161,7 +1158,8 @@ class HSEIntegrator:
 # - one-to-one profile comparison plots,
 # - diagnostic multiplots (fluxes, convection, residuals),
 # - prepared-profile and composition-transition checks,
-# - generic visual-check dashboard builders and split-scale figure helpers.
+# - generic visual-check dashboard builders,
+# - split linear/log figure helpers and panel orchestration utilities.
 class HSEPlotter:
     # Plot context / boundaries ------------------------------------------------
     def __init__(
@@ -1857,7 +1855,8 @@ class HSEPlotter:
 # Includes:
 # - a shared default `HSEIntegrator` instance,
 # - thin module-level wrappers around integration/EOS utilities,
-# - static-helper aliases for direct notebook usage without class plumbing.
+# - static-helper aliases for direct notebook usage without class plumbing,
+# - wrapper entry points for smoothing/preparation/integration/potential helpers.
 _default_integrator = HSEIntegrator()
 
 
@@ -1913,12 +1912,13 @@ def g_potential(*args, **kwargs):
 # -----------------------------------------------------------------------------
 # Includes:
 # - `make_eos_profile_ufunc`: field accessor generator from Helmholtz EOS output,
-# - `compute_eos_profiles`: bulk dictionary builder for multiple EOS fields.
+# - `compute_eos_profiles`: bulk dictionary builder for multiple EOS fields,
+# - optional dtype-casting and EOS-mode forwarding utilities.
 def make_eos_profile_ufunc(field: str, eos_mode=None, dtype=None, eos_table=None):
     """Return a vectorized Helmholtz-EOS accessor for a thermodynamic field.
 
     The returned callable expects ``(rho, temp, abar, zbar)`` and returns
-    ``full[field]`` from ``phleos.eos_rhoTgiven``.
+    the selected EOS field from ``phleos.rhoT_given``.
 
     Parameters
     ----------
@@ -1985,7 +1985,7 @@ def compute_eos_profiles(rho, temp, abar, zbar, fields, eos_mode=None, dtype=Non
     fields : iterable[str]
         Keys available in the Helmholtz EOS ``full`` dictionary.
     eos_mode : optional
-        EOS mode forwarded to ``phleos.eos_rhoTgiven``.
+        EOS mode forwarded to ``phleos.rhoT_given``.
     dtype : optional
         If provided, cast all field arrays to this dtype.
     """
