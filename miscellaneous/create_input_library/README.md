@@ -51,6 +51,7 @@ F_{\rm tot}(r)=\frac{L(r)}{4\pi r^2},
 \qquad
 F_{\rm conv}(r)=F_{\rm tot}(r)-F_{\rm rad}(r).
 $$
+
 6. Abundance transition
 	- Optional composition-transition comparison ($\bar{A}/\bar{Z}/Y_e$) and species presence/missing summary prints.
 7. Optional $\epsilon_{\rm nuc}(r)$ tweaking
