@@ -37,12 +37,6 @@ mpirun -n 4 ./run.app
 
 ### 4. Read output in Python
 
-```python
-from phloutput import *
-g = h5grid(-1)
-g.gridshow(g.mach())
-```
-
 In a Python session (e.g., `ipython`), you can load and imshow any quantity from the ith-snapshot (here sixth) like
 
 ```python
