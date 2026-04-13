@@ -5,32 +5,59 @@
 # Usage: Copy this file to ../Makefile.config
 #        cp Make.local/Make.pkgconfig ../Makefile.config
 
-# Try to use pkg-config to find HDF5
+PKG_CONFIG ?= pkg-config
+HAVE_PKGCONFIG := $(shell command -v $(PKG_CONFIG) >/dev/null 2>&1 && echo yes)
 
+# MPI wrappers already inject include/lib flags. Keep pkg-config MPI flags opt-in
+# to avoid duplicate -lmpi* entries at link time.
+USE_PKGCONFIG_MPI_CFLAGS ?= 0
+USE_PKGCONFIG_MPI_LIBS ?= 0
 
-#hdf5-openmpi (Ubuntu with OpenMPI)
-HDF5_CFLAGS := $(shell pkg-config --cflags hdf5-openmpi 2>/dev/null)
-HDF5_LIBS   := $(shell pkg-config --libs hdf5-openmpi 2>/dev/null)
-HDF5_PKG    := hdf5-openmpi
+# Known module names across Ubuntu/Debian, Homebrew, and other distros.
+HDF5_PKG_CANDIDATES := hdf5-openmpi-fortran hdf5-openmpi_fortran hdf5-mpi-fortran hdf5-mpi_fortran hdf5_mpich_fortran hdf5-fortran hdf5_fortran hdf5-openmpi hdf5-mpi hdf5_mpich hdf5-serial
+MPI_PKG_CANDIDATES := ompi-fort ompi-f90 mpi-fort mpi openmpi
 
-# If pkg-config succeeds, use it
-ifneq ($(HDF5_CFLAGS),)
+HDF5_PKG :=
+MPI_PKG :=
+
+INCLUDE =
+LIBS =
+RPATH =
+HDF5_LIB = -lhdf5_fortran -lhdf5 -lz
+MPI_CFLAGS =
+MPI_LIBS =
+
+ifeq ($(HAVE_PKGCONFIG),yes)
+    HDF5_PKG := $(firstword $(foreach pkg,$(HDF5_PKG_CANDIDATES),$(if $(shell $(PKG_CONFIG) --exists $(pkg) 2>/dev/null && echo yes),$(pkg))))
+    MPI_PKG := $(firstword $(foreach pkg,$(MPI_PKG_CANDIDATES),$(if $(shell $(PKG_CONFIG) --exists $(pkg) 2>/dev/null && echo yes),$(pkg))))
+endif
+
+ifneq ($(HDF5_PKG),)
+
+    $(info Found HDF5 pkg-config package: $(HDF5_PKG))
+    HDF5_CFLAGS := $(shell $(PKG_CONFIG) --cflags $(HDF5_PKG) 2>/dev/null)
+    HDF5_LIBS   := $(shell $(PKG_CONFIG) --libs $(HDF5_PKG) 2>/dev/null)
+    HDF5_LIBDIR := $(shell $(PKG_CONFIG) --variable=libdir $(HDF5_PKG) 2>/dev/null)
+    HDF5_NEEDS_FORTRAN_LIB := $(if $(findstring hdf5_fortran,$(HDF5_LIBS)),,yes)
 
     INCLUDE = $(HDF5_CFLAGS)
-    # Extract library directory from HDF5_LIBS for RPATH
-    LIB_DIR := $(shell pkg-config --variable=libdir $(HDF5_PKG) 2>/dev/null)
-    ifneq ($(LIB_DIR),)
-        LIBS = -L$(LIB_DIR)
-        RPATH = -Wl,-rpath,$(LIB_DIR)
+    HDF5_LIB = $(HDF5_LIBS)
+    ifeq ($(HDF5_NEEDS_FORTRAN_LIB),yes)
+        HDF5_LIB += -lhdf5_fortran
     endif
-
-    HDF5_LIB = $(HDF5_LIBS) \
-               -lhdf5_fortran -lhdf5
+    ifneq ($(HDF5_LIBDIR),)
+        LIBS += -L$(HDF5_LIBDIR)
+        RPATH = -Wl,-rpath,$(HDF5_LIBDIR)
+    endif
 
 else
 
     # Try Homebrew on macOS
-    BREW_HDF5 := $(shell brew --prefix hdf5 2>/dev/null)
+    BREW_HDF5 := $(shell brew --prefix hdf5-mpi 2>/dev/null)
+    ifeq ($(BREW_HDF5),)
+        BREW_HDF5 := $(shell brew --prefix hdf5 2>/dev/null)
+    endif
+
     ifneq ($(BREW_HDF5),)
         $(info Found HDF5 via Homebrew at $(BREW_HDF5))
         INCLUDE = -I$(BREW_HDF5)/include
@@ -38,34 +65,48 @@ else
         RPATH = -Wl,-rpath,$(BREW_HDF5)/lib
         HDF5_LIB = -lhdf5_fortran -lhdf5 -lz
     else
-        # Try system default
-        $(warning Could not auto-detect HDF5. Using system defaults.)
-        $(warning If compilation fails, copy a machine-specific config from Make.local/)
-        INCLUDE =
-        LIBS =
-        RPATH =
-        HDF5_LIB = -lhdf5_fortran -lhdf5 -lz
+        # Fall back to linker defaults if no known pkg-config module exists.
+        $(warning Could not auto-detect HDF5 via pkg-config or Homebrew.)
+        $(warning Tried: $(HDF5_PKG_CANDIDATES))
+        $(warning If compilation fails, set PKG_CONFIG_PATH or use a machine-specific config in Make.local/)
     endif
 
 endif
 
+ifneq ($(MPI_PKG),)
+    $(info Found MPI pkg-config package: $(MPI_PKG))
+    MPI_CFLAGS := $(shell $(PKG_CONFIG) --cflags $(MPI_PKG) 2>/dev/null)
+    MPI_LIBS := $(shell $(PKG_CONFIG) --libs $(MPI_PKG) 2>/dev/null)
+else
+    ifeq ($(HAVE_PKGCONFIG),yes)
+        $(warning No MPI pkg-config module found in: $(MPI_PKG_CANDIDATES); relying on MPI wrapper compiler.)
+    endif
+endif
 
-FFLAGS = -O3 -fPIC -mtune=native -march=x86-64 -ftree-vectorize -funroll-loops -Wall -Wextra
 
 # Apple silicon
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
 
+FFLAGS = -O3 -fPIC -mtune=native -ftree-vectorize -funroll-loops -Wall -Wextra
+ifneq ($(filter x86_64 amd64,$(UNAME_M)),)
+FFLAGS += -march=x86-64
+endif
+
 ifeq ($(UNAME_S),Darwin)
 ifeq ($(UNAME_M),arm64)
 
 # Apple Silicon (Homebrew HDF5)
-HDF5_PREFIX := $(shell brew --prefix hdf5-mpi)
+HDF5_PREFIX := $(shell brew --prefix hdf5-mpi 2>/dev/null)
 
+ifneq ($(HDF5_PREFIX),)
 INCLUDE = -I$(HDF5_PREFIX)/include
 LIBS    = -L$(HDF5_PREFIX)/lib
 HDF5_LIB = -lhdf5_fortran -lhdf5_hl_fortran -lhdf5 -lz
 RPATH   = -Wl,-rpath,$(HDF5_PREFIX)/lib
+else
+$(warning Apple Silicon detected but Homebrew hdf5-mpi was not found; keeping auto-detected HDF5 settings.)
+endif
 
 # Override invalid x86 flags
 FFLAGS := $(filter-out -march=x86-64 -mtune=native,$(FFLAGS))
@@ -73,8 +114,45 @@ FFLAGS := $(filter-out -march=x86-64 -mtune=native,$(FFLAGS))
 endif
 endif
 
+ifeq ($(USE_PKGCONFIG_MPI_CFLAGS),1)
+ifneq ($(strip $(MPI_CFLAGS)),)
+FFLAGS += $(MPI_CFLAGS)
+endif
+else
+ifneq ($(MPI_PKG),)
+$(info MPI pkg-config CFLAGS detected but not applied (USE_PKGCONFIG_MPI_CFLAGS=0))
+endif
+endif
+
+ifeq ($(USE_PKGCONFIG_MPI_LIBS),1)
+ifneq ($(strip $(MPI_LIBS)),)
+LIBS += $(MPI_LIBS)
+endif
+else
+ifneq ($(MPI_PKG),)
+$(info MPI pkg-config LIBS detected but not applied (USE_PKGCONFIG_MPI_LIBS=0))
+endif
+endif
+
 # Common settings
-FC = mpifort
+# GNU Make defines FC=f77 by default. Override that default with MPI wrappers,
+# but still respect user-provided FC values from environment/command line/files.
+ifeq ($(origin FC),default)
+FC := mpifort
+endif
+ifeq ($(origin FC),undefined)
+FC := mpifort
+endif
+
+ifeq ($(shell command -v $(FC) >/dev/null 2>&1 && echo yes),)
+FC := mpif90
+endif
+ifeq ($(shell command -v $(FC) >/dev/null 2>&1 && echo yes),)
+FC := mpifort
+endif
+ifeq ($(shell command -v $(FC) >/dev/null 2>&1 && echo yes),)
+$(warning Could not find mpifort/mpif90 in PATH; using FC=$(FC))
+endif
 
 BUILD_DIR ?= obj
 FC_ADD_DEF ?= -D

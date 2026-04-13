@@ -27,7 +27,7 @@
 ### 1. Clone the git repository
 
 ```bash
-git clone git@github.com:phlegethon-stellar-hydro/phlegethon.git
+git clone https://github.com/phlegethon-stellar-hydro/phlegethon.git
 cd phlegethon
 ```
 
@@ -44,9 +44,10 @@ sudo apt install -y curl build-essential gfortran libopenmpi-dev openmpi-bin ope
 On MacOS, use homebrew to install the system dependencies
 
 ```bash
-brew install open-mpi gcc
-brew install hdf5-mpi --with-fortan
+brew install open-mpi gcc hdf5-mpi
 ```
+
+You will also need to enable developer mode in your OS settings.
 
 ### 3. Python environment 
 

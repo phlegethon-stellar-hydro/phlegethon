@@ -53,6 +53,10 @@ g.gridshow(g.mach())
 
 Check `python/phloutput.py` for a list of variables that can be accessed from the `h5grid` class. For 3D simulations, individual planes can be accessed with the `ix`, `iy`, and `iz` indices (by default, `h5grid` will load the full array).
 
+## Docker workflow (optional)
+
+For all container workflows (Docker installation, image build, Compose usage, Jupyter post-processing, output access, and interactive sessions), see {ref}`docker-workflow`.
+
 ## Compile-time configuration
 
 Most Phlegethon configuration is done at compile time through `OPTS += ...` entries in each test `Makefile`.

@@ -4,7 +4,7 @@
 ## 1. Clone the git repository
 
 ```bash
-git clone git@github.com:phlegethon-stellar-hydro/phlegethon.git
+git clone https://github.com/phlegethon-stellar-hydro/phlegethon.git
 cd phlegethon
 ```
 
@@ -21,9 +21,14 @@ sudo apt install -y curl build-essential gfortran libopenmpi-dev openmpi-bin ope
 On MacOS, use homebrew to install the system dependencies
 
 ```bash
-brew install open-mpi gcc
-brew install hdf5-mpi --with-fortan
+brew install open-mpi gcc hdf5-mpi
 ```
+
+You will also need to enable developer mode in your OS settings.
+
+## 2.3 Containerized setup (Docker, optional)
+
+For all container workflows (Docker installation, image build, Compose, Jupyter, output access, and interactive sessions), see {ref}`docker-workflow`.
 
 ## 3. Python environment
 
@@ -39,7 +44,7 @@ mamba activate phl_env
 - Install required Python packages:
 
 ```bash
-mamba install python numpy matplotlib scipy h5py ipython meson
+mamba install python numpy matplotlib scipy h5py ipython meson ninja
 ```
 
 ## 5. Download Helmholtz EoS table and JINA REACLIB rates
@@ -54,9 +59,18 @@ This bash script will download a 541x271 Helmholtz EoS table from Frank Timmes' 
 
 ## 6. Compile the Fortran EoS modules
 
+The Python post-processing stack requires the compiled module `eos_fort`.
+If `f2py` uses the meson backend, `ninja` must be available (installed above).
+
 ```bash
 cd miscellaneous/eos/
 f2py -c eos.f90 -m eos_fort --opt='-O3'
+```
+
+Verify import from the active Python environment:
+
+```bash
+python -c 'import eos_fort; print(eos_fort.__file__)'
 ```
 
 ## 7. Set environment variables
