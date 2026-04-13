@@ -15,7 +15,7 @@
 
 ## Documentation
 
-Documentation can be consulted at TOFILL
+Documentation can be consulted [here](https://phlegethon-stellar-hydro.github.io/phlegethon/)
 
 ## Authors
 
@@ -27,8 +27,6 @@ Documentation can be consulted at TOFILL
 - Federico Rizzuti
 - Jonas Reichert
 - Korinna Bayer
-
-If you have any questions about the code, please contact us at giovanni.leidi@h-its.org or alex.holas@h-its.org.
 
 ## Citation
 
