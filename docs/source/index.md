@@ -16,6 +16,7 @@ getting_started
 modules/docker_workflow.md
 modules/build_and_run.md
 modules/options_reference.md
+modules/generate_pig_table.md
 modules/overview.md
 ```
 
