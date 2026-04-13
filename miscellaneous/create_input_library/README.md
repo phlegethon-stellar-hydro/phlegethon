@@ -66,7 +66,7 @@ $$
 	- No plots (file export stage).
 12. Visual diagnostics
 	- Main post-run visual-check figures (split linear/log variants), with panel set controlled by primary_keys and mode-dependent availability.
-	- Figure 2 legend visibility can be toggled with `figure2_show_legends`.
+
 
 ## 3. Toggle and Switch Reference (Section: Toggles and Input Values)
 
@@ -117,18 +117,19 @@ These controls are meant to make notebook plotting behavior reproducible across 
 
 #### Smoothing
 - `smoothing_width` (int)
-	- \> 0: smooth selected profiles before integration.
-	- <= 0: no smoothing.
+	- $\>$ 0: smooth selected profiles before integration.
+	- $<=$ 0: no smoothing.
 	- Number of MESA points in the smoothing window (dimensionless), not a physical length unit.
 - `smoothing_kernel` (str)
 	- box, gaussian, bump.
 
 
-- Effective smoothing width in preparation is scaled as
-  $n_{\mathrm{eff}} = \texttt{smoothing\_width} \times \texttt{resize\_factor}$.
+- Effective smoothing width in preparation is scaled as $n_{\rm eff} = \texttt{smoothing width} \times \texttt{resize factor}$
+  
+  
 - Profiles smoothed during preparation (when `smoothing_width > 0`):
 	- Always: pressure ($P$), temperature ($T$), gravity ($g$), $\bar{A}$, $\bar{Z}$.
-	- Conditionally: density ($\rho$) only if $\texttt{use\_eos\_p0}=\mathrm{True}$.
+	- Conditionally: density ($\rho$) only if $\texttt{use eos p0}=\mathrm{True}$.
 	- Conditionally: $\nabla-\nabla_{\rm ad}$ only in `integration_mode = nabladif_given`.
 - If abundance-transition species columns are emitted (`X_species`), each species profile is outputed with the same smoothong applied as is to the other profiles.
 
@@ -154,7 +155,7 @@ $$
 $$
 K_k = \exp\!\left(-\tfrac12 x_k^2\right),
 \qquad
-x_k \in \operatorname{linspace}(-1,1,n).
+x_k \in \text{linspace}(-1,1,n).
 $$
 
 - `bump`: Compact-support smooth bump
@@ -162,7 +163,7 @@ $$
 $$
 K_k = \exp\!\left(-\dfrac{1}{1-u_k^2}\right),
 \qquad
-u_k \in \operatorname{linspace}(-1,1,n+2).
+u_k \in \text{linspace}(-1,1,n+2).
 $$
 
 #### Extrapolation to lower radii
@@ -216,11 +217,11 @@ Use this when you want a controlled reduced-species composition basis for reinte
 
 Derived composition in code (per radius point $r$):
 
-1. Build selected mass fractions $X_i(r)$ for all $i\in\texttt{abundance\_target\_species}$.
+1. Build selected mass fractions $X_i(r)$ for all $i\in\texttt{abundance target species}$.
    Missing species are initialized as
 
 $$
-X_i(r)=\texttt{abundance\_missing\_fill}.
+X_i(r)=\texttt{abundance missing fill}.
 $$
 
 2. Compute the pre-closure sum and enforce closure on `abundance_closure_species` (call it $c$):
@@ -269,9 +270,9 @@ Applied profile modification (with interpolation on the radius grid):
 $$
 \epsilon_{\rm nuc}^{\rm mod}(r) = f_{\rm renorm}\,\epsilon_{\rm nuc}^{\rm orig}(r-\Delta r),
 \qquad
-\Delta r = \texttt{enuc\_shift\_dr},
+\Delta r = \texttt{enuc shift dr},
 \quad
-f_{\rm renorm}=\texttt{enuc\_renorm\_factor}.
+f_{\rm renorm}=\texttt{enuc renorm factor}.
 $$
 
 The notebook also reports a luminosity comparison before/after tweaking over $[r_{\min}, r_{\max}]$:
@@ -292,7 +293,7 @@ where $\dot e_{\rm nuc}(r)$ is the volumetric heating profile used for output/di
 	- Multiplies the base reintegration resolution to create a temporary preparation grid:
 
 $$
-N_{\rm prep} = N_r \times \texttt{RESIZE\_FACTOR}.
+N_{\rm prep} = N_r \times \texttt{RESIZE FACTOR}.
 $$
 - This finer intermediate grid is used for profile preprocessing/interpolation before the final integration/output sampling.
 
@@ -321,8 +322,8 @@ $$
 ### Anchor placement controls
 
 - `anchor_radius_mode` (str)
-	- `fraction`: derive $r_{\rm start}$ from  $r_{\rm start}=r_{\min}+f\,(r_{\max}-r_{\min}), \qquad f=\texttt{r\_start\_frac}.$
-	- `absolute`: use $r_{\rm start}=\texttt{r\_start\_abs}$ directly.
+	- `fraction`: derive $r_{\rm start}$ from  $r_{\rm start}=r_{\min}+f\,(r_{\max}-r_{\min}), \qquad f=\texttt{r start frac}.$
+	- `absolute`: use $r_{\rm start}=\texttt{r start abs}$ directly.
 	- `none`: no user anchor request; defaults to $r_{\min}$ behavior.
 - `r_start_frac` (float in [0,1] recommended)
 	- Fraction used when `anchor_radius_mode`=`fraction`.
