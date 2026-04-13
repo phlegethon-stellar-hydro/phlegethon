@@ -135,8 +135,6 @@ Documentation can be consulted at TOFILL
 - Federico Rizzuti
 - Jonas Reichert
 - Korinna Bayer
-  
-If you have any questions about the code, please contact us at giovanni.leidi@h-its.org or alex.holas@h-its.org.
 
 ## Citation
 
