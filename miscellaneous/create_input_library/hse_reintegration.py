@@ -238,6 +238,99 @@ def tweak_enuc_profile(r, enuc, shift_dr=0.0, renorm_factor=1.0, clip_non_negati
     return enuc_modified
 
 
+def extrapolate_profiles_to_lower_radius(
+    r,
+    profiles,
+    target_rmin,
+    method="constant",
+    n_points=64,
+    poly_degree=2,
+    fit_window=128,
+):
+    """Extend profile arrays to radii smaller than the input MESA domain.
+
+    Parameters
+    ----------
+    r : array-like
+        Input radius grid in ascending order.
+    profiles : dict[str, array-like]
+        Mapping of profile names to arrays sampled on ``r``.
+    target_rmin : float
+        Requested minimum radius for the extended domain.
+    method : {'constant', 'polynomial'}
+        Extrapolation strategy for the newly prepended points.
+    n_points : int
+        Number of extrapolated points to add between ``target_rmin`` and
+        the original minimum radius.
+    poly_degree : int
+        Polynomial degree used for ``method='polynomial'``.
+    fit_window : int
+        Number of innermost original points used to fit the polynomial.
+    Returns
+    -------
+    tuple[np.ndarray, dict[str, np.ndarray], dict]
+        Extended radius grid, extended profile dictionary, and diagnostics.
+    """
+    r = np.asarray(r, dtype=float)
+    if r.ndim != 1 or r.size < 2:
+        raise ValueError("r must be a 1D array with at least 2 points")
+    if not np.all(np.diff(r) > 0.0):
+        raise ValueError("r must be strictly increasing")
+
+    r0 = float(r[0])
+    if float(target_rmin) >= r0:
+        return r.copy(), {k: np.asarray(v, dtype=float).copy() for k, v in profiles.items()}, {
+            "applied": False,
+            "method": method,
+            "original_rmin": r0,
+            "requested_rmin": float(target_rmin),
+            "new_rmin": r0,
+            "points_added": 0,
+        }
+
+    if method not in ("constant", "polynomial"):
+        raise ValueError(f"Unknown extrapolation method: {method}")
+
+    n_points = int(n_points)
+    if n_points < 2:
+        raise ValueError("n_points must be >= 2 when extrapolation is enabled")
+
+    r_extra = np.linspace(float(target_rmin), r0, n_points, endpoint=False, dtype=float)
+    r_extended = np.concatenate((r_extra, r))
+
+    extended_profiles = {}
+    for key, values in profiles.items():
+        arr = np.asarray(values, dtype=float)
+        if arr.shape != r.shape:
+            raise ValueError(f"Profile '{key}' has shape {arr.shape}, expected {r.shape}")
+
+        if method == "constant":
+            extra = np.full_like(r_extra, float(arr[0]), dtype=float)
+        else:
+            deg = int(poly_degree)
+            fit_n = min(max(int(fit_window), deg + 1), r.size)
+            x_fit = r[:fit_n] - r0
+            scale = max(float(np.max(np.abs(x_fit))), 1.0)
+            x_fit_n = x_fit / scale
+            coeff = np.polyfit(x_fit_n, arr[:fit_n], deg=min(deg, fit_n - 1))
+            x_extra_n = (r_extra - r0) / scale
+            extra = np.polyval(coeff, x_extra_n)
+
+        extended_profiles[key] = np.concatenate((extra, arr))
+
+    info = {
+        "applied": True,
+        "method": method,
+        "original_rmin": r0,
+        "requested_rmin": float(target_rmin),
+        "new_rmin": float(r_extended[0]),
+        "points_added": int(r_extra.size),
+        "poly_degree": int(poly_degree) if method == "polynomial" else None,
+        "fit_window": int(fit_window) if method == "polynomial" else None,
+    }
+    return r_extended, extended_profiles, info
+
+
 def build_run_summary(
     *,
     rmin,

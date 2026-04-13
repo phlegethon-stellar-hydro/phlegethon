@@ -114,12 +114,14 @@ These controls are meant to make notebook plotting behavior reproducible across 
 
 ### MESA pre-reintegration modifications
 
+#### Smoothing
 - `smoothing_width` (int)
 	- \> 0: smooth selected profiles before integration.
 	- <= 0: no smoothing.
 	- Number of MESA points in the smoothing window (dimensionless), not a physical length unit.
 - `smoothing_kernel` (str)
 	- box, gaussian, bump.
+
 
 - Effective smoothing width in preparation is scaled as
   $n_{\mathrm{eff}} = \texttt{smoothing\_width} \times \texttt{resize\_factor}$.
@@ -162,8 +164,25 @@ K_k = \exp\!\left(-\dfrac{1}{1-u_k^2}\right),
 u_k \in \operatorname{linspace}(-1,1,n+2).
 $$
 
+#### Extrapolation to lower radii
 
-### $\nabla_{\rm diff}$ near-zero clamp
+- `enable_mesa_inner_extrapolation` (bool)
+	- True: if `rmin` is below the minimum radius available in the loaded MESA profile, prepend extrapolated MESA points down to `rmin` before any preparation/reintegration step.
+	- False: the notebook raises an explicit error when `rmin < min(r_MESA)`.
+	- Extrapolation is applied consistently to all loaded profile fields that are inputed into the reintegration and loaded abundance species, so abundance-transition and reintegration operate on one consistent extended radial domain.
+
+- `mesa_inner_extrapolation_mode` (str)
+	- `constant`: each extrapolated point is equal to the innermost MESA value of that field.
+	- `polynomial`: fit a polynomial to innermost MESA points and evaluate it inward.
+- `mesa_inner_extrapolation_points` (int)
+	- Number of prepended radial points between `rmin` and the original MESA innermost radius.
+- `mesa_inner_extrapolation_poly_degree` (int)
+	- Polynomial degree used in `polynomial` mode.
+- `mesa_inner_extrapolation_fit_window` (int)
+	- Number of innermost original MESA points used for the polynomial fit.
+
+
+#### $\nabla_{\rm diff}$ clamping
 
 - `nabladif_zero_tol` (float or None)
 	- Applies only in `nabladif_given` mode.
