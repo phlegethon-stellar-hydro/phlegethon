@@ -1071,7 +1071,19 @@ class HSEIntegrator:
 # - generic visual-check dashboard builders and split-scale figure helpers.
 class HSEPlotter:
     # Plot context / boundaries ------------------------------------------------
-    def __init__(self, r_sol: float, rmin=None, rmax=None, rphl_min=None, rphl_max=None, r_integration_start=None):
+    def __init__(
+        self,
+        r_sol: float,
+        rmin=None,
+        rmax=None,
+        rphl_min=None,
+        rphl_max=None,
+        r_integration_start=None,
+        title_fontsize=10,
+        legend_fontsize=8,
+        label_fontsize=9,
+        axis_value_fontsize=8,
+    ):
         """Initialize plotting helper with radius normalization and optional boundaries."""
         self.r_sol = r_sol
         self.rmin = rmin
@@ -1079,6 +1091,10 @@ class HSEPlotter:
         self.rphl_min = rphl_min
         self.rphl_max = rphl_max
         self.r_integration_start = r_integration_start
+        self.title_fontsize = title_fontsize
+        self.legend_fontsize = legend_fontsize
+        self.label_fontsize = label_fontsize
+        self.axis_value_fontsize = axis_value_fontsize
         # Color-blind-friendly blue/red palette (Okabe-Ito inspired).
         self.palette = {
             "blue": "#0933C0",
@@ -1087,6 +1103,20 @@ class HSEPlotter:
             "red_dark": "#9B2226",
             "reference": "#9B2226",
         }
+
+    def _style_axis(self, ax, title=None, ylabel=None, xlabel=r"$r/R_{\odot}$"):
+        """Apply consistent title/label/tick font sizes to one axis."""
+        if title is not None:
+            ax.set_title(title, fontsize=self.title_fontsize)
+        if xlabel is not None:
+            ax.set_xlabel(xlabel, fontsize=self.label_fontsize)
+        if ylabel is not None:
+            ax.set_ylabel(ylabel, fontsize=self.label_fontsize)
+        ax.tick_params(axis="both", labelsize=self.axis_value_fontsize)
+
+    def _add_legend(self, ax):
+        """Attach legend with configured font size."""
+        ax.legend(fontsize=self.legend_fontsize)
 
     def _default_xlim(self):
         """Return default x-axis limits in units of r/R_sol."""
@@ -1187,9 +1217,7 @@ class HSEPlotter:
                 markeredgecolor=self.palette["red"],
             )
 
-        ax.set_xlabel("r/R_sol")
-        ax.set_ylabel(ylabel)
-        ax.set_title(title)
+        self._style_axis(ax, title=title, ylabel=ylabel)
 
         if xlim is None:
             xlim = self._default_xlim()
@@ -1203,7 +1231,7 @@ class HSEPlotter:
             ax.set_yscale(yscale)
 
         self._draw_boundaries(ax)
-        ax.legend()
+        self._add_legend(ax)
         return fig, ax
 
     # Single-profile plotting --------------------------------------------------
@@ -1236,9 +1264,7 @@ class HSEPlotter:
                 markeredgecolor=color,
             )
 
-        ax.set_xlabel("r/R_sol")
-        ax.set_ylabel(ylabel)
-        ax.set_title(title)
+        self._style_axis(ax, title=title, ylabel=ylabel)
 
         if xlim is None:
             xlim = self._default_xlim()
@@ -1252,7 +1278,7 @@ class HSEPlotter:
             ax.set_yscale(yscale)
 
         self._draw_boundaries(ax)
-        ax.legend()
+        self._add_legend(ax)
         return fig, ax
 
     # Multi-panel diagnostic suites -------------------------------------------
@@ -1276,9 +1302,7 @@ class HSEPlotter:
         for ax, y, name, color in panels:
             ax.plot(r / self.r_sol, y, label="MESA", color=color)
             pretty_name = flux_labels.get(name, name)
-            ax.set_title(pretty_name)
-            ax.set_xlabel("r/R_sol")
-            ax.set_ylabel(pretty_name)
+            self._style_axis(ax, title=pretty_name, ylabel=pretty_name)
             if xlim is None:
                 xlim_local = self._default_xlim()
             else:
@@ -1287,7 +1311,7 @@ class HSEPlotter:
                 ax.set_xlim(*xlim_local)
             ax.set_ylim(0, 1.1 * np.max(y))
             self._draw_boundaries(ax)
-            ax.legend()
+            self._add_legend(ax)
 
         axs[1, 1].plot(r / self.r_sol, f_conv, label=r"MESA $f_{\rm conv}$", color=self.palette["red"])
         axs[1, 1].plot(r / self.r_sol, f_rad, label=r"MESA $f_{\rm rad}$", color=self.palette["blue"])
@@ -1298,9 +1322,7 @@ class HSEPlotter:
             color=self.palette["red_dark"],
             linestyle="--",
         )
-        axs[1, 1].set_title(r"$f_{\rm conv},\ f_{\rm rad},\ f_{\rm tot}$")
-        axs[1, 1].set_xlabel("r/R_sol")
-        axs[1, 1].set_ylabel(r"$f$")
+        self._style_axis(axs[1, 1], title=r"$f_{\rm conv},\ f_{\rm rad},\ f_{\rm tot}$", ylabel=r"$f$")
         if xlim is None:
             xlim_local = self._default_xlim()
         else:
@@ -1308,7 +1330,7 @@ class HSEPlotter:
         if xlim_local is not None:
             axs[1, 1].set_xlim(*xlim_local)
         self._draw_boundaries(axs[1, 1])
-        axs[1, 1].legend()
+        self._add_legend(axs[1, 1])
 
         return fig, axs
 
@@ -1333,9 +1355,7 @@ class HSEPlotter:
 
             color = self.palette["blue"] if "v_{\\rm conv}" in title else self.palette["red"]
             ax.plot(r / self.r_sol, y_plot, label="MESA", color=color)
-            ax.set_title(title)
-            ax.set_xlabel("r/R_sol")
-            ax.set_ylabel(ylabel)
+            self._style_axis(ax, title=title, ylabel=ylabel)
 
             if xlim is None:
                 xlim_local = self._default_xlim()
@@ -1354,7 +1374,7 @@ class HSEPlotter:
                 ax.set_yscale("log")
 
             self._draw_boundaries(ax)
-            ax.legend()
+            self._add_legend(ax)
 
         return fig, axs
 
@@ -1383,53 +1403,51 @@ class HSEPlotter:
         plt.subplots_adjust(wspace=0.3, hspace=0.4)
 
         def _axis_common(ax, title, ylabel):
-            ax.set_title(title)
-            ax.set_xlabel("r/R_sol")
-            ax.set_ylabel(ylabel)
+            self._style_axis(ax, title=title, ylabel=ylabel)
             xlim = self._default_xlim()
             if xlim is not None:
                 ax.set_xlim(*xlim)
             self._draw_boundaries(ax)
-            ax.legend()
+            self._add_legend(ax)
 
         axs[0, 0].plot(r_mesa / self.r_sol, press_mesa, label="MESA", color=self.palette["blue"])
         axs[0, 0].plot(r_prepared / self.r_sol, press_prepared * np.ones_like(r_prepared),label="Prepared",color=self.palette["red"])
-        _axis_common(axs[0, 0], "Pressure prepared for integration", "P")
+        _axis_common(axs[0, 0], r"$P$ prepared for integration", r"$P$")
 
         axs[0, 1].plot(r_mesa / self.r_sol, temp_mesa, label="MESA", color=self.palette["blue"])
         if integration_mode == "t_given":
             axs[0, 1].plot(r_prepared / self.r_sol,temp_prepared(r_prepared),label="Prepared",color=self.palette["red"])
         else:
             axs[0, 1].plot(r_prepared / self.r_sol,temp_prepared * np.ones_like(r_prepared),label="Prepared",color=self.palette["red"])
-        _axis_common(axs[0, 1], "Temperature prepared for integration", "T")
+        _axis_common(axs[0, 1], r"$T$ prepared for integration", r"$T$")
 
         axs[0, 2].plot(r_mesa / self.r_sol, grav_mesa, label="MESA", color=self.palette["blue"])
         axs[0, 2].plot(r_prepared / self.r_sol, grav_prepared(r_prepared), label="Prepared", color=self.palette["red"])
-        _axis_common(axs[0, 2], "Gravity prepared for integration", "g")
+        _axis_common(axs[0, 2], r"$g$ prepared for integration", r"$g$")
 
         axs[1, 0].plot(r_mesa / self.r_sol, abar_mesa, label="MESA", color=self.palette["blue"])
         if use_non_uniform_composition:
             axs[1, 0].plot(r_prepared / self.r_sol, abar_prepared(r_prepared), label="Prepared", color=self.palette["red"])
         else:
             axs[1, 0].plot(r_prepared / self.r_sol,abar_prepared * np.ones_like(r_prepared),label="Prepared",color=self.palette["red"])
-        _axis_common(axs[1, 0], "Abar prepared for integration", "Abar")
+        _axis_common(axs[1, 0], r"$\bar{A}$ prepared for integration", r"$\bar{A}$")
 
         axs[1, 1].plot(r_mesa / self.r_sol, zbar_mesa, label="MESA", color=self.palette["blue"])
         if use_non_uniform_composition:
             axs[1, 1].plot(r_prepared / self.r_sol, zbar_prepared(r_prepared), label="Prepared", color=self.palette["red"])
         else:
             axs[1, 1].plot(r_prepared / self.r_sol, zbar_prepared * np.ones_like(r_prepared),label="Prepared", color=self.palette["red"])
-        _axis_common(axs[1, 1], "Zbar prepared for integration", "Zbar")
+        _axis_common(axs[1, 1], r"$\bar{Z}$ prepared for integration", r"$\bar{Z}$")
 
         if integration_mode == "nabladif_given" and nabladif_mesa is not None and nabladif_prepared is not None:
             axs[1, 2].plot(r_mesa / self.r_sol, nabladif_mesa, label="MESA", color=self.palette["blue"])
             axs[1, 2].plot(r_prepared / self.r_sol,nabladif_prepared(r_prepared),label="Prepared",color=self.palette["red"])
-            _axis_common(axs[1, 2], "Nabla_diff prepared for integration", "Nabla_diff")
+            _axis_common(axs[1, 2], r"$\nabla-\nabla_{\rm ad}$ prepared for integration", r"$\nabla-\nabla_{\rm ad}$")
         else:
             axs[1, 2].text(
                 0.5,
                 0.5,
-                "Nabla_diff not used in t_given mode",
+                r"$\nabla-\nabla_{\rm ad}$ not used in t_given mode",
                 horizontalalignment="center",
                 verticalalignment="center",
                 transform=axs[1, 2].transAxes,
@@ -1468,27 +1486,23 @@ class HSEPlotter:
             ax_abs = axs[i, 0]
             ax_abs.plot(rr, old_arr, label="MESA original", linewidth=2.0, color=self.palette["blue"])
             ax_abs.plot(rr,new_arr,label=f"Transitioned ({species_label})",linewidth=1.6,color=self.palette["red"])
-            ax_abs.set_title(f"{label} (absolute)")
-            ax_abs.set_xlabel("r/R_sol")
-            ax_abs.set_ylabel(label)
+            self._style_axis(ax_abs, title=f"{label} (absolute)", ylabel=label)
             xlim = self._default_xlim()
             if xlim is not None:
                 ax_abs.set_xlim(*xlim)
             self._draw_boundaries(ax_abs)
-            ax_abs.legend()
+            self._add_legend(ax_abs)
 
             ax_rel = axs[i, 1]
             denom = np.where(np.abs(old_arr) > 1e-99, old_arr, np.nan)
             rel = (new_arr - old_arr) / denom
             ax_rel.plot(rr, rel, label=r"$(new-old)/old$", linewidth=1.6, color=self.palette["red_dark"])
             ax_rel.axhline(0.0, color=self.palette["reference"], linewidth=0.8, linestyle="--")
-            ax_rel.set_title(f"{label} (relative)")
-            ax_rel.set_xlabel("r/R_sol")
-            ax_rel.set_ylabel(r"$\Delta/old$")
+            self._style_axis(ax_rel, title=f"{label} (relative)", ylabel=r"$\Delta/old$")
             if xlim is not None:
                 ax_rel.set_xlim(*xlim)
             self._draw_boundaries(ax_rel)
-            ax_rel.legend()
+            self._add_legend(ax_rel)
 
         return fig, axs
 
@@ -1507,18 +1521,17 @@ class HSEPlotter:
                 markerfacecolor=self.palette["red"],
                 markeredgecolor=self.palette["red"],
             )
-        ax.set_xlabel("r/R_sol")
-        ax.set_ylabel("delta HSE")
+        self._style_axis(ax, ylabel="delta HSE")
         xlim = self._default_xlim()
         if xlim is not None:
             ax.set_xlim(*xlim)
         ax.set_yscale("log")
         self._draw_boundaries(ax)
-        ax.legend()
+        self._add_legend(ax)
         return fig, ax
 
     # Visual-check dashboard builders -----------------------------------------
-    def plot_visual_check_multiplot(self, panels, ncols=3, figsize=(18, 28), xlim=None):
+    def plot_visual_check_multiplot(self, panels, ncols=3, figsize=(18, 28), xlim=None, show_legends=True):
         """Render a grid of comparison panels for the Visual Check section.
 
         Each item in ``panels`` is a dict with required keys:
@@ -1590,9 +1603,7 @@ class HSEPlotter:
                         markeredgecolor=self.palette["red"],
                     )
 
-            ax.set_title(title)
-            ax.set_xlabel("r/R_sol")
-            ax.set_ylabel(ylabel)
+            self._style_axis(ax, title=title, ylabel=ylabel)
 
             if xlim is None:
                 xlim_local = self._default_xlim()
@@ -1607,7 +1618,8 @@ class HSEPlotter:
                 ax.set_ylim(*ylim)
 
             self._draw_boundaries(ax)
-            ax.legend(fontsize=8)
+            if show_legends:
+                self._add_legend(ax)
 
         for j in range(n_panels, len(axs)):
             axs[j].axis("off")
@@ -1688,6 +1700,8 @@ class HSEPlotter:
         ncols=2,
         primary_figsize=(10, 21),
         secondary_figsize=(10, 36),
+        show_primary_legends=True,
+        show_secondary_legends=True,
     ):
         """Render two visual-check figures from base panel definitions.
 
@@ -1710,12 +1724,14 @@ class HSEPlotter:
             primary_panels,
             ncols=ncols,
             figsize=primary_figsize,
+            show_legends=show_primary_legends,
         )
 
         fig_secondary, axs_secondary = self.plot_visual_check_multiplot(
             secondary_panels,
             ncols=ncols,
             figsize=secondary_figsize,
+            show_legends=show_secondary_legends,
         )
 
         return (fig_primary, axs_primary), (fig_secondary, axs_secondary)

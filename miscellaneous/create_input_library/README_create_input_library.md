@@ -1,5 +1,7 @@
 # create_input_library Documentation
 
+The create_input_library serves as a tool for preparing initial conditions for Phlegethon simulations. In Phlegethon a 1D profile of the stars structure is mapped onto a multidimentional grid. Commonly the 1D hydrostatic profiles are taken from the stellar evolution code MESA, yet there is mismatch between the EOS used in MESA and in Phlegethnon. Hence, the set of scripts in this library is used for loading the MESA data, providing quick relevant diagnostics, reintegrating the hydrostatic equalibrium with an EOS consistent with Phlegethon and creating an input file in the correct format for Phlegethon.
+
 This document describes the intended workflow and key controls for the create_input_library environment:
 
 - Notebook template: create_input.ipynb
@@ -50,11 +52,11 @@ F_{\rm tot}(r)=\frac{L(r)}{4\pi r^2},
 F_{\rm conv}(r)=F_{\rm tot}(r)-F_{\rm rad}(r).
 $$
 6. Abundance transition
-	- Optional composition-transition comparison (Abar/Zbar/Ye) and species presence/missing summary prints.
+	- Optional composition-transition comparison ($\bar{A}/\bar{Z}/Y_e$) and species presence/missing summary prints.
 7. Optional $\epsilon_{\rm nuc}(r)$ tweaking
 	- Optional original-vs-modified $\epsilon_{\rm nuc}(r)$ comparison plot.
 8. Reintegration input preparation
-	- Prepared (initilization of the reintegration)-vs-original profile comparison plots (e.g., P, T, g, composition, and nabladiff when applicable).
+	- Prepared (initilization of the reintegration)-vs-original profile comparison plots (e.g., $P$, $T$, $g$, composition, and $\nabla-\nabla_{\rm ad}$ when applicable).
 9. Reintegration
 	- No dedicated new plot in this section; produces profiles consumed by summary/visual-check stages.
 10. Run summary
@@ -63,6 +65,7 @@ $$
 	- No plots (file export stage).
 12. Visual diagnostics
 	- Main post-run visual-check figures (split linear/log variants), with panel set controlled by primary_keys and mode-dependent availability.
+	- Figure 2 legend visibility can be toggled with `figure2_show_legends`.
 
 ## 3. Toggle and Switch Reference (Section: Toggles and Input Values)
 
@@ -84,7 +87,6 @@ These controls are meant to make notebook plotting behavior reproducible across 
 ### EOS and source data
 
 - `eos_mode` (list[str] or str passed to PHLEOS wrappers)
-	- Forwarded to `phleos.rhoT_given(...)` and `phleos.PT_given(...)` in both preparation/integration and EOS diagnostics.
 	- Typical component sets include combinations of `ideal`, `ions`, `radiation`, `elepos`, `coulomb`, and `pig` (depending on your EOS/table setup).
 - `mesa_path` (str)
 	- Path to source MESA profile file.
@@ -99,7 +101,7 @@ These controls are meant to make notebook plotting behavior reproducible across 
 	- Profiles requested from MESA reader.
 	- Missing fields are governed by `missing_profile_policy`.
 	- Naming summary: use exact (case-sensitive) names; resolution tries `profile_name_aliases`, then built-in aliases, then the raw name.
-	- Transform/fallback summary: canonical requests may apply unit/log/sign transforms, and some fields can be derived if missing (currently Zbar ($\bar{Z}$) from Abar*Ye ($\bar{A}Y_e$), grav from mass+rmid).
+	- Transform/fallback summary: canonical requests may apply unit/log/sign transforms, and some fields can be derived if missing (currently $\bar{Z}$ from $\bar{A}Y_e$, grav from mass+rmid).
 - `profile_name_aliases` (dict)
 	- Optional per-field source-name overrides.
 	- Useful for custom MESA column names.
@@ -124,7 +126,7 @@ These controls are meant to make notebook plotting behavior reproducible across 
 - Profiles smoothed during preparation (when `smoothing_width > 0`):
 	- Always: pressure ($P$), temperature ($T$), gravity ($g$), $\bar{A}$, $\bar{Z}$.
 	- Conditionally: density ($\rho$) only if $\texttt{use\_eos\_p0}=\mathrm{True}$.
-	- Conditionally: nabladif only in `integration_mode = nabladif_given`.
+	- Conditionally: $\nabla-\nabla_{\rm ad}$ only in `integration_mode = nabladif_given`.
 - If abundance-transition species columns are emitted (`X_species`), each species profile is outputed with the same smoothong applied as is to the other profiles.
 
 For a sampled profile $f_i = f(r_i)$, let $n =$ `smoothing_width` and $p = \lfloor n/2 \rfloor$.
@@ -161,7 +163,7 @@ u_k \in \operatorname{linspace}(-1,1,n+2).
 $$
 
 
-### Nabladif near-zero clamp
+### $\nabla_{\rm diff}$ near-zero clamp
 
 - `nabladif_zero_tol` (float or None)
 	- Applies only in `nabladif_given` mode.
@@ -175,7 +177,7 @@ Intent: build composition variables from a selected species subset (or even init
 Use this when you want a controlled reduced-species composition basis for reintegration/output.
 
 - `enable_abundance_transition` (bool)
-	- True: use selected species to reconstruct Abar/Zbar/Ye ($\bar{A}/\bar{Z}/Y_e$).
+	- True: use selected species to reconstruct $\bar{A}/\bar{Z}/Y_e$.
 	- False: skip this reconstruction step completely.
 - `abundance_target_species` (list[str])
 	- Species list used to build composition variables.
@@ -236,9 +238,9 @@ Intent: apply a controlled shift and renormalization to the MESA heating profile
 - `enable_enuc_tweaking` (bool)
 	- Enables pre-reintegration heating-profile transformation.
 - `enuc_shift_dr` (float, cm)
-	- Radius shift for eps_nuc MESA profile sampling.
+	- Radius shift for $\epsilon_{\rm nuc}$ MESA profile sampling.
 - `enuc_renorm_factor` (float)
-	- Multiplicative rescaling factor for eps_nuc MESA profile.
+	- Multiplicative rescaling factor for $\epsilon_{\rm nuc}$ MESA profile.
 - `enuc_plot_compare` (bool)
 	- Enables diagnostic comparison plot of original MESA profile vs modified profile.
 
@@ -353,6 +355,15 @@ $$
 
 ### Plot and figure controls
 
+- `plot_title_fontsize` (int)
+	- Global fontsize used for plot titles.
+- `plot_legend_fontsize` (int)
+	- Global fontsize used for legends.
+- `plot_label_fontsize` (int)
+	- Global fontsize used for axis labels ($x$/$y$ labels).
+- `plot_axis_values_fontsize` (int)
+	- Global fontsize used for axis tick values.
+
 - `rphl_min`, `rphl_max` (float, cm)
 	- Suggested Phlegethon simulation bounds; shown as blue guide lines in plots.
 - `plot_every` (int)
@@ -367,6 +378,8 @@ $$
 	- `split`: show linear and log/symlog variants side by side.
 	- `linear`: show only linear variants.
 	- `log`: show only log/symlog variants.
+- `figure2_show_legends` (bool)
+	- Controls whether legends are shown in the secondary visual-check figure (Figure 2).
 
 ## 4. Reintegration Methods and Equations
 
@@ -394,8 +407,8 @@ where $\nabla_{diff}$ corresponds to imported MESA $\nabla-\nabla_{ad}$.
 
 Supported in both:
 
-- Uniform composition (single Abar, Zbar; i.e., $\bar{A}$, $\bar{Z}$)
-- Non-uniform composition (Abar(r), Zbar(r); i.e., $\bar{A}(r)$, $\bar{Z}(r)$)
+- Uniform composition (single $\bar{A}$, $\bar{Z}$)
+- Non-uniform composition ($\bar{A}(r)$, $\bar{Z}(r)$)
 
 ### 4.3 Mode: t_given
 
@@ -408,8 +421,8 @@ $$
 
 Supported in both:
 
-- Uniform composition (single Abar, Zbar; i.e., $\bar{A}$, $\bar{Z}$)
-- Non-uniform composition (Abar(r), Zbar(r); i.e., $\bar{A}(r)$, $\bar{Z}(r)$)
+- Uniform composition (single $\bar{A}$, $\bar{Z}$)
+- Non-uniform composition ($\bar{A}(r)$, $\bar{Z}(r)$)
 
 ### 4.4 Anchor and bidirectional marching
 
@@ -436,7 +449,7 @@ Column order is controlled by `output_column_names_requested` and validated by `
 Typical available columns include:
 
 - Always: r_cm, g_cms2, phi_ergg, P_cgs, rho_cgs, T_K, kappa_cgs
-- With non-uniform composition path: Ye, inv_Abar
+- With non-uniform composition path: $Y_e$, $1/\bar{A}$
 - If `enuc_at_output=True`: enuc_erg_cm3_s
 - If abundance transition exports species: X_<species_name> for each selected species
 
@@ -526,7 +539,7 @@ If `create_input.ipynb` does not match your workflow, you can import the Python 
 - `load_mesa_profile`
 	- Loads and normalizes MESA profile data with alias resolution and canonical transforms.
 - `prepare_abundance_transition`
-	- Builds selected-species composition basis with closure enforcement and derived Abar/Zbar/Ye.
+	- Builds selected-species composition basis with closure enforcement and derived $\bar{A}/\bar{Z}/Y_e$.
 - `MesaProfileData`
 	- Structured container with metadata, raw data, resolved fields, transformed profiles, and abundance views.
 
