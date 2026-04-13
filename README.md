@@ -47,6 +47,8 @@ On MacOS, use homebrew to install the system dependencies
 brew install open-mpi gcc hdf5-mpi
 ```
 
+You will also need to enable developer mode in your OS settings.
+
 ### 3. Python environment 
 
 - We recommend installing [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html). 
