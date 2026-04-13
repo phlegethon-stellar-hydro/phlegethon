@@ -9,7 +9,7 @@ This section collects all container-based workflows for Phlegethon.
 
 Install Docker Desktop:
 
-- https://docs.docker.com/desktop/setup/install/mac-install/
+- https://docs.docker.com/desktop/setup/install/
 
 Or via Homebrew:
 
