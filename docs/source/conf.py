@@ -7,9 +7,9 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "Phlegethon"
-copyright = "2025, Giovanni Leidi"
+copyright = "2026, Giovanni Leidi"
 author = "Giovanni Leidi et al."
-release = "v2025.03"
+release = "v2026.4.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
