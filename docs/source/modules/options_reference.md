@@ -1,13 +1,7 @@
-# Setting up a test problem
+(options-reference)=
+# Compile-Time Flags and Options
 
-To set up a test problem, you need:
-- A `Makefile` with a definition of the numerical options used.
-- An application file (e.g., `app.F90`) where the initial conditions for the primitive variables `lgrid%prim(:,i,j,k)` are set at every cell center and the main time integration loop is performed.
-- Optional: a job script for running simulations on HPC clusters.
-
-# Compile-time flags and options (Makefile)
-
-Most Phlegethon configuration is done at compile time through `OPTS += ...` entries in each test `Makefile`. 
+Most Phlegethon configuration is done at compile time through `OPTS += ...` entries in each test `Makefile`.
 
 `Makefile` options are passed as:
 
@@ -19,19 +13,19 @@ OPTS += cfl_make=0.8_rp
 
 These are forwarded as preprocessor definitions when compiling `source/source.F90`.
 
-# List of options in Phlegethon
+## List of options in Phlegethon
 
 Some of the options refer to sections, equations, or tables of the instrument paper.
 
 ### 1. Paths
 | Option | Meaning |
-| --- | --- | 
+| --- | --- |
 | `SRC = ../../source`  | Path to source directory. |
 | `DATA = ../../data`   | Path to "data" directory (containing the EoS tables and nuclear data). |
 
 ### 2. Grid variables
 | Option | Meaning |
-| --- | --- | 
+| --- | --- |
 | `sdims_make=3` | Number of spatial dimensions (allowed values are `2` or `3`). |
 | `nx1_make=64`  | Global number of grid cells in the `x1` direction. |
 | `nx2_make=64`  | Global number of grid cells in the `x2` direction. |
@@ -46,9 +40,9 @@ Some of the options refer to sections, equations, or tables of the instrument pa
 
 ### 2. Grid geometry
 To set a grid geometry, you need to define one of the following options:
-  
+
 | Option | Meaning |
-| --- | --- | 
+| --- | --- |
 | `GEOMETRY_CARTESIAN_UNIFORM` | Cartesian geometry (uniform). |
 | `GEOMETRY_CARTESIAN_NONUNIFORM` | Cartesian geometry (nonuniform). |
 | `GEOMETRY_2D_POLAR` | 2D polar geometry (requires `sdims_make=2`). |
@@ -58,19 +52,19 @@ To set a grid geometry, you need to define one of the following options:
 
 For polar or spherical grids, the user can enable arbitrarily nonuniform radial grid spacing with `NONUNIFORM_RADIAL_NODES`.
 In this case, the subroutine `create_geometry` must be defined by the user in `app.F90` (see, e.g., `tests/logarithmic-grid/app.F90`)
-The same applies when non-uniform Cartesian grids are enabled with `GEOMETRY_CARTESIAN_NONUNIFORM`. 
+The same applies when non-uniform Cartesian grids are enabled with `GEOMETRY_CARTESIAN_NONUNIFORM`.
 
 For `GEOMETRY_CUBED_SPHERE`, the following parameters must be defined at compile time:
- 
+
 | Option | Meaning |
-| --- | --- | 
+| --- | --- |
 |`cs_r1_make=1.0_rp` | Maximum radius of the grid. |
 |`cs_gridexp_make=0.0_rp` | Regulates the sphericity of the grid. |
 |`cs_alpha_make=1.0_rp` | Regulates the radial stretching of the grid. |
 
 ### 3. Physics modules
 | Option | Meaning |
-| --- | --- | 
+| --- | --- |
 | `COROTATING_FRAME `| Solves the governing equations in the co-rotating frame defined by the angular frequency vector `lgrid%omega_rot(1:3)` specified in the user in `app.F90`. |
 | `USE_CONSTANT_ACCELERATION` | Applies a constant-acceleration body force to the system. In `app.F90`, the grid components of the acceleration vector must be defined in `lgrid%acc(1:sdims_make)`. |
 | `USE_MHD` | Enables ideal magnetohydrodynamics (solved with the CT-contact algorithm of [Gardiner+05](https://ui.adsabs.harvard.edu/abs/2005JCoPh.205..509G/abstract). In `app.F90`, the face-centered magnetic field components must be filled, e.g., `lgrid%b_x1(i,j,k)` etc. |
@@ -92,7 +86,7 @@ For `GEOMETRY_CUBED_SPHERE`, the following parameters must be defined at compile
 ### 4. Boundary conditions (see Table 1)
 
 | Option | Meaning |
-| --- | --- | 
+| --- | --- |
 | `X1_PERIODIC` | Periodic boundary conditions on the x1 axis. |
 | `X2_PERIODIC` | Periodic boundary conditions on the x2 axis. |
 | `X3_PERIODIC` | Periodic boundary conditions on the x3 axis. |
@@ -122,19 +116,19 @@ With reflecting boundary conditions, the option, e.g., `X1L_BFIELD_PMC` imposes 
 ### 6. Equation of state (see Sect. 2.2)
 
 - `OPTION A`:
-  
-By default, Phlegethon uses the EoS of a classical ideal gas with fixed mean molecular weight and adiabatic index, which need to be specified in `app.F90`. 
+
+By default, Phlegethon uses the EoS of a classical ideal gas with fixed mean molecular weight and adiabatic index, which need to be specified in `app.F90`.
 
 The option `USE_PRAD`, adds thermal radiation to the mixture. In `app.F90`, `lgrid%temp(i,j,k)` must be filled at every cell center to provide an initial estimate of the temperature for the `rhoP->T` and `rhoe->T` transformations appearing in the source code which are based on a Newton--Raphson root finding algorithm.
 
-If `ADVECT_SPECIES` is enabled, the mean molecular weight is computed from the mass fractions of the species assuming full ionization. 
+If `ADVECT_SPECIES` is enabled, the mean molecular weight is computed from the mass fractions of the species assuming full ionization.
 
 - `OPTION B`:
-  
-Alternatively, one can use the `Helmholtz` EoS (see [Timmes+2000]([https://cococubed.com/code_pages/eos.shtml](https://ui.adsabs.harvard.edu/abs/2000ApJS..126..501T/abstract))):
+
+Alternatively, one can use the `Helmholtz` EoS (see [Timmes+2000](https://ui.adsabs.harvard.edu/abs/2000ApJS..126..501T/abstract)):
 
 | Option | Meaning |
-| --- | --- | 
+| --- | --- |
 | `HELMHOLTZ_EOS` | Uses biquintic interpolation of the free energy to compute the electron-positron EoS contribution (tabulated). In this EoS, electrons/positrons are modeled as a non interacting mixture in an arbitrarily degenerate and relativistic Fermi gas. Additional, ions are assumed to behave like as a classical ideal gas and radiation is in thermal equilibrium. As in the mode `USE_PRAD`, `lgrid%temp(i,j,k)` must be filled in `app.F90`. The EoS also needs the `ADVECT_YE_IABAR` option or the `ADVECT_SPECIES` option. |
 | `path_to_helm_table=\"$(DATA)/helm_table_timmes_x1.dat\"` | This variable contains the path to the Helmholtz table and needs to be defined every time `HELMHOLTZ_EOS` is used. Note: in `$(DATA)` you find the nominal-resolution table (`helm_table_timmes_x1.dat`, `helm_nTxhelm_nrho=101x271`) and a double-resolution table (`helm_table_timmes_x2.dat`, `helm_nTxhelm_nrho=201x541`) downloaded from Frank Timmes' [cococubed](https://cococubed.com/code_pages/eos.shtml). |
 | `helm_nT_make=101` | Number of nodes in the temperature axis in the Helmholtz table. |
@@ -147,16 +141,16 @@ Alternatively, one can use the `Helmholtz` EoS (see [Timmes+2000]([https://cococ
 
 - `OPTION C`:
 
- Alternatively, one can use the `PIG` Eos of Vetter et al. 2026, in prep.
+Alternatively, one can use the `PIG` Eos of Vetter et al. 2026, in prep.
 
 | Option | Meaning |
-| --- | --- | 
+| --- | --- |
 | `PIG_EOS` | Computes a partially-ionized-gas EoS using biquintic interpolation of the free energy (PIG, tabulated) + thermal radiation. All ionization states of a bunch of elements and the electron number density are computed using Maxwell--Boltzmann statistics, and radiation is in thermal equilibrium with the gas. As in the mode `USE_PRAD`, `lgrid%temp(i,j,k)` must be filled in `app.F90`. |
 | `path_to_pig_table=\"$(DATA)/pig_table.dat\"` | This variable contains the path to the PIG EoS table and needs to be defined every time `PIG_EOS` is used. |
 |`pig_nT_make=101` | Number of nodes in the temperature axis in the PIG table. |
 |`pig_nrho_make=271` | Number of nodes in the density axis in the PIG table. |
 |`pig_ltlo_make=3.0_rp` | Minimum of $\mathrm{log}_{10}(T)$ in the PIG table. |
-|`pig_lthi_make=13.0_rp` | Maximum of $\mathrm{log}_{10}(T)$ in the PIG table. | 
+|`pig_lthi_make=13.0_rp` | Maximum of $\mathrm{log}_{10}(T)$ in the PIG table. |
 |`pig_ldlo_make=-12.0_rp` | Minimum of $\mathrm{log}_{10}(\rho)$ in the PIG table. |
 |`pig_ldhi_make=15.0_rp` | Maximum of $\mathrm{log}_{10}(\rho)$ in the PIG table. |
 
@@ -164,27 +158,29 @@ With `USE_PRAD`, `HELMHOLTZ_EOS`, or `PIG_EOS`, the option `USE_FASTEOS` reconst
 
 ### 7. Time Integration (see Sect. 2.9)
 
-| Option | Meaning | 
+| Option | Meaning |
 | --- | --- |
 | `VARIABLE_TIMESTEP` | CFL-based adaptive timestep (Eq. 64). If not used, the code will estimate the time step from `t=0` and hold it fixed throughout the simulation. |
 
 Choose one of the following time-marching schemes for solving the hyperbolic equations:
-| Option | Meaning | 
-| --- | --- |
-| `RK2_STEPPER` | Second-order RK time stepper of [Shu+88](https://ui.adsabs.harvard.edu/abs/1988JCoPh..77..439S/abstract). | 
-| `RK3_STEPPER` | Third-order RK time stepper of [Shu+88](https://ui.adsabs.harvard.edu/abs/1988JCoPh..77..439S/abstract). | 
 
-| Option | Meaning | 
+| Option | Meaning |
 | --- | --- |
-| `cfl_make=0.8_rp` | CFL factor | 
+| `RK2_STEPPER` | Second-order RK time stepper of [Shu+88](https://ui.adsabs.harvard.edu/abs/1988JCoPh..77..439S/abstract). |
+| `RK3_STEPPER` | Third-order RK time stepper of [Shu+88](https://ui.adsabs.harvard.edu/abs/1988JCoPh..77..439S/abstract). |
+
+| Option | Meaning |
+| --- | --- |
+| `cfl_make=0.8_rp` | CFL factor |
 
 The option `SKIP_HYDRO` will skip the hyperbolic update during the simulation.
 
 ### 8. Godunov algorithm
 
 Choose one of the following spatial reconstruction methods (see Sect. 2.5)
+
 | Option | Meaning |
-| --- | --- | 
+| --- | --- |
 | `LIM2ND_REC`| Second-order linear reconstruction with [van Leer](https://ui.adsabs.harvard.edu/abs/1997JCoPh.135..229V/abstract) slope limiting. |
 | `PPH_REC`| Unlimited parabolic reconstruction for all variables except active scalars, for which limited parabolic reconstruction is used, based on [Leidi+24](https://ui.adsabs.harvard.edu/abs/2024A%26A...686A..34L/abstract). |
 | `LIM5TH_REC`| Limited fifth-order reconstruction, based on [Leidi+24](https://ui.adsabs.harvard.edu/abs/2024A%26A...686A..34L/abstract). |
@@ -192,18 +188,20 @@ Choose one of the following spatial reconstruction methods (see Sect. 2.5)
 The option `USE_SHOCK_FLATTENING` will enable the shock-flattening procedure described in Sect. 2.7 (i.e., switch to a two-wave HLL Riemann solver and van Leer reconstruction in the presence of a shock). For this option to be used, the shock-flattening parameter needs to be defined by the user, e.g., `eps_sf_make=0.2`). This is such that the shock flattener will be activated if the relative jump in pressure at a certain cell location is larger than `eps_sf_make`.
 
 Riemann solvers (see Sect. 2.6). For hydrodynamic simulations, choose one of the following options:
+
 | Option | Meaning |
-| --- | --- | 
+| --- | --- |
 | `HLLC_FLUX`| Three-wave HLLC solver of [Toro+94](https://ui.adsabs.harvard.edu/abs/1994ShWav...4...25T/abstract). |
 | `LHLLC_FLUX`| Three-wave low-Mach HLLC solver of [Minoshima+21](https://ui.adsabs.harvard.edu/abs/2021JCoPh.44610639M/abstract). |
 
 For MHD simulations, choose one of the following
+
 | Option | Meaning |
-| --- | --- | 
+| --- | --- |
 | `HLLD_FLUX`| Five-wave HLLD solver of [Miyoshi+05](https://ui.adsabs.harvard.edu/abs/2005JCoPh.208..315M/abstract). |
 | `LHLLD_FLUX`| Five-wave low-Mach HLLD solver of [Minoshima+21](https://ui.adsabs.harvard.edu/abs/2021JCoPh.44610639M/abstract). |
 
-For `LHLL-type` solvers, a cut-off Mach number must be specified to avoid introducing too-little dissipation in quasi-static flows, e.g., `Mach_cutoff_make=1e-4_rp`. 
+For `LHLL-type` solvers, a cut-off Mach number must be specified to avoid introducing too-little dissipation in quasi-static flows, e.g., `Mach_cutoff_make=1e-4_rp`.
 
 For `LHLL-type` solvers, if both low-Mach and supersonic flows need to be captured on the same grid, the option `FLUX_IS_ALL_MACH` will switch to a `HLL-type` solver when `Mach>0.6`.
 
@@ -293,24 +291,9 @@ For `LHLL-type` solvers, if both low-Mach and supersonic flows need to be captur
 | `nprobes_make=2` | The number of point probes used in the run. |
 |`RESIZE_OUTPUT` | Performs rebinning to save a grid snapshot to the output at half the original resolution, without modifying the restart files. |
 
-
 ### 13. Precision and endianity
 
 | Option| Meaning |
 | --- | --- |
 | `USE_SINGLE_PRECISION` / `USE_DOUBLE_PRECISION` | floating-point precision mode |
 | `LITTLE_ENDIAN`  / `BIG_ENDIAN`|  endianness setting for binary I/O paths |
-
-# Reading HDF5 output in Python
-
-In a Python session (e.g., `ipython`), you can load and imshow any quantity from the ith-snapshot (here sixth) like
-```python
-from phloutput import *
-g = h5grid(6)
-g.gridshow(g.mach())
-```
-Check `python/phloutput.py` for a list of variables that can be accessed from the `h5grid` class. For 3D simulations, individual planes can be accessed with the `ix`, `iy`, and `iz` indices (by default, `h5grid` will load the full array).
-
-
-
-
