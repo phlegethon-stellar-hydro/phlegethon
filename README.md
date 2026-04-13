@@ -28,12 +28,21 @@ git clone git@github.com:phlegethon-stellar-hydro/phlegethon.git
 cd phlegethon
 ```
 
-### 2. System dependencies (Debian-based systems)
+### 2.1 System dependencies (Debian-based systems)
 
 Run the following command to install curl, an MPI-Fortran compiler, and [hdf5](https://www.hdfgroup.org/solutions/hdf5/) with parallel I/O capabilities
 
 ```bash
 sudo apt install -y curl build-essential gfortran libopenmpi-dev openmpi-bin openmpi-common libhdf5-openmpi-dev hdf5-tools
+```
+
+### 2.2 System dependencies (MacOS/ Homebrew)
+
+On MacOS, use homebrew to install the system dependencies
+
+```bash
+brew install open-mpi gcc
+brew install hdf5-mpi --with-fortan
 ```
 
 ### 3. Python environment 
