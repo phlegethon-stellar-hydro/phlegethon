@@ -3,6 +3,9 @@
   <img src="logo.svg" width="300"/>
 </p>
 
+[![DOI](https://zenodo.org/badge/19554676.svg)](https://zenodo.org/badge/latestdoi/19554676)
+[![License](https://img.shields.io/github/license/phlegethon-stellar-hydro/phlegethon)](https://github.com/phlegethon-stellar-hydro/phlegethon/blob/main/LICENSE)
+
 **PHLEGETHON** is a fully compressible, Eulerian magnetohydrodynamic (MHD) code designed for multidimensional simulations in stellar astrophysics. The code uses a time-explicit, second-order, finite-volume method optimized to model a wide range of dynamical regimes, from very low-Mach-number turbulent convection in the deep interior of stars to supersonic flows in subsurface convection zones. **PHLEGETHON** runs on CPUs and uses MPI-based parallelization via domain decomposition.
 
 ### Key numerical methods:
@@ -142,7 +145,31 @@ If you use **PHLEGETHON** in your work, please cite it using the following BibTe
 - TOFILL
 
 For reproducibility, please also cite the exact code version used, available on Zenodo. The latest version is:
-- TOFILL
+```
+@software{leidi_2026_19554676,
+  author       = {Leidi, Giovanni and
+                  Holas, Alexander and
+                  Vitovsky, Kristian and
+                  Rizzuti, Federico and
+                  Roy, Arkaprabha and
+                  Reichert, Jonas and
+                  Bayer, Korinna and
+                  Gagnier, Damien and
+                  Andrassy, Robert and
+                  Christians, Paul and
+                  Edelmann, Philipp and
+                  Varma, Vishnu and
+                  Hirschi, Raphael and
+                  Röpke, Friedrich},
+  title        = {Phlegethon},
+  month        = apr,
+  year         = 2026,
+  publisher    = {Zenodo},
+  version      = {v2026.4.1},
+  doi          = {10.5281/zenodo.19554676},
+  url          = {https://doi.org/10.5281/zenodo.19554676},
+}
+```
 
 ## License 
 
