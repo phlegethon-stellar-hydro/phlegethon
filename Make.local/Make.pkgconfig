@@ -14,7 +14,7 @@ USE_PKGCONFIG_MPI_CFLAGS ?= 0
 USE_PKGCONFIG_MPI_LIBS ?= 0
 
 # Known module names across Ubuntu/Debian, Homebrew, and other distros.
-HDF5_PKG_CANDIDATES := hdf5-openmpi hdf5-mpi hdf5_mpich hdf5-fortran hdf5_fortran hdf5-serial hdf5
+HDF5_PKG_CANDIDATES := hdf5-openmpi-fortran hdf5-openmpi_fortran hdf5-mpi-fortran hdf5-mpi_fortran hdf5_mpich_fortran hdf5-fortran hdf5_fortran hdf5-openmpi hdf5-mpi hdf5_mpich hdf5-serial
 MPI_PKG_CANDIDATES := ompi-fort ompi-f90 mpi-fort mpi openmpi
 
 HDF5_PKG :=
@@ -38,9 +38,13 @@ ifneq ($(HDF5_PKG),)
     HDF5_CFLAGS := $(shell $(PKG_CONFIG) --cflags $(HDF5_PKG) 2>/dev/null)
     HDF5_LIBS   := $(shell $(PKG_CONFIG) --libs $(HDF5_PKG) 2>/dev/null)
     HDF5_LIBDIR := $(shell $(PKG_CONFIG) --variable=libdir $(HDF5_PKG) 2>/dev/null)
+    HDF5_NEEDS_FORTRAN_LIB := $(if $(findstring hdf5_fortran,$(HDF5_LIBS)),,yes)
 
     INCLUDE = $(HDF5_CFLAGS)
     HDF5_LIB = $(HDF5_LIBS)
+    ifeq ($(HDF5_NEEDS_FORTRAN_LIB),yes)
+        HDF5_LIB += -lhdf5_fortran
+    endif
     ifneq ($(HDF5_LIBDIR),)
         LIBS += -L$(HDF5_LIBDIR)
         RPATH = -Wl,-rpath,$(HDF5_LIBDIR)
@@ -80,11 +84,14 @@ else
 endif
 
 
-FFLAGS = -O3 -fPIC -mtune=native -march=x86-64 -ftree-vectorize -funroll-loops -Wall -Wextra
-
 # Apple silicon
 UNAME_S := $(shell uname -s)
 UNAME_M := $(shell uname -m)
+
+FFLAGS = -O3 -fPIC -mtune=native -ftree-vectorize -funroll-loops -Wall -Wextra
+ifneq ($(filter x86_64 amd64,$(UNAME_M)),)
+FFLAGS += -march=x86-64
+endif
 
 ifeq ($(UNAME_S),Darwin)
 ifeq ($(UNAME_M),arm64)
@@ -128,9 +135,23 @@ endif
 endif
 
 # Common settings
-FC ?= mpifort
+# GNU Make defines FC=f77 by default. Override that default with MPI wrappers,
+# but still respect user-provided FC values from environment/command line/files.
+ifeq ($(origin FC),default)
+FC := mpifort
+endif
+ifeq ($(origin FC),undefined)
+FC := mpifort
+endif
+
 ifeq ($(shell command -v $(FC) >/dev/null 2>&1 && echo yes),)
 FC := mpif90
+endif
+ifeq ($(shell command -v $(FC) >/dev/null 2>&1 && echo yes),)
+FC := mpifort
+endif
+ifeq ($(shell command -v $(FC) >/dev/null 2>&1 && echo yes),)
+$(warning Could not find mpifort/mpif90 in PATH; using FC=$(FC))
 endif
 
 BUILD_DIR ?= obj

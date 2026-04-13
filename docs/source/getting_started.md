@@ -26,6 +26,51 @@ brew install open-mpi gcc hdf5-mpi
 
 You will also need to enable developer mode in your OS settings.
 
+## 2.3 Containerized setup (Docker, optional)
+
+You can build and run Phlegethon in a container using the repository `Dockerfile`.
+
+- Build an Ubuntu-based image (default):
+
+```bash
+docker buildx build --load -t phlegethon:ubuntu .
+```
+
+If `buildx` is not available yet, use:
+
+```bash
+docker build -t phlegethon:ubuntu .
+```
+
+- Run and compile a test problem (`make clean && make`) in the container:
+
+```bash
+docker run --rm -it phlegethon:ubuntu bash -lc 'cd tests/hotbubble && make clean && make'
+```
+
+- Build and run a test problem directly via container defaults:
+
+```bash
+docker run --rm -it -e TEST_CASE=tests/hotbubble -e MPI_RANKS=4 phlegethon:ubuntu
+```
+
+The Dockerfile is configurable for other Linux base images.
+If your base image is not Debian/Ubuntu, provide your own dependency installation command via `INSTALL_CMD`.
+
+Example (Fedora):
+
+```bash
+docker build \
+	--build-arg BASE_IMAGE=fedora:41 \
+	--build-arg INSTALL_CMD='dnf install -y gcc gcc-c++ gcc-gfortran make pkgconf-pkg-config openmpi openmpi-devel hdf5-openmpi hdf5-openmpi-devel && dnf clean all' \
+	-t phlegethon:fedora .
+```
+
+Troubleshooting:
+
+- `docker build requires 1 argument` means the build context is missing. Keep the trailing `.` (or provide another path/URL).
+- `legacy builder is deprecated` indicates Docker suggests BuildKit via buildx. Install/enable buildx and run `docker buildx build --load ...`.
+
 ## 3. Python environment
 
 - We recommend installing [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html).
