@@ -363,6 +363,10 @@ $$
 	- Global fontsize used for axis labels ($x$/$y$ labels).
 - `plot_axis_values_fontsize` (int)
 	- Global fontsize used for axis tick values.
+- `plot_xaxis_unit` (str)
+	- Sets the radius unit used on plot x-axes.
+	- `rsol`: plot radius as $r/R_{\odot}$ 
+	- `cm`: plot radius directly in cm.
 
 - `rphl_min`, `rphl_max` (float, cm)
 	- Suggested Phlegethon simulation bounds; shown as blue guide lines in plots.

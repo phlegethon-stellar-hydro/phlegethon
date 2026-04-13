@@ -1079,6 +1079,7 @@ class HSEPlotter:
         rphl_min=None,
         rphl_max=None,
         r_integration_start=None,
+        xaxis_unit="rsol",
         title_fontsize=10,
         legend_fontsize=8,
         label_fontsize=9,
@@ -1091,6 +1092,10 @@ class HSEPlotter:
         self.rphl_min = rphl_min
         self.rphl_max = rphl_max
         self.r_integration_start = r_integration_start
+        xunit = str(xaxis_unit).strip().lower()
+        if xunit not in ("rsol", "cm"):
+            raise ValueError(f"Unknown xaxis_unit: {xaxis_unit}. Expected 'rsol' or 'cm'.")
+        self.xaxis_unit = xunit
         self.title_fontsize = title_fontsize
         self.legend_fontsize = legend_fontsize
         self.label_fontsize = label_fontsize
@@ -1104,10 +1109,25 @@ class HSEPlotter:
             "reference": "#9B2226",
         }
 
-    def _style_axis(self, ax, title=None, ylabel=None, xlabel=r"$r/R_{\odot}$"):
+    def _radius_xlabel(self):
+        """Return x-axis label for the configured radius unit."""
+        if self.xaxis_unit == "cm":
+            return r"$r\ \mathrm{[cm]}$"
+        return r"$r/R_{\odot}$"
+
+    def _xcoord(self, r):
+        """Convert physical radius in cm to configured plotting x-unit."""
+        rr = np.asarray(r, dtype=float)
+        if self.xaxis_unit == "cm":
+            return rr
+        return rr / self.r_sol
+
+    def _style_axis(self, ax, title=None, ylabel=None, xlabel="auto"):
         """Apply consistent title/label/tick font sizes to one axis."""
         if title is not None:
             ax.set_title(title, fontsize=self.title_fontsize)
+        if xlabel == "auto":
+            xlabel = self._radius_xlabel()
         if xlabel is not None:
             ax.set_xlabel(xlabel, fontsize=self.label_fontsize)
         if ylabel is not None:
@@ -1119,11 +1139,11 @@ class HSEPlotter:
         ax.legend(fontsize=self.legend_fontsize)
 
     def _default_xlim(self):
-        """Return default x-axis limits in units of r/R_sol."""
+        """Return default x-axis limits in configured x-axis units."""
         if self.rmin is None or self.rmax is None:
             return None
-        rmin_n = self.rmin / self.r_sol
-        rmax_n = self.rmax / self.r_sol
+        rmin_n = float(self._xcoord(self.rmin))
+        rmax_n = float(self._xcoord(self.rmax))
         span = max(rmax_n - rmin_n, 1e-12)
         left_margin = 0.10 * span
         right_margin = 0.05 * span
@@ -1132,16 +1152,16 @@ class HSEPlotter:
     def _draw_boundaries(self, ax):
         """Draw configured radial boundary markers on a Matplotlib axis."""
         if self.rmin is not None:
-            ax.axvline(x=self.rmin / self.r_sol, color=self.palette["red"], linestyle="--", label="Reintegration rmin")
+            ax.axvline(x=self._xcoord(self.rmin), color=self.palette["red"], linestyle="--", label="Reintegration rmin")
         if self.rmax is not None:
-            ax.axvline(x=self.rmax / self.r_sol, color=self.palette["red"], linestyle="--", label="Reintegration rmax")
+            ax.axvline(x=self._xcoord(self.rmax), color=self.palette["red"], linestyle="--", label="Reintegration rmax")
         if self.rphl_min is not None:
-            ax.axvline(x=self.rphl_min / self.r_sol, color=self.palette["blue"], linestyle="--", label="Simulation rmin")
+            ax.axvline(x=self._xcoord(self.rphl_min), color=self.palette["blue"], linestyle="--", label="Simulation rmin")
         if self.rphl_max is not None:
-            ax.axvline(x=self.rphl_max / self.r_sol, color=self.palette["blue"], linestyle="--", label="Simulation rmax")
+            ax.axvline(x=self._xcoord(self.rphl_max), color=self.palette["blue"], linestyle="--", label="Simulation rmax")
         if self.r_integration_start is not None:
             ax.axvline(
-                x=self.r_integration_start / self.r_sol,
+                x=self._xcoord(self.r_integration_start),
                 color=self.palette["red_dark"],
                 linestyle=":",
                 label="Integration start",
@@ -1189,14 +1209,15 @@ class HSEPlotter:
     ):
         """Plot one MESA profile against one reintegrated profile.
 
-        Parameters use physical radii (cm) on input and are displayed as r/R_sol.
-        Optional limits/scales are forwarded directly to Matplotlib axes.
+        Parameters use physical radii (cm) on input and are displayed in the
+        configured x-axis unit (``rsol`` or ``cm``). Optional limits/scales are
+        forwarded directly to Matplotlib axes.
         """
         fig, ax = plt.subplots()
-        ax.plot(r_mesa / self.r_sol, y_mesa, label=mesa_label, linewidth=3.5, color=self.palette["blue"])
+        ax.plot(self._xcoord(r_mesa), y_mesa, label=mesa_label, linewidth=3.5, color=self.palette["blue"])
         if plot_every is not None:
             ax.plot(
-                r_mesa[::plot_every] / self.r_sol,
+                self._xcoord(r_mesa[::plot_every]),
                 y_mesa[::plot_every],
                 linestyle="None",
                 marker="|",
@@ -1205,10 +1226,10 @@ class HSEPlotter:
                 markeredgecolor=self.palette["blue"],
             )
 
-        ax.plot(r_phl / self.r_sol, y_phl, label=phl_label, linewidth=1.5, color=self.palette["red"])
+        ax.plot(self._xcoord(r_phl), y_phl, label=phl_label, linewidth=1.5, color=self.palette["red"])
         if plot_every is not None:
             ax.plot(
-                r_phl[::plot_every] / self.r_sol,
+                self._xcoord(r_phl[::plot_every]),
                 y_phl[::plot_every],
                 linestyle="None",
                 marker="|",
@@ -1252,10 +1273,10 @@ class HSEPlotter:
         if color is None:
             color = self.palette["red"]
         fig, ax = plt.subplots()
-        ax.plot(r / self.r_sol, y, label=label, linewidth=1.5, color=color)
+        ax.plot(self._xcoord(r), y, label=label, linewidth=1.5, color=color)
         if plot_every is not None:
             ax.plot(
-                r[::plot_every] / self.r_sol,
+                self._xcoord(r[::plot_every]),
                 y[::plot_every],
                 linestyle="None",
                 marker="|",
@@ -1300,7 +1321,7 @@ class HSEPlotter:
         ]
 
         for ax, y, name, color in panels:
-            ax.plot(r / self.r_sol, y, label="MESA", color=color)
+            ax.plot(self._xcoord(r), y, label="MESA", color=color)
             pretty_name = flux_labels.get(name, name)
             self._style_axis(ax, title=pretty_name, ylabel=pretty_name)
             if xlim is None:
@@ -1313,10 +1334,10 @@ class HSEPlotter:
             self._draw_boundaries(ax)
             self._add_legend(ax)
 
-        axs[1, 1].plot(r / self.r_sol, f_conv, label=r"MESA $f_{\rm conv}$", color=self.palette["red"])
-        axs[1, 1].plot(r / self.r_sol, f_rad, label=r"MESA $f_{\rm rad}$", color=self.palette["blue"])
+        axs[1, 1].plot(self._xcoord(r), f_conv, label=r"MESA $f_{\rm conv}$", color=self.palette["red"])
+        axs[1, 1].plot(self._xcoord(r), f_rad, label=r"MESA $f_{\rm rad}$", color=self.palette["blue"])
         axs[1, 1].plot(
-            r / self.r_sol,
+            self._xcoord(r),
             f_tot,
             label=r"MESA $f_{\rm tot}$",
             color=self.palette["red_dark"],
@@ -1354,7 +1375,7 @@ class HSEPlotter:
                 y_plot = np.where(np.isfinite(y_plot), y_plot, np.nan)
 
             color = self.palette["blue"] if "v_{\\rm conv}" in title else self.palette["red"]
-            ax.plot(r / self.r_sol, y_plot, label="MESA", color=color)
+            ax.plot(self._xcoord(r), y_plot, label="MESA", color=color)
             self._style_axis(ax, title=title, ylabel=ylabel)
 
             if xlim is None:
@@ -1410,38 +1431,38 @@ class HSEPlotter:
             self._draw_boundaries(ax)
             self._add_legend(ax)
 
-        axs[0, 0].plot(r_mesa / self.r_sol, press_mesa, label="MESA", color=self.palette["blue"])
-        axs[0, 0].plot(r_prepared / self.r_sol, press_prepared * np.ones_like(r_prepared),label="Prepared",color=self.palette["red"])
+        axs[0, 0].plot(self._xcoord(r_mesa), press_mesa, label="MESA", color=self.palette["blue"])
+        axs[0, 0].plot(self._xcoord(r_prepared), press_prepared * np.ones_like(r_prepared),label="Prepared",color=self.palette["red"])
         _axis_common(axs[0, 0], r"$P$ prepared for integration", r"$P$")
 
-        axs[0, 1].plot(r_mesa / self.r_sol, temp_mesa, label="MESA", color=self.palette["blue"])
+        axs[0, 1].plot(self._xcoord(r_mesa), temp_mesa, label="MESA", color=self.palette["blue"])
         if integration_mode == "t_given":
-            axs[0, 1].plot(r_prepared / self.r_sol,temp_prepared(r_prepared),label="Prepared",color=self.palette["red"])
+            axs[0, 1].plot(self._xcoord(r_prepared),temp_prepared(r_prepared),label="Prepared",color=self.palette["red"])
         else:
-            axs[0, 1].plot(r_prepared / self.r_sol,temp_prepared * np.ones_like(r_prepared),label="Prepared",color=self.palette["red"])
+            axs[0, 1].plot(self._xcoord(r_prepared),temp_prepared * np.ones_like(r_prepared),label="Prepared",color=self.palette["red"])
         _axis_common(axs[0, 1], r"$T$ prepared for integration", r"$T$")
 
-        axs[0, 2].plot(r_mesa / self.r_sol, grav_mesa, label="MESA", color=self.palette["blue"])
-        axs[0, 2].plot(r_prepared / self.r_sol, grav_prepared(r_prepared), label="Prepared", color=self.palette["red"])
+        axs[0, 2].plot(self._xcoord(r_mesa), grav_mesa, label="MESA", color=self.palette["blue"])
+        axs[0, 2].plot(self._xcoord(r_prepared), grav_prepared(r_prepared), label="Prepared", color=self.palette["red"])
         _axis_common(axs[0, 2], r"$g$ prepared for integration", r"$g$")
 
-        axs[1, 0].plot(r_mesa / self.r_sol, abar_mesa, label="MESA", color=self.palette["blue"])
+        axs[1, 0].plot(self._xcoord(r_mesa), abar_mesa, label="MESA", color=self.palette["blue"])
         if use_non_uniform_composition:
-            axs[1, 0].plot(r_prepared / self.r_sol, abar_prepared(r_prepared), label="Prepared", color=self.palette["red"])
+            axs[1, 0].plot(self._xcoord(r_prepared), abar_prepared(r_prepared), label="Prepared", color=self.palette["red"])
         else:
-            axs[1, 0].plot(r_prepared / self.r_sol,abar_prepared * np.ones_like(r_prepared),label="Prepared",color=self.palette["red"])
+            axs[1, 0].plot(self._xcoord(r_prepared),abar_prepared * np.ones_like(r_prepared),label="Prepared",color=self.palette["red"])
         _axis_common(axs[1, 0], r"$\bar{A}$ prepared for integration", r"$\bar{A}$")
 
-        axs[1, 1].plot(r_mesa / self.r_sol, zbar_mesa, label="MESA", color=self.palette["blue"])
+        axs[1, 1].plot(self._xcoord(r_mesa), zbar_mesa, label="MESA", color=self.palette["blue"])
         if use_non_uniform_composition:
-            axs[1, 1].plot(r_prepared / self.r_sol, zbar_prepared(r_prepared), label="Prepared", color=self.palette["red"])
+            axs[1, 1].plot(self._xcoord(r_prepared), zbar_prepared(r_prepared), label="Prepared", color=self.palette["red"])
         else:
-            axs[1, 1].plot(r_prepared / self.r_sol, zbar_prepared * np.ones_like(r_prepared),label="Prepared", color=self.palette["red"])
+            axs[1, 1].plot(self._xcoord(r_prepared), zbar_prepared * np.ones_like(r_prepared),label="Prepared", color=self.palette["red"])
         _axis_common(axs[1, 1], r"$\bar{Z}$ prepared for integration", r"$\bar{Z}$")
 
         if integration_mode == "nabladif_given" and nabladif_mesa is not None and nabladif_prepared is not None:
-            axs[1, 2].plot(r_mesa / self.r_sol, nabladif_mesa, label="MESA", color=self.palette["blue"])
-            axs[1, 2].plot(r_prepared / self.r_sol,nabladif_prepared(r_prepared),label="Prepared",color=self.palette["red"])
+            axs[1, 2].plot(self._xcoord(r_mesa), nabladif_mesa, label="MESA", color=self.palette["blue"])
+            axs[1, 2].plot(self._xcoord(r_prepared),nabladif_prepared(r_prepared),label="Prepared",color=self.palette["red"])
             _axis_common(axs[1, 2], r"$\nabla-\nabla_{\rm ad}$ prepared for integration", r"$\nabla-\nabla_{\rm ad}$")
         else:
             axs[1, 2].text(
@@ -1472,7 +1493,7 @@ class HSEPlotter:
         fig, axs = plt.subplots(3, 2, figsize=(12, 10))
         plt.subplots_adjust(wspace=0.30, hspace=0.40)
 
-        rr = r / self.r_sol
+        rr = self._xcoord(r)
         moments = [
             (abar_old, abar_new, r"$\bar{A}$"),
             (zbar_old, zbar_new, r"$\bar{Z}$"),
@@ -1510,10 +1531,10 @@ class HSEPlotter:
     def plot_hse_residual(self, r_hse, delta_hse, plot_every=None):
         """Plot logarithmic hydrostatic-equilibrium residual versus radius."""
         fig, ax = plt.subplots()
-        ax.plot(r_hse / self.r_sol, delta_hse, label="delta from RK4", linewidth=3.5, color=self.palette["red"])
+        ax.plot(self._xcoord(r_hse), delta_hse, label="delta from RK4", linewidth=3.5, color=self.palette["red"])
         if plot_every is not None:
             ax.plot(
-                r_hse[::plot_every] / self.r_sol,
+                self._xcoord(r_hse[::plot_every]),
                 delta_hse[::plot_every],
                 linestyle="None",
                 marker="|",
@@ -1578,10 +1599,10 @@ class HSEPlotter:
             yscale = panel.get("yscale", None)
 
             if self._has_finite_values(y_mesa):
-                ax.plot(x_mesa / self.r_sol, y_mesa, label=mesa_label, linewidth=2.5, color=self.palette["blue"])
+                ax.plot(self._xcoord(x_mesa), y_mesa, label=mesa_label, linewidth=2.5, color=self.palette["blue"])
             if plot_every is not None and self._has_finite_values(y_mesa):
                 ax.plot(
-                    x_mesa[::plot_every] / self.r_sol,
+                    self._xcoord(x_mesa[::plot_every]),
                     y_mesa[::plot_every],
                     linestyle="None",
                     marker="|",
@@ -1591,10 +1612,10 @@ class HSEPlotter:
                 )
 
             if x_phl is not None and y_phl is not None and self._has_finite_values(y_phl):
-                ax.plot(x_phl / self.r_sol, y_phl, label=phl_label, linewidth=1.5, color=self.palette["red"])
+                ax.plot(self._xcoord(x_phl), y_phl, label=phl_label, linewidth=1.5, color=self.palette["red"])
                 if plot_every is not None:
                     ax.plot(
-                        x_phl[::plot_every] / self.r_sol,
+                        self._xcoord(x_phl[::plot_every]),
                         y_phl[::plot_every],
                         linestyle="None",
                         marker="|",
