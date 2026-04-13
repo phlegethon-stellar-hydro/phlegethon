@@ -72,7 +72,7 @@ docker build -t phlegethon:ubuntu .
 ### Compile a test case in the container
 
 ```bash
-docker run --rm -it phlegethon:ubuntu bash -lc 'cd tests/hotbubble && make clean && make'
+docker run --rm -it -v "$PWD":/opt/phlegethon -w /opt/phlegethon phlegethon:ubuntu bash -lc 'cd tests/hotbubble && make clean && make'
 ```
 
 ### Build and run with container defaults
@@ -91,7 +91,7 @@ Set these environment variables at runtime:
 Example:
 
 ```bash
-docker run --rm -it -e TEST_CASE=tests/hotbubble -e MPI_RANKS=2 phlegethon:ubuntu
+docker run --rm -it -v "$PWD":/opt/phlegethon -w /opt/phlegethon -e TEST_CASE=tests/hotbubble -e MPI_RANKS=2 phlegethon:ubuntu
 ```
 
 ### Use another base image
@@ -109,6 +109,75 @@ Troubleshooting:
 
 - `docker build requires 1 argument` means the build context is missing. Keep the trailing `.` (or provide another path/URL).
 - `legacy builder is deprecated` indicates Docker suggests BuildKit via buildx. Install/enable buildx and run `docker buildx build --load ...`.
+
+### Docker Compose
+
+For iterative local development, use the repository `docker-compose.yml`:
+
+```bash
+docker compose build
+docker compose run --rm phlegethon bash -lc 'cd tests/hotbubble && make clean && make'
+docker compose run --rm phlegethon
+```
+
+Compose variables can be overridden per command:
+
+```bash
+TEST_CASE=tests/hotbubble-helmholtz MPI_RANKS=2 docker compose run --rm phlegethon
+```
+
+Switch base image by overriding build arguments:
+
+```bash
+BASE_IMAGE=fedora:41 \
+INSTALL_CMD='dnf install -y gcc gcc-c++ gcc-gfortran make pkgconf-pkg-config openmpi openmpi-devel hdf5-openmpi hdf5-openmpi-devel && dnf clean all' \
+docker compose build --no-cache
+```
+
+### Access output files and logs
+
+- For `docker run`, include `-v "$PWD":/opt/phlegethon -w /opt/phlegethon` so output files are written to the host repository.
+- For `docker compose`, outputs are already persisted by the `./:/opt/phlegethon` bind mount.
+
+Inspect outputs from host:
+
+```bash
+ls -lh tests/hotbubble
+tail -n 100 tests/hotbubble/restart_info.txt
+```
+
+### Interactive container workflows
+
+Open a shell and run arbitrary simulations:
+
+```bash
+docker run --rm -it -v "$PWD":/opt/phlegethon -w /opt/phlegethon --entrypoint bash phlegethon:ubuntu
+```
+
+or with compose:
+
+```bash
+docker compose run --rm phlegethon bash
+```
+
+Typical interactive session inside container:
+
+```bash
+cd tests/hotbubble-helmholtz
+make clean
+make
+mpirun -n 4 ./run.app
+tail -n 100 restart_info.txt
+```
+
+Detached run with log monitoring:
+
+```bash
+docker compose run -d --name phl-run phlegethon
+docker logs -f phl-run
+docker exec -it phl-run bash
+docker rm -f phl-run
+```
 
 ## Compile-time configuration
 

@@ -45,13 +45,13 @@ docker build -t phlegethon:ubuntu .
 - Run and compile a test problem (`make clean && make`) in the container:
 
 ```bash
-docker run --rm -it phlegethon:ubuntu bash -lc 'cd tests/hotbubble && make clean && make'
+docker run --rm -it -v "$PWD":/opt/phlegethon -w /opt/phlegethon phlegethon:ubuntu bash -lc 'cd tests/hotbubble && make clean && make'
 ```
 
 - Build and run a test problem directly via container defaults:
 
 ```bash
-docker run --rm -it -e TEST_CASE=tests/hotbubble -e MPI_RANKS=4 phlegethon:ubuntu
+docker run --rm -it -v "$PWD":/opt/phlegethon -w /opt/phlegethon -e TEST_CASE=tests/hotbubble -e MPI_RANKS=4 phlegethon:ubuntu
 ```
 
 The Dockerfile is configurable for other Linux base images.
@@ -70,6 +70,86 @@ Troubleshooting:
 
 - `docker build requires 1 argument` means the build context is missing. Keep the trailing `.` (or provide another path/URL).
 - `legacy builder is deprecated` indicates Docker suggests BuildKit via buildx. Install/enable buildx and run `docker buildx build --load ...`.
+
+### Docker Compose workflow
+
+Use the repository `docker-compose.yml` for repeated build/run/test cycles.
+
+- Build image with compose:
+
+```bash
+docker compose build
+```
+
+- Compile a test case:
+
+```bash
+docker compose run --rm phlegethon bash -lc 'cd tests/hotbubble && make clean && make'
+```
+
+- Build and run with compose defaults (`TEST_CASE=tests/hotbubble`, `MPI_RANKS=4`):
+
+```bash
+docker compose run --rm phlegethon
+```
+
+- Override runtime options for one command:
+
+```bash
+TEST_CASE=tests/hotbubble-helmholtz MPI_RANKS=2 docker compose run --rm phlegethon
+```
+
+- Use a different base image (example Fedora):
+
+```bash
+BASE_IMAGE=fedora:41 \
+INSTALL_CMD='dnf install -y gcc gcc-c++ gcc-gfortran make pkgconf-pkg-config openmpi openmpi-devel hdf5-openmpi hdf5-openmpi-devel && dnf clean all' \
+docker compose build --no-cache
+```
+
+### Access output files from container runs
+
+- With `docker run`, use `-v "$PWD":/opt/phlegethon -w /opt/phlegethon` so generated outputs are written to your local repository.
+- With `docker compose`, outputs are already persisted to the host because `./` is mounted into `/opt/phlegethon`.
+- Typical output inspection from host:
+
+```bash
+ls -lh tests/hotbubble-helmholtz
+tail -n 100 tests/hotbubble-helmholtz/restart_info.txt
+```
+
+### Interactive container access
+
+- Open an interactive shell with `docker run`:
+
+```bash
+docker run --rm -it -v "$PWD":/opt/phlegethon -w /opt/phlegethon --entrypoint bash phlegethon:ubuntu
+```
+
+- Open an interactive shell with compose:
+
+```bash
+docker compose run --rm phlegethon bash
+```
+
+- Example commands inside the container:
+
+```bash
+cd tests/hotbubble
+make clean
+make
+mpirun -n 2 ./run.app
+tail -n 100 restart_info.txt
+```
+
+- Run in background and inspect logs:
+
+```bash
+docker compose run -d --name phl-run phlegethon
+docker logs -f phl-run
+docker exec -it phl-run bash
+docker rm -f phl-run
+```
 
 ## 3. Python environment
 
