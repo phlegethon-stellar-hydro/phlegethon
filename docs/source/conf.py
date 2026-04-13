@@ -6,15 +6,20 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "slh-lite"
-copyright = "2025, Giovanni Leidi"
-author = "Giovanni Leidi"
-release = "v2025.03"
+project = "Phlegethon"
+copyright = "2026, Giovanni Leidi"
+author = "Giovanni Leidi et al."
+release = "v2026.4.1"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = ["myst_parser"]
+
+myst_enable_extensions = [
+    "amsmath",
+    "dollarmath",
+]
 
 templates_path = ["_templates"]
 exclude_patterns = []
@@ -31,3 +36,4 @@ source_suffix = {
 
 html_theme = "furo"
 html_static_path = ["_static"]
+html_logo = "_static/logo.svg"
