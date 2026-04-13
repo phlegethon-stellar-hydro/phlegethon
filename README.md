@@ -3,6 +3,8 @@
   <img src="logo.svg" width="300"/>
 </p>
 
+
+[![DOI](https://zenodo.org/badge/19554676.svg)](https://zenodo.org/badge/latestdoi/19554676)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19554676.svg)](https://doi.org/10.5281/zenodo.19554676)
 
 [![License](https://img.shields.io/github/license/phlegethon-stellar-hydro/phlegethon)](https://github.com/phlegethon-stellar-hydro/phlegethon/blob/main/LICENSE)
