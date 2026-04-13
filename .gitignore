@@ -3,5 +3,11 @@ build
 .DS_Store
 
 # Data that needs to get downloaded for licensing reasons
-data/helm_table_timmes_x1.dat
+data/helm_table_timmes_x2.dat
 data/jina_reaclib_default
+
+# Output files
+*h5
+run.app
+restart*
+obj
