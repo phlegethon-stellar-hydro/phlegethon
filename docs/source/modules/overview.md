@@ -36,7 +36,7 @@ If you use **PHLEGETHON** in your work, please cite it using the following BibTe
 
 For reproducibility, please also cite the exact code version used, available on Zenodo. The latest version is:
 
-```
+```bibtex
 @software{leidi_2026_19554676,
   author       = {Leidi, Giovanni and
                   Holas, Alexander and
