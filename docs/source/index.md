@@ -20,5 +20,6 @@ modules/generate_pig_table.md
 modules/overview.md
 ../../miscellaneous/create_input_library/create_input.md
 ../../miscellaneous/create_input_library/get_rprofs.md
+../../miscellaneous/create_input_library/get_spectra_plane_parallel.md
 ```
 
