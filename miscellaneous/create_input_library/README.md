@@ -4,9 +4,9 @@ The create_input_library serves as a tool for preparing initial conditions for P
 
 This document describes the intended workflow and key controls for the create_input_library environment:
 
-- Notebook template: create_input.ipynb
-- Reintegration backend: hse_reintegration.py
-- MESA reader and composition tools: mesa_minireader.py
+- Notebook template: `create_input.ipynb`
+- Reintegration backend: `hse_reintegration.py`
+- MESA reader and composition tools: `mesa_minireader.py`
 
 ## 1. Intended Workflow
 
@@ -17,8 +17,8 @@ For each project:
 
 1. Copy create_input.ipynb to a new working notebook for that project.
 2. Keep notebook pointers aimed at this library (or custom location):
-	 - hse_reintegration.py
-	 - mesa_minireader.py
+	 - `hse_reintegration.py`
+	 - `mesa_minireader.py`
 3. Load a MESA profile and experiment with preparation controls (smoothing, composition handling, anchor placement, optional abundance/enuc tweaks).
 4. Run reintegration and inspect diagnostics/plots.
 5. When satisfied, enable `output_file` and write:
@@ -183,7 +183,7 @@ $$
 - `gaussian`: Truncated Gaussian
 
 $$
-K_k = \exp\!\left(-\tfrac12 x_k^2\right),
+K_k = \exp\left(-\tfrac12 x_k^2\right),
 \qquad
 x_k \in \text{linspace}(-1,1,n).
 $$
@@ -191,7 +191,7 @@ $$
 - `bump`: Compact-support smooth bump
 
 $$
-K_k = \exp\!\left(-\dfrac{1}{1-u_k^2}\right),
+K_k = \exp\left(-\dfrac{1}{1-u_k^2}\right),
 \qquad
 u_k \in \text{linspace}(-1,1,n+2).
 $$
@@ -298,7 +298,7 @@ Intent: apply a controlled shift and renormalization to the MESA heating profile
 Applied profile modification (with interpolation on the radius grid):
 
 $$
-\epsilon_{\rm nuc}^{\rm mod}(r) = f_{\rm renorm}\,\epsilon_{\rm nuc}^{\rm orig}(r-\Delta r),
+\epsilon_{\rm nuc}^{\rm mod}(r) = f_{\rm renorm} \epsilon_{\rm nuc}^{\rm orig}(r-\Delta r),
 \qquad
 \Delta r = \texttt{enuc shift dr},
 \quad
@@ -308,7 +308,7 @@ $$
 The notebook also reports a luminosity comparison before/after tweaking over $[r_{\min}, r_{\max}]$:
 
 $$
-L_{\rm enuc}=4\pi\int_{r_{\min}}^{r_{\max}} r^2\,\dot e_{\rm nuc}(r)\,dr,
+L_{\rm enuc}=4\pi\int_{r_{\min}}^{r_{\max}} r^2 \dot e_{\rm nuc}(r)\,dr,
 $$
 
 where $\dot e_{\rm nuc}(r)$ is the volumetric heating profile used for output/diagnostics.
@@ -352,7 +352,7 @@ $$
 ### Anchor placement controls
 
 - `anchor_radius_mode` (str)
-	- `fraction`: derive $r_{\rm start}$ from  $r_{\rm start}=r_{\min}+f\,(r_{\max}-r_{\min}), \qquad f=\texttt{r start frac}.$
+	- `fraction`: derive $r_{\rm start}$ from  $r_{\rm start}=r_{\min}+f(r_{\max}-r_{\min}), \qquad f=\texttt{r start frac}.$
 	- `absolute`: use $r_{\rm start}=\texttt{r start abs}$ directly.
 	- `none`: no user anchor request; defaults to $r_{\min}$ behavior.
 - `r_start_frac` (float in [0,1] recommended)
@@ -463,7 +463,7 @@ where $\nabla_{diff}$ corresponds to imported MESA $\nabla-\nabla_{ad}$.
 Supported in both:
 
 - Uniform composition (single $\bar{A}$, $\bar{Z}$)
-- Non-uniform composition ($\bar{A}(r)$, $\bar{Z}(r)$)
+- Non-uniform composition ($\bar{A}(r)$ , $\bar{Z}(r)$)
 
 ### 5.3 Mode: t_given
 
@@ -471,13 +471,13 @@ Temperature profile $T(r)$ is prescribed from prepared/interpolated MESA profile
 The integrator advances only pressure with RK4:
 
 $$
-\frac{dP}{dr} = \rho(P, T(r), \bar{A}(r), \bar{Z}(r))\,g(r)
+\frac{dP}{dr} = \rho(P, T(r), \bar{A}(r), \bar{Z}(r)) g(r)
 $$
 
 Supported in both:
 
 - Uniform composition (single $\bar{A}$, $\bar{Z}$)
-- Non-uniform composition ($\bar{A}(r)$, $\bar{Z}(r)$)
+- Non-uniform composition (profiles $\bar{A}(r)$, $\bar{Z}$(r))
 
 ### 5.4 Anchor and bidirectional marching
 
