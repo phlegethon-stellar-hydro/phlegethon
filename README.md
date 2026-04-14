@@ -130,6 +130,16 @@ g.gridshow(g.mach())
 
 Documentation can be consulted [here](https://phlegethon-stellar-hydro.github.io/phlegethon/).
 
+Contributor guidelines are available in [Contributing](docs/source/modules/contributing.md).
+
+## Maintainers
+
+| Name | GitHub | Affiliation |
+| --- | --- | --- |
+| Giovanni Leidi | [@GioLeidi](https://github.com/GioLeidi) | Heidelberg Institute for Theoretical Studies |
+| Alexander Holas | [@AlexHls](https://github.com/AlexHls) | Heidelberg Institute for Theoretical Studies |
+| Kristián Vitovský | [@KristianVitovsky](https://github.com/KristianVitovsky) | Heidelberg Institute for Theoretical Studies |
+
 ## Authors
 
 **PHLEGETHON** was originally written by Giovanni Leidi and is continuously under active development. Current support is provided by:
@@ -172,6 +182,12 @@ For reproducibility, please also cite the exact code version used, available on 
   url          = {https://doi.org/10.5281/zenodo.19554676},
 }
 ```
+
+## Support Policy
+
+Maintainers prioritize support, bug-fix effort, and collaboration for users who contribute back to the project or properly cite Phlegethon.
+
+See the detailed policy in [Contributing](docs/source/modules/contributing.md).
 
 ## License 
 
