@@ -18,5 +18,6 @@ modules/build_and_run.md
 modules/options_reference.md
 modules/generate_pig_table.md
 modules/overview.md
+../../miscellaneous/create_input_library/create_input.md
 ```
 
