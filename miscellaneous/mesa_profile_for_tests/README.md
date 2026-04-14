@@ -1,0 +1,1 @@
+This MESA model is of a 15 $M_{\odot}$ starjust before depletion of hydrogen in the core. The set-up was taken identical to the standart tutorial for MESA  (https://docs.mesastar.org/en/25.12.1/using_mesa/running.html). It is used by some validation tests for different python scripts.
