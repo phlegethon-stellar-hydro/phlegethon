@@ -11,7 +11,7 @@ To generate a customized table for a partially-ionized-gas (PIG) EoS, you must f
 | `log10_T_max=8.0_rp` | Maximum log10 of the tabulated temperature / K | 
 | `log10_rho_min=-20.0_rp` | Minumum log10 of the tabulated density / (g cm^-3) |
 | `log10_rho_max=0.0_rp` | Maximum log10 of the tabulated density / (g cm^-3) | 
-| `thr_ne=1.0e-15_rp` | Tolerance threshold of the Secant solver that finds the root of $\sum_j(Z_{ij} n_{ij}(n_e))-n_e = 0$ |
+| `thr_ne=1.0e-15_rp` | Tolerance threshold of the Secant solver that finds the root of $\sum_i \sum_j(Z_{ij} n_{ij}(n_e))-n_e = 0$ |
 | `eps_eta=1.0e-3_rp` | Relative perturbation in a quantity "q" needed to compute its first or second derivative using a 4th-order accurate discretization method on a 5-point stencil |
 | `ddx1=12` | Number of briquettes in the density axis used for MPI parallelization |
 | `ddx2=8` | Number of briquettes in the temperature axis used for MPI parallelization |
