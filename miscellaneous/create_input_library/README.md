@@ -10,17 +10,22 @@ This document describes the intended workflow and key controls for the create_in
 
 ## 1. Intended Workflow
 
+The create_input_library only uses standard python libraries and phleos (see phleos section). That is, if you have the phleos set-up correctly the rest should work "out of the the box".
+
+
 For each project:
 
 1. Copy create_input.ipynb to a new working notebook for that project.
-2. Keep notebook pointers aimed at this library:
+2. Keep notebook pointers aimed at this library (or custom location):
 	 - hse_reintegration.py
 	 - mesa_minireader.py
 3. Load a MESA profile and experiment with preparation controls (smoothing, composition handling, anchor placement, optional abundance/enuc tweaks).
 4. Run reintegration and inspect diagnostics/plots.
-5. When satisfied, enable output_file and write:
+5. When satisfied, enable `output_file` and write:
 	 - .in file: initial conditions consumed by Phlegethon.
 	 - .npz file: provenance + diagnostics + source/final profiles used to generate the .in file.
+
+
 
 ## 2. Notebook Structure
 
@@ -68,7 +73,32 @@ $$
 	- Main post-run visual-check figures (split linear/log variants), with panel set controlled by primary_keys and mode-dependent availability.
 
 
-## 3. Toggle and Switch Reference (Section: Toggles and Input Values)
+## 3. Minimal Example (profile10 test case)
+
+If you want a fast sanity check, use the profile10 setup that is already configured in the template notebook. This MESA model is of a 15 $M_{\odot}$ starjust before depletion of hydrogen in the core. The set-up was taken identical to the standart tutorial for MESA  (https://docs.mesastar.org/en/25.12.1/using_mesa/running.html).
+
+Template defaults in `create_input.ipynb` already include:
+
+- `mesa_path = '../mesa_profile_for_tests/profile10.data'`
+- `run_reintegration = True`
+- `output_file = True`
+- `name_of_in_file = 'TESTCASE.in'`
+
+It also enebles `enable_abundance_transition` in order to recompute $\bar{A}$ with a reduced number of species.
+
+Quick-start:
+
+1. Open `miscellaneous/create_input_library/create_input.ipynb`.
+2. Keep default paths/toggles for the first run.
+3. Run all notebook cells from top to bottom.
+4. Check diagnostic plots and generated files in this directory:
+	- `TESTCASE.in`
+	- `TESTCASE.npz`
+
+This gives a minimal end-to-end example: load MESA profile10, prepare/reintegrate with the selected EOS mode, write Phlegethon-ready input.
+
+
+## 4. Toggle and Switch Reference (Section: Toggles and Input Values)
 
 ### Runtime and plotting mode
 
@@ -406,9 +436,9 @@ $$
 - `figure2_show_legends` (bool)
 	- Controls whether legends are shown in the secondary visual-check figure (Figure 2).
 
-## 4. Reintegration Methods and Equations
+## 5. Reintegration Methods and Equations
 
-### 4.1 Hydrostatic balance.
+### 5.1 Hydrostatic balance.
 
 The integration is based on
 
@@ -418,7 +448,7 @@ $$
 
 with EOS closures.
 
-### 4.2 Mode: nabladif_given
+### 5.2 Mode: nabladif_given
 
 Unknowns advanced by RK4 are pressure and temperature.
 
@@ -435,7 +465,7 @@ Supported in both:
 - Uniform composition (single $\bar{A}$, $\bar{Z}$)
 - Non-uniform composition ($\bar{A}(r)$, $\bar{Z}(r)$)
 
-### 4.3 Mode: t_given
+### 5.3 Mode: t_given
 
 Temperature profile $T(r)$ is prescribed from prepared/interpolated MESA profile.
 The integrator advances only pressure with RK4:
@@ -449,7 +479,7 @@ Supported in both:
 - Uniform composition (single $\bar{A}$, $\bar{Z}$)
 - Non-uniform composition ($\bar{A}(r)$, $\bar{Z}(r)$)
 
-### 4.4 Anchor and bidirectional marching
+### 5.4 Anchor and bidirectional marching
 
 If an anchor radius is used, the solver starts at anchor index and marches:
 
@@ -458,9 +488,9 @@ If an anchor radius is used, the solver starts at anchor index and marches:
 
 so the entire domain is filled from a physically selected starting point.
 
-## 5. Output Files
+## 6. Output Files
 
-### 5.1 .in file
+### 6.1 .in file
 
 This is the file that can be then directly use as initial conditions for Phlegethon simulations.
 
@@ -478,7 +508,7 @@ Typical available columns include:
 - If `enuc_at_output=True`: enuc_erg_cm3_s
 - If abundance transition exports species: X_<species_name> for each selected species
 
-### 5.2 .npz file
+### 6.2 .npz file
 
 The `.npz` companion stores all data needed to reproduce and audit the run later.
 
@@ -535,11 +565,11 @@ Notes on key contents:
 - `*_mesa` arrays are original source profiles from MESA.
 - `*_prepared` arrays are intermediary prepared profiles on the prepared grid.
 
-## 6. What if the template notebook is not what you are looking for? 
+## 7. What if the template notebook is not what you are looking for? 
 
 If `create_input.ipynb` does not match your workflow, you can import the Python libraries directly and build a custom script or pipeline around only the steps you need.
 
-### 6.1 Suggested importable tools from hse_reintegration.py
+### 7.1 Suggested importable tools from hse_reintegration.py
 
 - `configure_plot_backend`
 	- Optional backend setup helper for notebook-style plotting environments.
@@ -559,7 +589,7 @@ If `create_input.ipynb` does not match your workflow, you can import the Python 
 	- Helpers for bulk EOS-derived thermodynamic profile extraction.
 	- Supported named fields currently include: `P`, `e`, `dpdrho`, `dpdt`, `dEdrho`, `dEdT`, `cv`, `chiT`, `chirho`, `gamma_1`, `gamma_2`, `gamma_3`, `cp`, `nabla_ad`, `s`, `dsdrho`, `dsdt`, `delta`, `eta`, `nep`, `phi`, `sound`, `dPdA`.
 
-### 6.2 Suggested importable tools from mesa_minireader.py
+### 7.2 Suggested importable tools from mesa_minireader.py
 
 - `load_mesa_profile`
 	- Loads and normalizes MESA profile data with alias resolution and canonical transforms.
