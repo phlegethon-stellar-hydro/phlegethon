@@ -183,6 +183,12 @@ For reproducibility, please also cite the exact code version used, available on 
 }
 ```
 
+## Support Policy
+
+Maintainers prioritize support, bug-fix effort, and collaboration for users who contribute back to the project or properly cite Phlegethon.
+
+See the detailed policy in [Contributing](docs/source/modules/contributing.md).
+
 ## License 
 
 **PHLEGETHON** is released under the [AGPL-3.0 license](https://www.gnu.org/licenses/agpl-3.0.html)

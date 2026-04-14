@@ -62,6 +62,15 @@ Small and well-scoped pull requests are reviewed faster.
 
 Current maintainers are listed in the repository README.
 
+## Support policy
+
+To keep maintenance effort sustainable, maintainers will only provide support, bug-fix effort, or active collaboration for users and groups that do at least one of the following:
+
+- Contribute back to the project (for example through code, tests, documentation, or review work)
+- Properly cite Phlegethon in related scientific outputs or downstream software
+
+Requests from users that neither contribute back nor cite the project may receive limited support or no support.
+
 ## Questions
 
 If you are unsure about approach, open a draft pull request or start a discussion in an issue. Early feedback is encouraged.
