@@ -48,6 +48,34 @@ A: Check system dependencies and local build configuration.
 
 See {ref}`getting_started` for setup details and `Make.local/README.md` for machine-specific examples.
 
+### Q: macOS process is killed immediately
+
+A: If Phlegethon is started from an application that is not enabled in macOS developer settings, macOS may terminate it immediately (signal 9) without a stack trace.
+
+Typical symptoms include:
+
+Serial run:
+
+```bash
+[1]    23301 killed     ./run.app
+```
+
+Parallel run:
+
+```text
+--------------------------------------------------------------------------
+prterun noticed that process rank 1 with PID 23314 on node your-machine exited on
+signal 9 (Killed: 9).
+--------------------------------------------------------------------------
+```
+
+Fix:
+
+1. Open `System Settings` -> `Privacy & Security` -> `Developer Tools`.
+2. Enable the application you use to launch Phlegethon (for example `Terminal`, `iTerm`, or `VS Code`).
+3. Fully quit and reopen that application.
+4. Re-run `./run.app` or `mpirun -n <N> ./run.app`.
+
 ### Q: Python post-processing cannot import project modules.
 
 A: Verify environment variables and active environment.

@@ -49,6 +49,8 @@ brew install open-mpi gcc hdf5-mpi
 
 You will also need to enable developer mode in your OS settings.
 
+If runs are killed immediately without a stack trace (for example `killed ./run.app` or `signal 9 (Killed: 9)` in MPI runs), see [Troubleshooting FAQ: macOS process is killed immediately](https://phlegethon-stellar-hydro.github.io/phlegethon/modules/troubleshooting.html#q-macos-process-is-killed-immediately).
+
 ### 3. Python environment 
 
 - We recommend installing [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html). 
