@@ -62,7 +62,7 @@ ELEMENT_Z = {
 # Canonical Field Aliases
 # -----------------------------------------------------------------------------
 DEFAULT_ALIASES = {
-    "r": ["rmid", "r", "radius"],
+    "r": ["rmid", "r", "radius","logR "],
     "rho": ["logRho", "rho"],
     "grav": ["grav", "gravity"],
     "Abar": ["abar", "Abar"],
@@ -181,6 +181,9 @@ def _transform_value(requested_name, source_name, arr, raw):
 
     if requested_name == "r" and source_name == "rmid":
         return val * R_SOL
+    
+    if requested_name == "r" and source_name == "logR":
+        return 10.0 ** val * R_SOL
 
     if requested_name == "P" and source_name == "logP":
         return 10.0 ** val
