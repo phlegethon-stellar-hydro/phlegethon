@@ -53,7 +53,9 @@ Or for an EOS-only example you can use the following:
 cd miscellaneous/eos
 python test.py
 ```
-Note: `miscellaneous/eos/test.py` uses `mesa_minireader.py` and `profile1107.data`.
+The test calls the EOS fuctions and finally reproduces the MESA sound speed profile and saves the plot in `sound.png`.
+
+Note: `miscellaneous/eos/test.py` uses `miscellaneous/create_input_library/mesa_minireader.py` and `miscellaneous/mesa_profile_for_tests/profile10.data`.
 Don't forget to define the `mesa_reader_pointer` although the default should work.
 
 
