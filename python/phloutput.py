@@ -132,7 +132,8 @@ class Probe:
         for index in self.idx_probes:
           nelmts = index+1-idx_pvs
           idx_pvs = index+1
-          pp = read_data('%s/pp%d_%d.dat'%(self.dir,self.nprobe,index),nelmts)
+          pp_path = os.path.join(self.dir, 'pp%d_%d.dat'%(self.nprobe,index))
+          pp = read_data(pp_path,nelmts)
           signal.extend(pp[:,idx_var])
           t.extend(pp[:,-1])
 
@@ -191,13 +192,13 @@ class h5spj:
     NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
 
         if(mode=='n'):
-            filename = path+'spj_n{:05}.h5'.format(filename)
+            filename = os.path.join(path, 'spj_n{:05}.h5'.format(filename))
         if(mode=='i'):
             filename = spj_list(path=path)[filename][1]
         else:
           raise ValueError('Unknown mode' + str(mode),': mode must be n or i')
 
-        filename = path+filename
+        filename = os.path.join(path, filename)
         self.grid = h5py.File(filename,"r")['grid']
 
         self.time = self.grid['time'][()]
@@ -600,13 +601,13 @@ class h5plane:
     def __init__(self,filename,path='./',path_to_grids='./',mode='i',data_path=data,helm_table='helm_table_timmes_x2.dat',pig_table='401x401_pig_table_h2_offset.dat',
     NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
         if(mode=='n'):
-            filename = path+'planes_n{:05}.h5'.format(filename)
+            filename = os.path.join(path, 'planes_n{:05}.h5'.format(filename))
         if(mode=='i'):
             filename = plane_list(path=path)[filename][1]
         else:
           raise ValueError('Unknown mode' + str(mode),': mode must be n or i')
 
-        filename = path+filename
+        filename = os.path.join(path, filename)
         self.grid = h5py.File(filename,"r")['grid']
 
         self.time = self.grid['time'][()]
@@ -1199,16 +1200,16 @@ class h5grid:
     def __init__(self,filename,path='./',mode='i',data_path=data,helm_table='helm_table_timmes_x2.dat',pig_table='401x401_pig_table_h2_offset.dat',
     NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
         if(mode=='n'):
-            filename = path+'grid_n{:05}.h5'.format(filename)
+            filename = os.path.join(path, 'grid_n{:05}.h5'.format(filename))
         if(mode=='i'):
             filename = file_list(path=path)[filename][1]
         else:
           raise ValueError('Unknown mode' + str(mode),': mode must be n or i')
 
-        filename = path+filename
+        filename = os.path.join(path, filename)
         self.grid = h5py.File(filename,"r")['grid']
         
-        path0 = path+'grid_n{:05}.h5'.format(0)
+        path0 = os.path.join(path, 'grid_n{:05}.h5'.format(0))
         f0 = h5py.File(path0,"r")
         self.grid0 = f0['grid']
 
@@ -1291,8 +1292,8 @@ class h5grid:
         if(self.advect_species=='true'):
           self.i_X1 = self.i_as1 
 
-        helm_table_path = data_path + helm_table
-        pig_table_path = data_path + pig_table
+        helm_table_path = os.path.join(data_path, helm_table)
+        pig_table_path = os.path.join(data_path, pig_table)
 
         if(self.use_pig=='true'):
          table_path = pig_table_path
