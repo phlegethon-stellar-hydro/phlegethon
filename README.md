@@ -145,7 +145,7 @@ Documentation can be consulted [here](https://phlegethon-stellar-hydro.github.io
 If you use **PHLEGETHON** in your work, please cite it using the following BibTeX entry for its associated method paper:
 - TOFILL
 
-For reproducibility, please also cite the exact code version used, available on Zenodo. The latest version is:
+For reproducibility, please also cite the exact code version used, available on [Zenodo](https://zenodo.org/records/19554676). The latest version is:
 
 ```bibtex
 @software{leidi_2026_19554676,

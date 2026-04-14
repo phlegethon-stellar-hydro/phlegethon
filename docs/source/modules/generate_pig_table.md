@@ -1,3 +1,6 @@
+(generate-pig-table)=
+# Generate PIG EoS table
+
 To generate a customized table for a partially-ionized-gas (PIG) EoS, you must first specify the following options through `OPTS += ...` entries in the `Makefile` in `miscellaneous/generate_pig_table`:
 
 | Option | Meaning |
