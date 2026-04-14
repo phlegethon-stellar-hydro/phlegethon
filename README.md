@@ -130,6 +130,8 @@ g.gridshow(g.mach())
 
 Documentation can be consulted [here](https://phlegethon-stellar-hydro.github.io/phlegethon/).
 
+Contributor guidelines are available in [Contributing](docs/source/modules/contributing.md).
+
 ## Authors
 
 **PHLEGETHON** was originally written by Giovanni Leidi and is continuously under active development. Current support is provided by:
