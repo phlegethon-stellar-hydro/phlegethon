@@ -130,6 +130,8 @@ g.gridshow(g.mach())
 
 Documentation can be consulted [here](https://phlegethon-stellar-hydro.github.io/phlegethon/).
 
+For common setup/build/runtime issues, see the [Troubleshooting FAQ](https://phlegethon-stellar-hydro.github.io/phlegethon/modules/troubleshooting.html).
+
 Contributor guidelines are available in [Contributing](docs/source/modules/contributing.md).
 
 ## Maintainers
