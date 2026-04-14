@@ -1162,7 +1162,6 @@ contains
     mgrid%coords_dd(:) = 0
 
     call mpi_cart_coords(mgrid%comm_cart,mgrid%rankl,sdims,mgrid%coords_dd,ierr)
- 
     call mpi_barrier(mgrid%comm_cart,ierr)
     mgrid%wctgi = get_wtime(mgrid)
 
@@ -3334,7 +3333,9 @@ contains
        end do
      end do
 
+#ifdef ENFORCE_BARRIERS
      call mpi_barrier(mgrid%comm_cart,ip)
+#endif
 
      allocate(global_flat(1:total_size))
 
@@ -5546,7 +5547,9 @@ contains
       end do
      end do 
 
+#ifdef ENFORCE_BARRIERS
      call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
      call compute_hyperbolic_dt(mgrid,lgrid) 
 
 #ifdef SAVE_PLANES
@@ -5665,7 +5668,9 @@ contains
 #ifdef THERMAL_DIFFUSION_STS
 #ifndef EVALUATE_PARABOLIC_TIMESTEP
     if(lgrid%step==0) then
+#ifdef ENFORCE_BARRIERS
      call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
      call compute_parabolic_dt(mgrid,lgrid)
     endif
 #endif
@@ -5758,7 +5763,9 @@ contains
 
 #ifdef SAVE_SPHERICAL_PROJECTIONS
        if(lgrid%step==lgrid%spj_inextoutput) then
+#ifdef ENFORCE_BARRIERS
         call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
         call communicate_ndarray(mgrid,nvars,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim,.true.)
         call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.true.)
 #ifdef USE_MHD
@@ -5808,7 +5815,9 @@ contains
 
 #ifdef THERMAL_DIFFUSION_STS
 #ifdef EVALUATE_PARABOLIC_TIMESTEP
+#ifdef ENFORCE_BARRIERS
        call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
        call compute_parabolic_dt(mgrid,lgrid) 
 #endif 
        call thermal_diffusion_step(mgrid,lgrid,1)
@@ -5845,7 +5854,9 @@ contains
        lgrid%time = lgrid%time + lgrid%dt
 
 #ifdef VARIABLE_TIMESTEP
+#ifdef ENFORCE_BARRIERS
        call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
        call compute_hyperbolic_dt(mgrid,lgrid)
 #endif
 
@@ -5898,7 +5909,9 @@ contains
 
 #ifdef SAVE_SPHERICAL_PROJECTIONS
     if((lgrid%step==lgrid%spj_inextoutput) .or. (lgrid%time>=tmax) .or. (lgrid%step==stepmax)) then
+#ifdef ENFORCE_BARRIERS
       call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
       call communicate_ndarray(mgrid,nvars,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim,.true.)
       call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.true.)
 #ifdef USE_MHD
@@ -5933,7 +5946,6 @@ contains
     end if
 
 #endif
-
     call mpi_barrier(mgrid%comm_cart,ierr)
     call write_restart(mgrid,lgrid)
 
@@ -6293,7 +6305,9 @@ contains
 #endif
 #endif
 
+#ifdef ENFORCE_BARRIERS
      call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
      call communicate_ndarray(mgrid,nvars,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim,communicate_corners)
 #ifdef USE_MHD
      call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%b_cc,communicate_corners)
@@ -10427,8 +10441,9 @@ contains
      a3rk = rk_coeff(irk,3)*lgrid%dt
 
 #ifdef USE_MHD
-
+#ifdef ENFORCE_BARRIERS
      call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
      call communicate_ndarray(mgrid,3,lx1,ux1+1,lx2,ux2,lx3,ux3,1,lgrid%emf_x1,.false.)
      call communicate_ndarray(mgrid,3,lx1,ux1,lx2,ux2+1,lx3,ux3,1,lgrid%emf_x2,.false.)
 #if sdims_make==3
@@ -16623,8 +16638,9 @@ contains
    end do
 
 #endif
-
+#ifdef ENFORCE_BARRIERS
   call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
   call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%phi_cc,.false.)
 
   c2z = rp0
@@ -16782,8 +16798,9 @@ contains
   iter = 0
 
   do while(res_L2_comm(1) > gs_tol)
-
+#ifdef ENFORCE_BARRIERS
     call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
     call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,1,lgrid%p,.false.)
 
     do k=lx3,ux3
@@ -16893,8 +16910,9 @@ contains
       end do
      end do
     end do
-
+#ifdef ENFORCE_BARRIERS
     call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
     call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,1,lgrid%s,.false.)
  
     do k=lx3,ux3
@@ -17076,8 +17094,9 @@ contains
     if(mod(lgrid%step,info_terminal_rate)==0) write(*,'(" >> gs: niter=",I8.8," | L2=",E9.3)') &
     iter, res_L2_comm(1)
   endif
-
+#ifdef ENFORCE_BARRIERS
   call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
   call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%phi_cc,.false.)
 
   do k=lx3,ux3
@@ -17668,8 +17687,9 @@ contains
   endif
 
 #endif
-
+#ifdef ENFORCE_BARRIERS
   call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
   call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%phi_cc,.false.)
   call fill_ghost_potential(mgrid,lgrid)
  
@@ -17793,8 +17813,9 @@ contains
   iter = 0
 
   do while(res_L2_comm(1) > gs_tol)
-
+#ifdef ENFORCE_BARRIERS
     call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
     call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,1,lgrid%p,.false.)
     
     if(mgrid%coords_dd(1)==0) then
@@ -17921,8 +17942,9 @@ contains
       end do
      end do
     end do
-
+#ifdef ENFORCE_BARRIERS
     call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
     call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,1,lgrid%s,.false.)
     
     if(mgrid%coords_dd(1)==0) then
@@ -18121,8 +18143,9 @@ contains
     if(mod(lgrid%step,info_terminal_rate)==0) write(*,'(" >> gs: niter=",I8.8," | L2=",E9.3)') &
     iter, res_L2_comm(1)
   endif
-
+#ifdef ENFORCE_BARRIERS
   call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
   call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%phi_cc,.false.)
   call fill_ghost_potential(mgrid,lgrid)
 
@@ -18792,6 +18815,8 @@ contains
   real(kind=rp) :: T2,T3,T4
   integer :: ierr
 
+  ierr = 0
+
   gm = lgrid%gm
   gmm1 = gm-rp1
   mu = lgrid%mu
@@ -18929,8 +18954,9 @@ contains
     end do
    end do
   end do
-
+#ifdef ENFORCE_BARRIERS
   call mpi_barrier(mgrid%comm_cart,ierr) 
+#endif
   call communicate_ndarray(mgrid,nvars,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim,.false.)
   call bcs_thermal_diffusion(mgrid,lgrid)
   call residuals_thermal_diffusion(mgrid,lgrid)
@@ -19668,6 +19694,8 @@ contains
   integer :: lx1,ux1,lx2,ux2,lx3,ux3
   integer :: ierr
   
+  ierr = 0
+
   i=0
   j=0
   k=0
@@ -19678,8 +19706,9 @@ contains
   ux2 = mgrid%i2(2)
   lx3 = mgrid%i1(3)
   ux3 = mgrid%i2(3)
-
+#ifdef ENFORCE_BARRIERS
   call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
   call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.false.)
 
 #ifndef USE_INTERNAL_BOUNDARIES
