@@ -1,3 +1,4 @@
+(get-rprofs)=
 # get_rprofs
 
 Utilities in this directory extract Reynolds-averaged radial profiles from PHLEGETHON snapshot files (`grid_nXXXXX.h5`).

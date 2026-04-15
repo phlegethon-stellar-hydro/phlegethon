@@ -1,3 +1,4 @@
+(create-input)=
 # create_input_library Documentation
 
 The create_input_library serves as a tool for preparing initial conditions for Phlegethon simulations. In Phlegethon a 1D profile of the stars structure is mapped onto a multidimentional grid. Commonly the 1D hydrostatic profiles are taken from the stellar evolution code MESA, yet there is mismatch between the EOS used in MESA and in Phlegethnon. Hence, the set of scripts in this library is used for loading the MESA data, providing quick relevant diagnostics, reintegrating the hydrostatic equalibrium with an EOS consistent with Phlegethon and creating an input file in the correct format for Phlegethon.
