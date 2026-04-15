@@ -20,7 +20,7 @@ To do so, the following quantities must be defined:
   - path_to_data: path to the $(DATA) repository which contains nuclear reaction tables, partition functions, weak rates, etc.
   - full_output: if "True", in addition to the list of selected reactions, 
     the program prints some more information on the reactions themselves: their Q value in MeV, whether the reaction is a reverse one, and the timescale of the reaction in seconds
-  - use_weak_rates=True/False: if "True", the program uses the reaction rates for weak reactions from the Langanke-Marinez-Pinedo table instead of the Jina Reaclib.
+  - use_weak_rates=True/False: if "True", the program uses the reaction rates for weak reactions from the Langanke-Martinez-Pinedo table instead of the Jina Reaclib.
   - jina_reaclib_file: name of the jina reaclib file (to be stored in "path_to_data")
 
   Below is one example for the hot-CNO cycle
