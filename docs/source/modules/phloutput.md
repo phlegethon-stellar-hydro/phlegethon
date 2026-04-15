@@ -29,7 +29,8 @@ If `PHLEGETHONDATA` is not set, `phloutput.py` falls back to `../../data/`.
 
 ## Quick start
 
-This section focuses on the most commonly used workflow: initialize a snapshot, inspect basic fields, plot a 2D slice with `gridshow`, and make a radial profile with `radialshow`.
+This section focuses on the most commonly used workflow: initialize a snapshot, inspect basic fields, plot a 2D slice with `gridshow`, make a radial profile with `radialshow`, and quickly inspect plane/spherical-projection outputs.
+Unless noted otherwise, the examples below assume an interactive Python environment (IPython/Jupyter).
 
 ### 1. Initialize one snapshot (`h5grid`)
 
@@ -42,13 +43,15 @@ from phloutput import h5grid
 path = "./"
 
 # mode='i' means: index into the sorted file list (0 = first snapshot)
-grid = h5grid(0, path=path, mode='i')
+grid = h5grid(25, path=path, mode='i')
 
 print("time [s] =", grid.time)
 print("step     =", grid.step)
 print("geometry =", grid.geometry)
 print("dims     =", grid.nx1, grid.nx2, grid.nx3)
 ```
+If you are already in the directory where the snapshots are located, you can use defaults and run just: `grid = h5grid(25)`.
+Note that snapshot `0` must always be present, because it contains static data that is not saved in later snapshots.
 
 ### 2. Get basic physical fields
 
@@ -65,31 +68,25 @@ mach = grid.mach()    # |v| / cs
 For 3D runs, select a plane with one fixed index (`ix`, `iy`, or `iz`).
 
 ```python
-rho_xy = grid.rho(iz=0)
-
-fig, ax = grid.gridshow(
-    rho_xy,
+grid.gridshow(
+    grid.rho(iz=0),
     cmap='magma',
     norm=LogNorm(),
     cb_lbl=r'$\rho\ [\mathrm{g\ cm^{-3}}]$',
-    coords_in_Rsun=True,
-)
-
-fig.savefig("rho_xy.png", dpi=300)
+    coords_in_Rsun=True)
 ```
+Dependent on your set-up, you might then have to `show()`. For a minimal call with defaults you can use simply: `grid.gridshow(grid.rho(iz=0))`
 
 ### 4. Radial profile with `radialshow`
 
 ```python
-fig, ax = grid.radialshow(
+grid.radialshow(
     grid.rho(),
     y_lbl=r'$\rho\ [\mathrm{g\ cm^{-3}}]$',
     coords_in_Rsun=True,
 )
-
-fig.savefig("rho_radial.png", dpi=300)
 ```
-
+Again, you might then have to `show()`. For a minimal call with defaults you can use simply: `grid.radialshow(grid.rho(iz=0))`
 If you want the profile values directly:
 
 ```python
@@ -102,9 +99,7 @@ rho_profile = grid.radial_profile(grid.rho())
 Use `timeprof` to evaluate one expression for multiple outputs.
 
 ```python
-from phloutput import timeprof
-
-# Expression is evaluated in h5grid context (use self.<method>())
+# Expression is evaluated in h5grid context
 t, max_mach = timeprof(
     "np.max(self.mach())",
     i1=0,
@@ -113,6 +108,24 @@ t, max_mach = timeprof(
     path=path,
 )
 ```
+
+### 6. Quick look at planes and spherical projections
+
+If your run writes `planes_nXXXXX.h5`, use `h5plane`:
+
+```python
+pl = h5plane(0, path=path, path_to_grids=path, mode='i')
+pl.planeshow(pl.rho(iz=0))
+```
+
+If your run writes `spj_nXXXXX.h5`, use `h5spj`:
+
+```python
+spj = h5spj(0, path=path, path_to_grids=path, mode='i')
+spj.mollweide(spj.rho(ir=0), cmap='viridis', cb_lbl=r'$\rho$')
+```
+
+For both classes, `path_to_grids` should point to a directory containing  also `grid_n00000.h5`.
 
 ## Core concepts
 
@@ -219,13 +232,17 @@ grid = h5grid(
 Typical use:
 
 ```python
+import matplotlib.pyplot as plt
 from phloutput import h5plane
 
 pl = h5plane(0, path="./", path_to_grids="./", mode='i')
 
 rho_plane = pl.rho(iz=0)
 fig, ax = pl.planeshow(rho_plane, cb_lbl=r'$\rho$')
-fig.savefig("rho_plane.png", dpi=300)
+plt.show()
+
+# Optional:
+# fig.savefig("rho_plane.png", dpi=300)
 ```
 
 Notes:
@@ -256,9 +273,11 @@ spj.mollweide(
     np.log10(rho_shell),
     cb_lbl=r'$\log_{10}(\rho)$',
     cmap='viridis',
-    showfig=False,
-    figname='rho_mollweide.png',
+    showfig=True,
 )
+
+# Optional:
+# spj.mollweide(..., showfig=False, figname='rho_mollweide.png')
 ```
 
 Main capabilities:
@@ -301,6 +320,7 @@ probe.power_spectrum(
 ## Minimal quick reference
 
 ```python
+import matplotlib.pyplot as plt
 from phloutput import h5grid
 
 g = h5grid(0, path="./", mode='i')
@@ -314,6 +334,9 @@ M = g.mach(iz=0)
 fig1, ax1 = g.gridshow(rho, cmap='magma', cb_lbl=r'$\rho$')
 fig2, ax2 = g.radialshow(g.rho(), y_lbl=r'$\rho$')
 
-fig1.savefig("rho_map.png", dpi=300)
-fig2.savefig("rho_radial.png", dpi=300)
+plt.show()
+
+# Optional:
+# fig1.savefig("rho_map.png", dpi=300)
+# fig2.savefig("rho_radial.png", dpi=300)
 ```
