@@ -18,9 +18,9 @@ modules/build_and_run.md
 modules/options_reference.md
 modules/generate_pig_table.md
 modules/overview.md
-../../miscellaneous/create_input_library/create_input.md
-../../miscellaneous/get_rprofs/get_rprofs.md
-../../miscellaneous/get_spectra_plane_parallel/get_spectra_plane_parallel.md
-../../miscellaneous/create_network/create_network.md
+modules/create_input.md
+modules/get_rprofs.md
+modules/get_spectra_plane_parallel.md
+modules/create_network.md
 ```
 
