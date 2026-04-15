@@ -20,5 +20,9 @@ modules/build_and_run.md
 modules/options_reference.md
 modules/generate_pig_table.md
 modules/overview.md
+modules/create_input.md
+modules/get_rprofs.md
+modules/get_spectra_plane_parallel.md
+modules/create_network.md
 ```
 

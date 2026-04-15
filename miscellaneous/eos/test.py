@@ -1,5 +1,6 @@
 from phleos import *
 from phloutput import *
+import importlib.util
 
 #table parameters
 NRHO = 541
@@ -24,23 +25,26 @@ eos_mode = ['ions','radiation','elepos','coulomb']
 #--------------------------------------------------------------------------------------------
 
 #load a test MESA model
-import mesa_reader as mr
-mesa_data = './profile1107.data'
-names = np.loadtxt(mesa_data,skiprows=5, max_rows=1,dtype=str)
-varss = np.loadtxt(mesa_data,skiprows=6)
+# Load local minimal MESA reader module
+mesa_reader_pointer = '../create_input_library/mesa_minireader.py'
+spec_mesa = importlib.util.spec_from_file_location('mesa_minireader', mesa_reader_pointer)
+mesa_reader = importlib.util.module_from_spec(spec_mesa)
+spec_mesa.loader.exec_module(mesa_reader)
 
-mesa = {}
-for i,name in enumerate(names):
-  mesa[name] = varss[::-1,i]
-mesa['rmid'] *= CONST_RSUN
+mesa_data = '../mesa_profile_for_tests/profile10.data'
+mesa = mesa_reader.load_mesa_profile(
+  filename=mesa_data,
+  profile_names=['r', 'rho', 'Abar', 'Zbar', 'P', 'T', 's', 'sound'],
+  reverse_radius_order=True,
+)
 
-rho = 10**mesa['logRho']
-T = 10**mesa['logT']
-abar = mesa['abar']
-zbar = mesa['zbar']
+rho = mesa['rho']
+T = mesa['T']
+abar = mesa['Abar']
+zbar = mesa['Zbar']
 ye = zbar/abar
-P = 10**mesa['logP']
-s = mesa['entropy']*CONST_RGAS
+P = mesa['P']
+s = mesa['s']*CONST_RGAS
 
 #EOS CALLS
 #--------------------------------------------------------------------------------------------
@@ -74,8 +78,8 @@ aW = 0.2
 fig,axs,ex,px,py = generate_grid_free(nx,ny,deltax,deltay,dx,dy,aE,aW,aS,aN,single_column=True)
 print('px:',px)
 
-r = mesa['rmid']
-axs.loglog(r,mesa['csound'],label=r'$\texttt{MESA}$',c='red')
+r = mesa['r']
+axs.loglog(r,mesa['sound'],label=r'$\texttt{MESA}$',c='red')
 axs.loglog(r,full_eos1[id_sound],c='black',ls=':',label=r'$\texttt{PHLEGETHON}$',lw=2)
 axs.set_ylabel(r'$c_\mathrm{sound}\ [\mathrm{cm\ s^{-1}}]$')
 axs.set_xlabel(r'$r\ [\mathrm{cm}]$')
