@@ -30,9 +30,18 @@ Documentation can be consulted [here](https://phlegethon-stellar-hydro.github.io
 
 ## Citation
 
-If you use **PHLEGETHON** in your work, please cite it using the following BibTeX entry for its associated method paper:
-
-- TOFILL
+If you use **PHLEGETHON** in your work, please cite it using the following BibTeX entry for its [associated method paper](https://arxiv.org/abs/2604.12672):
+```bibtex
+@misc{leidi2026phlegethon,
+      title={Phlegethon: a fully compressible magnetohydrodynamic code for simulations in stellar astrophysics}, 
+      author={G. Leidi and A. Holas and K. Vitovsky and F. Rizzuti and A. Roy and J. Reichert and K. Bayer and D. Gagnier and R. Andrassy and P. Christians and P. V. F. Edelmann and V. Varma and R. Hirschi and F. K. Röpke},
+      year={2026},
+      eprint={2604.12672},
+      archivePrefix={arXiv},
+      primaryClass={astro-ph.SR},
+      url={https://arxiv.org/abs/2604.12672}, 
+}
+```
 
 For reproducibility, please also cite the exact code version used, available on Zenodo. The latest version is:
 
