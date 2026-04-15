@@ -138,12 +138,12 @@ Many methods accept `ix`, `iy`, `iz`:
 - `iz>=0`: plane at constant `x3` index,
 - all negative (default): return full volume.
 
-For 2D simulations (`sdims==2`), the internal logic forces a single plane.
+For 2D simulations (`sdims==2`), the internal logic forces a single plane. The meaning of each index depends on the geometry.
 
-### EOS-aware derived quantities
+### EOS derived quantities
 
 Methods like `sound`, `cp`, `cv`, `nabla_ad`, `gamma1`, `s`, `delta`, `phi` call the EOS through `phleos`.
-So thermodynamic outputs are consistent with the run setup (ideal/radiation/Helmholtz/PIG depending on metadata).
+So thermodynamic outputs are consistent with the run setup (ideal/radiation/Helmholtz/PIG depending on metadata saved in the 0th snapshot).
 
 ## Comprehensive overview
 
@@ -164,7 +164,7 @@ Constructor (main options):
 
 ```python
 grid = h5grid(
-    0,
+    12,
     path="./",
     mode='i',
     data_path="../../data/",
@@ -175,55 +175,59 @@ grid = h5grid(
 
 ### Metadata and geometry
 
-- Scalar metadata: `time`, `dt`, `step`, `nx1`, `nx2`, `nx3`, `sdims`, `geometry`.
-- Geometry arrays:
-  - `coords(ix, iy, iz)`
-  - `r(ix, iy, iz)`
-  - `vol(ix, iy, iz)`
+- Attributes (no function call): `time`, `dt`, `step`, `nx1`, `nx2`, `nx3`, `sdims`, `geometry`.
+- Geometry methods (call with parentheses):
+  - `coords(ix=-1, iy=-1, iz=-1)`
+  - `r()`
+  - `vol()`
+
+### Methods
+
+ In grouped method lists below, the first method shows the full signature; methods shown as `method()` use the same `ix/iy/iz` defaults unless noted otherwise.
 
 ### Primitive and composition fields
 
 - Hydrodynamics/MHD primitives:
-  - `rho`, `vel`, `P`, `T`, `asc`, `X_species`, `bfield`
+  - `rho(ix=-1, iy=-1, iz=-1)`, `vel()`, `P()`, `T()`, `asc()`, `X_species()`, `bfield()`
 - Composition and mixture quantities:
-  - `ye`, `abar`, `zbar`, `mu`
+  - `ye(ix=-1, iy=-1, iz=-1)`, `abar()`, `zbar()`, `mu()`
 
 ### Derived flow and magnetic diagnostics
 
 - Flow kinematics:
-  - `mom`, `abs_vel`, `vr`, `vh`, `ekin`
+  - `mom(ix=-1, iy=-1, iz=-1)`, `abs_vel()`, `vr()`, `vh()`, `ekin()`
 - Magnetic diagnostics:
-  - `emag`, `abs_bfield`, `br`, `bh`
+  - `emag(ix=-1, iy=-1, iz=-1)`, `abs_bfield()`, `br()`, `bh()`
 
 ### Thermodynamics and stability (EOS-based)
 
 - Thermodynamics:
-  - `eint`, `enthalpy`, `etot`, `sound`, `mach`, `mach_vec`
-  - `cp`, `cv`, `s`, `nabla_ad`, `delta`, `phi`
-  - `gamma1`, `gamma2`, `gamma3`
+  - `eint(ix=-1, iy=-1, iz=-1)`, `enthalpy()`, `etot()`, `sound()`, `mach()`, `mach_vec()`
+  - `cp(ix=-1, iy=-1, iz=-1)`, `cv()`, `s()`, `nabla_ad()`, `delta()`, `phi()`
+  - `gamma1(ix=-1, iy=-1, iz=-1)`, `gamma2()`, `gamma3()`
 - Gradients/stability:
-  - `grad_r`, `nabla`, `nabla_mu`, `ledoux_stability`, `bvf2`, `bvf`
+  - `grad_r(data, ix=-1, iy=-1, iz=-1)`: radial derivative of an input field, evaluated consistently with the active geometry.
+  - `nabla(ix=-1, iy=-1, iz=-1)`, `nabla_mu()`, `ledoux_stability(relative=True, ix=-1, iy=-1, iz=-1)`, `bvf2()`, `bvf()`
 
 ### Gravity and nuclear-network quantities
 
 - Gravity:
-  - `grav`, `phipot`, `epot`
+  - `grav(ix=-1, iy=-1, iz=-1)`, `phipot()`, `epot()`
 - Nuclear diagnostics:
-  - `edot_reacs`, `dXdt_reacs`, `dXdt`, `edot_nuc`, `neuloss`
+  - `edot_reacs(ix=-1, iy=-1, iz=-1)`, `dXdt_reacs()`, `dXdt()`, `edot_nuc()`, `neuloss()`
 
 ### Profiles and utility methods
 
 - Profiles/axes:
-  - `radial_profile`, `r2raxis`, `r2maxis`
-- Data layout helpers:
-  - `vec3d`, `vec4d`, `vec5d`
-- Expression helper:
-  - `evaluate_expression(expr)`
+  - `radial_profile(quant, ib_bins=None, slices=False, s1=-1, s2=-1, s3=-1)`: angle-averaged (or shell-binned) radial profile of a field.
+  - `r2raxis()`: radius axis corresponding to radial-profile outputs.
+  - `r2maxis()`: cumulative mass axis inferred from radius and radial density profile.
+
 
 ### Plotting methods in `h5grid`
 
-- `gridshow(...)`: 2D field map for a selected slice.
-- `radialshow(...)`: radial profile plot.
+- `gridshow(out, ichx=ichx_g, ichy=ichy_g, figdpi=500, figname=None, show_cb=True, x_lbl=None, y_lbl=None, cb_lbl='', cb_pad=0.05, cb_size=cb_size_g, cb_pos='right', time_in_days=True, coords_in_Rsun=True, showfig=True, Rstar=-1, use_latex=False, fontsize=fontsize, **kwargs)`: plot a 2D map of the input slice field `out`.
+- `radialshow(quant, ib_bins=None, slices=False, s1=-1, s2=-1, s3=-1, figdpi=500, figname=None, x_lbl=r'$r$', y_lbl='$q$', time_in_days=True, coords_in_Rsun=True, showfig=True, use_latex=False, fontsize=fontsize, ichx=ichx_g, ichy=ichy_g, **kwargs)`: compute and plot a radial profile from `quant`.
 
 ### 3. `h5plane`: reader for pre-extracted planes
 
