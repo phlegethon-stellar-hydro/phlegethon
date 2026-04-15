@@ -4,7 +4,7 @@ This directory provides a Python utility that generates nuclear-network Fortran 
 
 Files:
 
-- `create_network.py`: selects reaction rates from JINA REACLIB (and optionally Langanke-Marinez-Pinedo weak tables) for user-defined thermodynamic conditions and writes Fortran code blocks to the target setup file.
+- `create_network.py`: selects reaction rates from JINA REACLIB (and optionally Langanke-Martinez-Pinedo weak tables) for user-defined thermodynamic conditions and writes Fortran code blocks to the target setup file.
 
 ## What the Script Does
 
