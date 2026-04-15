@@ -26,6 +26,8 @@ brew install open-mpi gcc hdf5-mpi
 
 You will also need to enable developer mode in your OS settings.
 
+If runs are killed immediately without a stack trace (for example `killed ./run.app` or `signal 9 (Killed: 9)` in MPI runs), see [Troubleshooting FAQ: macOS process is killed immediately](modules/troubleshooting.md#q-macos-process-is-killed-immediately).
+
 ## 2.3 Containerized setup (Docker, optional)
 
 For all container workflows (Docker installation, image build, Compose, Jupyter, output access, and interactive sessions), see {ref}`docker-workflow`.

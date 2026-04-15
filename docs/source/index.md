@@ -13,6 +13,8 @@
 :maxdepth: 2
 
 getting_started
+modules/troubleshooting.md
+modules/contributing.md
 modules/docker_workflow.md
 modules/build_and_run.md
 modules/options_reference.md

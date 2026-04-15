@@ -6,7 +6,7 @@
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19554676.svg)](https://doi.org/10.5281/zenodo.19554676)
 [![License](https://img.shields.io/github/license/phlegethon-stellar-hydro/phlegethon)](https://github.com/phlegethon-stellar-hydro/phlegethon/blob/main/LICENSE)
 
-**PHLEGETHON** is a fully compressible, Eulerian magnetohydrodynamic (MHD) code designed for multidimensional simulations in stellar astrophysics. The code uses a time-explicit, second-order, finite-volume method optimized to model a wide range of dynamical regimes, from very low-Mach-number turbulent convection in the deep interior of stars to supersonic flows in subsurface convection zones. **PHLEGETHON** runs on CPUs and uses MPI-based parallelization via domain decomposition.
+**[PHLEGETHON](https://arxiv.org/abs/2604.12672)** is a fully compressible, Eulerian magnetohydrodynamic (MHD) code designed for multidimensional simulations in stellar astrophysics. The code uses a time-explicit, second-order, finite-volume method optimized to model a wide range of dynamical regimes, from very low-Mach-number turbulent convection in the deep interior of stars to supersonic flows in subsurface convection zones. **PHLEGETHON** runs on CPUs and uses MPI-based parallelization via domain decomposition.
 
 ### Key numerical methods:
 
@@ -48,6 +48,8 @@ brew install open-mpi gcc hdf5-mpi
 ```
 
 You will also need to enable developer mode in your OS settings.
+
+If runs are killed immediately without a stack trace (for example `killed ./run.app` or `signal 9 (Killed: 9)` in MPI runs), see [Troubleshooting FAQ: macOS process is killed immediately](https://phlegethon-stellar-hydro.github.io/phlegethon/modules/troubleshooting.html#q-macos-process-is-killed-immediately).
 
 ### 3. Python environment 
 
@@ -130,6 +132,18 @@ g.gridshow(g.mach())
 
 Documentation can be consulted [here](https://phlegethon-stellar-hydro.github.io/phlegethon/).
 
+For common setup/build/runtime issues, see the [Troubleshooting FAQ](https://phlegethon-stellar-hydro.github.io/phlegethon/modules/troubleshooting.html).
+
+Contributor guidelines are available in [Contributing](docs/source/modules/contributing.md).
+
+## Maintainers
+
+| Name | GitHub | Affiliation |
+| --- | --- | --- |
+| Giovanni Leidi | [@GioLeidi](https://github.com/GioLeidi) | Heidelberg Institute for Theoretical Studies |
+| Alexander Holas | [@AlexHls](https://github.com/AlexHls) | Heidelberg Institute for Theoretical Studies |
+| Kristián Vitovský | [@KristianVitovsky](https://github.com/KristianVitovsky) | Heidelberg Institute for Theoretical Studies |
+
 ## Authors
 
 **PHLEGETHON** was originally written by Giovanni Leidi and is continuously under active development. Current support is provided by:
@@ -142,10 +156,20 @@ Documentation can be consulted [here](https://phlegethon-stellar-hydro.github.io
 
 ## Citation
 
-If you use **PHLEGETHON** in your work, please cite it using the following BibTeX entry for its associated method paper:
-- TOFILL
+If you use **PHLEGETHON** in your work, please cite it using the following BibTeX entry for its [associated method paper](https://arxiv.org/abs/2604.12672):
+```bibtex
+@misc{leidi2026phlegethon,
+      title={Phlegethon: a fully compressible magnetohydrodynamic code for simulations in stellar astrophysics}, 
+      author={G. Leidi and A. Holas and K. Vitovsky and F. Rizzuti and A. Roy and J. Reichert and K. Bayer and D. Gagnier and R. Andrassy and P. Christians and P. V. F. Edelmann and V. Varma and R. Hirschi and F. K. Röpke},
+      year={2026},
+      eprint={2604.12672},
+      archivePrefix={arXiv},
+      primaryClass={astro-ph.SR},
+      url={https://arxiv.org/abs/2604.12672}, 
+}
+```
 
-For reproducibility, please also cite the exact code version used, available on Zenodo. The latest version is:
+For reproducibility, please also cite the exact code version used, available on [Zenodo](https://zenodo.org/records/19554676). The latest version is:
 
 ```bibtex
 @software{leidi_2026_19554676,
@@ -172,6 +196,12 @@ For reproducibility, please also cite the exact code version used, available on 
   url          = {https://doi.org/10.5281/zenodo.19554676},
 }
 ```
+
+## Support Policy
+
+Maintainers prioritize support, bug-fix effort, and collaboration for users who contribute back to the project or properly cite Phlegethon.
+
+See the detailed policy in [Contributing](docs/source/modules/contributing.md).
 
 ## License 
 

@@ -15,7 +15,7 @@ These are forwarded as preprocessor definitions when compiling `source/source.F9
 
 ## List of options in Phlegethon
 
-Some of the options refer to sections, equations, or tables of the instrument paper.
+Some of the options refer to sections, equations, or tables of the [instrument paper](https://arxiv.org/abs/2604.12672).
 
 ### 1. Paths
 | Option | Meaning |
