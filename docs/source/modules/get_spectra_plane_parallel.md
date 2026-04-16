@@ -1,3 +1,4 @@
+(get-spectra-plane-parallel)=
 # get_spectra_plane_parallel
 
 Scripts in this directory compute 2D kinetic and magnetic power spectra on horizontal slices of PHLEGETHON snapshots (`grid_nXXXXX.h5`), then optionally compute a time-averaged spectrum over a selected time window.

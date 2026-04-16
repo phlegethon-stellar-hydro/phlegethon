@@ -1,3 +1,4 @@
+(phleos)=
 # PHLEOS (Fortran + Python)
 
 The `misclellaneous/eos` directory contains the Equation of State (EOS) routines used by PHLEGETHON for preparation of initial condition,post-processing and analysis in Python.

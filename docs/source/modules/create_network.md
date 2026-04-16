@@ -1,3 +1,4 @@
+(create-network)=
 # create_network
 
 This directory provides a Python utility that generates nuclear-network Fortran routines and appends them to a target setup file (for example `app.F90` in one of the test problems).
