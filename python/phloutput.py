@@ -108,7 +108,7 @@ def read_data(file,n1):
 
 class Probe:
 
-    def __init__(self,i1,i2,i3,nprobe=1,dire='./'):
+    def __init__(self,nprobe=1,dire='./'):
 
         self.nprobe = nprobe
         self.dir = dire
