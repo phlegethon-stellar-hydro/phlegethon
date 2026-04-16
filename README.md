@@ -120,6 +120,8 @@ make
 mpirun -n 4 ./run.app
 ```
 
+If the build fails despite having installed both the MPI-Fortran compiler and HDF5 library correctly, have a look at [Troubleshooting FAQ: Build fails because MPI or HDF5 cannot be found](https://phlegethon-stellar-hydro.github.io/phlegethon/modules/troubleshooting.html#q-build-fails-because-mpi-or-hdf5-cannot-be-found).
+
 - Visualize the output in `python`:
 
 ```python
