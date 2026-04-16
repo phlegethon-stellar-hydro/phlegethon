@@ -160,7 +160,7 @@ So thermodynamic outputs are consistent with the run setup (ideal/radiation/Helm
 
 `h5grid` is the main class for regular Phlegethon outputs (`grid_nXXXXX.h5`).
 
-Constructor (main options):
+Initialize:
 
 ```python
 grid = h5grid(
@@ -233,74 +233,177 @@ grid = h5grid(
 
 `h5plane` reads `planes_nXXXXX.h5`, which store selected slices already written by the simulation.
 
-Typical use:
+Initialize:
 
 ```python
-import matplotlib.pyplot as plt
-from phloutput import h5plane
-
-pl = h5plane(0, path="./", path_to_grids="./", mode='i')
-
-rho_plane = pl.rho(iz=0)
-fig, ax = pl.planeshow(rho_plane, cb_lbl=r'$\rho$')
-plt.show()
-
-# Optional:
-# fig.savefig("rho_plane.png", dpi=300)
+pl = h5plane(
+    0,
+    path="./",
+    path_to_grids="./",
+    mode='i',
+    data_path="../../data/",
+    helm_table='helm_table_timmes_x2.dat',
+    pig_table='401x401_pig_table_h2_offset.dat',
+)
 ```
 
-Notes:
+### Metadata and plane selection
 
-- `path_to_grids` should point to the directory containing `grid_n00000.h5` metadata/EOS context.
-- Plane indices are mapped through `planes_x1_index`, `planes_x2_index`, `planes_x3_index`.
+- Attributes (no function call): `time`, `dt`, `step`, `nplanes_x1`, `nplanes_x2`, `nplanes_x3`.
+- Plane-index maps: `planes_x1_index`, `planes_x2_index`, `planes_x3_index` map simulation grid indices to stored slices.
+- `path_to_grids` should point to a directory containing `grid_n00000.h5` metadata/EOS context.
 
-Main method families mirror `h5grid` for plane data:
+### Methods
 
-- field access: `prim`, `T`, `rho`, `vel`, `P`, `X_species`, `bfield`
-- derived quantities: `vr`, `vh`, `br`, `bh`, `mach`, thermodynamic EOS methods (`cp`, `cv`, `gamma1`, ...)
-- plotting: `planeshow(...)`
+ In grouped method lists below, the first method shows the full signature; methods shown as `method()` use the same `ix/iy/iz` defaults unless noted otherwise.
+
+### Primitive and composition fields
+
+- Hydrodynamics/MHD primitives:
+  - `prim(ix=-1, iy=-1, iz=-1)`, `T()`, `rho()`, `vel()`, `P()`, `asc()`, `X_species()`, `bfield()`
+- Composition and mixture quantities:
+  - `ye(ix=-1, iy=-1, iz=-1)`, `abar()`, `zbar()`, `mu()`
+
+### Derived flow and magnetic diagnostics
+
+- Flow kinematics:
+  - `mom(ix=-1, iy=-1, iz=-1)`, `abs_vel()`, `vr()`, `vh()`, `ekin()`
+- Magnetic diagnostics:
+  - `emag(ix=-1, iy=-1, iz=-1)`, `abs_bfield()`, `br()`, `bh()`
+
+### Thermodynamics (EOS-based)
+
+- Thermodynamics:
+  - `eint(ix=-1, iy=-1, iz=-1)`, `enthalpy()`, `sound()`, `mach()`, `mach_vec()`
+  - `cp(ix=-1, iy=-1, iz=-1)`, `cv()`, `nabla_ad()`, `s()`, `delta()`, `phi()`
+  - `gamma1(ix=-1, iy=-1, iz=-1)`, `gamma2()`, `gamma3()`
+
+### Plotting methods in `h5plane`
+
+- `planeshow(out, ichx=ichx_g, ichy=ichy_g, figdpi=500, figname=None, x_lbl=None, y_lbl=None, cb_lbl='', cb_pad=0.05, cb_size=cb_size_g, cb_pos='right', time_in_days=True, coords_in_Rsun=True, Rstar=-1, showfig=True, use_latex=False, fontsize=fontsize, **kwargs)`: plot a 2D map of the selected plane field `out`.
+
+Typical use with defaults:
+
+```python
+pl = h5plane(42)
+
+rho_plane = pl.rho(iz=50)
+pl.planeshow(rho_plane)
+```
 
 ### 4. `h5spj`: reader for spherical projection outputs
 
-`h5spj` reads `spj_nXXXXX.h5` files with values on spherical shells.
+`h5spj` reads `spj_nXXXXX.h5` files with values on selected spherical shells.
 
-Typical use:
+Initialization:
 
 ```python
-import numpy as np
-from phloutput import h5spj
 
-spj = h5spj(0, path="./", path_to_grids="./", mode='i')
-
-rho_shell = spj.rho(ir=0)
-spj.mollweide(
-    np.log10(rho_shell),
-    cb_lbl=r'$\log_{10}(\rho)$',
-    cmap='viridis',
-    showfig=True,
+spj = h5spj(
+    0,
+    path="./",
+    path_to_grids="./",
+    mode='i',
+    data_path="../../data/",
+    helm_table='helm_table_timmes_x2.dat',
+    pig_table='401x401_pig_table_h2_offset.dat',
 )
-
-# Optional:
-# spj.mollweide(..., showfig=False, figname='rho_mollweide.png')
 ```
 
-Main capabilities:
+### Metadata and shell geometry
 
-- shell coordinates: `coords(ir)`
-- shell fields: `prim`, `rho`, `T`, `vel`, `P`, `bfield`, species/composition
-- derived flow/magnetic/EOS diagnostics (same naming pattern as in `h5grid`)
-- global map plotting: `mollweide(...)`
+- Attributes (no function call): `time`, `dt`, `step`, `r`, `nhydro`.
+- For each radial shell, the corresponding angular arrays (`phi`, `theta`) are loaded and used internally by both `coords(ir=0)` and `mollweide(...)`.
+- `path_to_grids` should point to a directory containing `grid_n00000.h5` metadata/EOS context.
+
+### Methods
+
+ In grouped method lists below, the first method shows the full signature; methods shown as `method()` use the same `ir` default unless noted otherwise.
+
+### Primitive and composition fields
+
+- Hydrodynamics/MHD primitives:
+  - `prim(ir=0)`, `T()`, `rho()`, `vel()`, `P()`, `asc()`, `X_species()`, `bfield()`
+- Geometry and composition quantities:
+  - `coords(ir=0)`, `ye()`, `abar()`, `zbar()`, `mu()`
+
+### Derived flow and magnetic diagnostics
+
+- Flow kinematics:
+  - `mom(ir=0)`, `abs_vel()`, `vr()`, `vh()`, `ekin()`
+- Magnetic diagnostics:
+  - `emag(ir=0)`, `abs_bfield()`, `br()`, `bh()`
+
+### Thermodynamics (EOS-based)
+
+- Thermodynamics:
+  - `eint(ir=0)`, `enthalpy()`, `sound()`, `mach()`, `mach_vec()`
+  - `cp(ir=0)`, `cv()`, `nabla_ad()`, `s()`, `delta()`, `phi()`
+  - `gamma1(ir=0)`, `gamma2()`, `gamma3()`
+
+### Plotting methods in `h5spj`
+
+- `mollweide(out, ichx=ichx_g, ichy=ichy_g, figdpi=500, figname=None, cb_lbl='', cb_pad=0.05, cb_pos='horizontal', time_in_days=True, coords_in_Rsun=True, showfig=True, showgrid=False, use_latex=False, fontsize=fontsize, **kwargs)`: render a Mollweide projection of a shell field.
+
+Typical use with defaults:
+
+```python
+spj = h5spj(42)
+
+rho_shell = spj.rho(ir=50)
+spj.mollweide(np.log10(rho_shell))
+
+```
 
 ### 5. `Probe`: point-probe time series and spectra
 
-`Probe` reads `pp<id>_<chunk>.dat` probe chunks and concatenates them in time.
+A point probe is at one fixed grid location that records selected simulation variables as the run evolves. `Probe` reads all `pp<id>_<chunk>.dat` files for one probe ID and stitches the chunked records into one continuous time series.
+
+Initialize:
+
+```python
+probe = Probe(nprobe=1, dire="./")
+```
+
+- `nprobe`: probe ID to load. Files are matched as `pp<nprobe>_<chunk>.dat`.
+- `dire`: directory containing the probe files.
+- Location is selected implicitly by `nprobe`.
+
+
+
+### Methods
+
+- `time_series(idx_var=0)`: load/concatenate one variable from all chunks and populate `t`, `dt`, and `signal`.
+- `power_spectrum(tini, tfin, Nw=11, subtract_base=True)`: compute a windowed FFT spectrum on a selected interval and populate `t_cut`, `signal_cut`, `dt_cut`, `freq`, and `pow`.
+
+Method input parameters:
+
+- `idx_var`: zero-based column index of the signal to extract from probe files (see table below).
+
+| Build configuration | `idx_var` meanings (signal columns) |
+| --- | --- |
+| Hydro, 2D (no MHD) | `0: rho`, `1: vx1`, `2: vx2`, `3: p`, `4: T` |
+| Hydro, 3D (no MHD) | `0: rho`, `1: vx1`, `2: vx2`, `3: vx3`, `4: p`, `5: T` |
+| MHD, 2D | `0: rho`, `1: vx1`, `2: vx2`, `3: p`, `4: Bx`, `5: By`, `6: T` |
+| MHD, 3D | `0: rho`, `1: vx1`, `2: vx2`, `3: vx3`, `4: p`, `5: Bx`, `6: By`, `7: Bz`, `8: T` |
+
+- `tini`: start time of the interval used for the spectrum (`probe.t >= tini`).
+- `tfin`: end time of the interval used for the spectrum (`probe.t <= tfin`).
+- `Nw`: smoothing window size (number of bins) applied to the power spectrum via a moving average.
+- `subtract_base`: if `True`, remove a quadratic baseline trend from the selected signal segment before FFT.
+
+Call `time_series(...)` before `power_spectrum(...)`, because the latter uses `probe.t` and `probe.signal` created by `time_series`.
+
+
+
+
+Time is always is loaded automatically into `probe.t`.
 
 Typical use:
 
 ```python
-from phloutput import Probe
+probe = Probe(nprobe=1)
 
-probe = Probe(0, 0, 0, nprobe=1, dire="./")
 probe.time_series(idx_var=0)
 
 probe.power_spectrum(
@@ -314,33 +417,4 @@ probe.power_spectrum(
 # probe.t, probe.signal, probe.freq, probe.pow
 ```
 
-## Practical recommendations
 
-- Start from `h5grid` unless your workflow specifically uses plane (`h5plane`) or spherical-projection (`h5spj`) files.
-- For 3D plotting with `gridshow`, explicitly choose one slice (`ix`, `iy`, or `iz`) before plotting.
-- For comparative studies over many snapshots, use `timeprof` first, then move to per-snapshot deep dives.
-- For reproducible figures, save returned matplotlib figures with explicit `dpi` and colormap normalization.
-
-## Minimal quick reference
-
-```python
-import matplotlib.pyplot as plt
-from phloutput import h5grid
-
-g = h5grid(0, path="./", mode='i')
-
-# data
-rho = g.rho(iz=0)
-T = g.T(iz=0)
-M = g.mach(iz=0)
-
-# plots
-fig1, ax1 = g.gridshow(rho, cmap='magma', cb_lbl=r'$\rho$')
-fig2, ax2 = g.radialshow(g.rho(), y_lbl=r'$\rho$')
-
-plt.show()
-
-# Optional:
-# fig1.savefig("rho_map.png", dpi=300)
-# fig2.savefig("rho_radial.png", dpi=300)
-```
