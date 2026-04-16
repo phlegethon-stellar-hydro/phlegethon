@@ -43,8 +43,15 @@ A: Check system dependencies and local build configuration.
 
 1. Install required system packages (MPI and parallel HDF5).
 2. If auto-detection fails, create/update a machine file in `Make.local/`.
-3. Point `Makefile.config` to the selected file via the `include` line.
-4. Run `make clean` and rebuild.
+3. Update the `INCLUDE`, `LIB`, and `RPATH` environment variables based on the output of `h5pcc -show`, e.g.,
+   
+   ```bash
+   INCLUDE = -I/usr/lib/x86_64-linux-gnu/hdf5/openmpi/include
+   LIBS = -L/usr/lib/x86_64-linux-gnu/hdf5/openmpi/lib
+   RPATH = -Wl,-rpath=/usr/lib/x86_64-linux-gnu/hdf5/openmpi/lib
+   ```
+5. Point `Makefile.config` to the selected file via the `include` line.
+6. Run `make clean` and rebuild.
 
 See {ref}`getting_started` for setup details and `Make.local/README.md` for machine-specific examples.
 
