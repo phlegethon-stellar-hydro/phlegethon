@@ -57,7 +57,7 @@ In the root directory of **phlegethon**, run
 bash data/get_data.sh
 ```
 
-This bash script will download a 541x271 Helmholtz EoS table from Frank Timmes' [cococubed](https://cococubed.com/code_pages/eos.shtml) and the latest default [JINA REACLIB](https://reaclib.jinaweb.org/) rate library (version 21-06-2021).
+This bash script will download a 541x271 Helmholtz EoS table from Frank Timmes' [cococubed](https://cococubed.com/code_pages/eos.shtml) and the latest default [JINA REACLIB](https://reaclib.jinaweb.org/) rate library (version 24-06-2021).
 
 ## 6. Compile the Fortran EoS modules
 
