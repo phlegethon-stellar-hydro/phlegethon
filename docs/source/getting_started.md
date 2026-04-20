@@ -80,7 +80,7 @@ pip install --upgrade pip
 pip install numpy matplotlib scipy h5py ipython meson ninja
 ```
 
-## 5. Download Helmholtz EoS table and JINA REACLIB rates
+## 4. Download Helmholtz EoS table and JINA REACLIB rates
 
 In the root directory of **phlegethon**, run
 
@@ -90,7 +90,7 @@ bash data/get_data.sh
 
 This bash script will download a 541x271 Helmholtz EoS table from Frank Timmes' [cococubed](https://cococubed.com/code_pages/eos.shtml) and the latest default [JINA REACLIB](https://reaclib.jinaweb.org/) rate library (version 24-06-2021).
 
-## 6. Compile the Fortran EoS modules
+## 5. Compile the Fortran EoS modules
 
 The Python post-processing stack requires the compiled module `eos_fort`.
 If `f2py` uses the meson backend, `ninja` must be available (installed above).
@@ -106,7 +106,7 @@ Verify import from the active Python environment:
 python -c 'import eos_fort; print(eos_fort.__file__)'
 ```
 
-## 7. Set environment variables
+## 6. Set environment variables
 
 - Add the following variables to your `.bashrc`:
 
@@ -122,7 +122,7 @@ export PHLEGETHONDATA=<path-to-phlegethon>/data/
 source .bashrc
 ```
 
-## 8. Choose a build configuration
+## 7. Choose a build configuration
 
 Phlegethon uses `pkg-config` to auto-detect the MPI-Fortran compiler and the hdf5 library. In case you need to specify machine-dependent settings (see also `Make.local/README.md`):
 
@@ -133,7 +133,7 @@ Phlegethon uses `pkg-config` to auto-detect the MPI-Fortran compiler and the hdf
 include ../../Make.local/Make.leidi
 ```
 
-## 9. Verify setup
+## 8. Verify setup
 
 - Compile and run the `hotbubble-helmholtz` test problem in `tests`:
 
