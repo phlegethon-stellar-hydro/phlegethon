@@ -34,9 +34,11 @@ For all container workflows (Docker installation, image build, Compose, Jupyter,
 
 ## 3. Python environment
 
-- We recommend installing [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html).
+### Option 1: Using mamba (recommended)
 
-- After the installation, create and activate a new environment:
+- Install [mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html).
+
+- Create and activate a new environment:
 
 ```bash
 mamba create -n phl_env
@@ -47,6 +49,35 @@ mamba activate phl_env
 
 ```bash
 mamba install python numpy matplotlib scipy h5py ipython meson ninja
+```
+
+(Also works with conda, just replace all ``mamba`` commands with ``conda``)
+
+### Option 2: Using venv (standard library)
+
+Alternatively, you can use Python's built-in `venv` module:
+
+- Create a new virtual environment:
+
+```bash
+python3 -m venv phl_env
+```
+
+- Activate the environment:
+
+```bash
+# On macOS/Linux
+source phl_env/bin/activate
+
+# On Windows
+phl_env\Scripts\activate
+```
+
+- Install required Python packages:
+
+```bash
+pip install --upgrade pip
+pip install numpy matplotlib scipy h5py ipython meson ninja
 ```
 
 ## 5. Download Helmholtz EoS table and JINA REACLIB rates
