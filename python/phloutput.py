@@ -1898,7 +1898,10 @@ class h5grid:
     def r2raxis(self):
        if self.geometry=='cartesian':
           if self.use_internal_boundaries=='false':
-            raxis = self.coords(ix=-1,iy=-1,iz=-1)[1,0,:,0]
+             if self.sdims==3:
+                raxis = self.coords(ix=-1,iy=-1,iz=-1)[1,0,:,0]
+             elif self.sdims==2:
+                raxis = self.coords(ix=-1,iy=-1,iz=-1)[1,0,:]
           if self.use_internal_boundaries=='true':
             raxis = self.r_coords[int(self.nx3*0.5),int(self.nx2*0.5),int(self.nx1*0.5):]
        elif self.geometry=='3d-spherical':
