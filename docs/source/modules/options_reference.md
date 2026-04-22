@@ -265,8 +265,8 @@ For `LHLL-type` solvers, if both low-Mach and supersonic flows need to be captur
 |`tmax_make=30.0_rp` | The maximum simulation time. |
 |`stepmax_make=100000` | The maximum number of integration steps. |
 |`wctmax_make=85000.0_rp` | Maximum wall clock time of the job (in seconds). |
-|`CHECK_MAX_TEMP` | If enabled, the simulation will be interrupted if the maximum temperature on the grid exceeds the value provided in the `stop_at_Tmax_make` flag |
-| `stop_at_Tmax_make=1.0e10_rp` | Maximum temperature beyond which the simulation will be interrupted. |
+|`CHECK_MAX_TEMP` | If enabled, the simulation will be interrupted if the maximum temperature on the grid exceeds the value provided in the `stop_at_temp_max_make` flag |
+| `stop_at_temp_max_make=1.0e10_rp` | Maximum temperature beyond which the simulation will be interrupted. |
 
 ### 14. Output options
 
