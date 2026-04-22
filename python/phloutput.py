@@ -2007,7 +2007,7 @@ class h5grid:
 
     def gridshow(self,out,ichx=ichx_g,ichy=ichy_g, \
     figdpi=500,figname=None, \
-    show_cb=True,\
+    axs=None, multiplot=False, show_cb=True,\
     x_lbl=None,y_lbl=None, \
     cb_lbl='',cb_pad=0.05,cb_size=cb_size_g,cb_pos='right', \
         time_in_days=True,coords_in_Rsun=True, \
@@ -2040,7 +2040,10 @@ class h5grid:
      else:
       ioff()
 
-     fig, axs = subplots(figsize=(ichx,ichy))
+     if axs is None:
+        fig, axs = subplots(figsize=(ichx,ichy))
+     else:
+        fig = axs.figure
 
      coords = self.coords(ix=self.ix,iy=self.iy,iz=self.iz)
 
@@ -2137,6 +2140,8 @@ class h5grid:
 
      if(showfig):
       show()
+     elif(multiplot):
+      pass
      else:
       close()
 
