@@ -3093,7 +3093,7 @@ contains
     mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),0,resize,.true.,lgrid%ivol,lgrid%X_species_dot)
 #ifdef SAVE_SPECIES_FLUXES
     call hdf5_write_nd2array(h5,id,"X_species_dot_reacs",mgrid,nspecies,nreacs, &
-    mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),0,resize,.true.,lgrid%ivol,lgrid%X_species_dot_reacs)
+    mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),0,resize,lgrid%X_species_dot_reacs)
 #endif
 #endif
 
