@@ -11,6 +11,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import sys
 from scipy.integrate import cumulative_trapezoid as trap
 from phleos import *
+from phloutput import *
 
 try:
  data = os.environ['PHLEGETHONDATA'].split(os.pathsep)[0]
@@ -224,6 +225,7 @@ class phlgrid:
         if(self.use_pig=='true'):
           self.eos_mode = ['radiation','pig']
 
+
         try:
          self.time = self.grid['time'][()]
         except:
@@ -340,7 +342,7 @@ class phlgrid:
       if(self.geometry!='cartesian'):
        return np.mean(q,axis=(0,1))
       elif(self.geometry=='cartesian') and (self.use_internal_boundaries=='true'):
-       val, bin_edges = np.histogram(self.r, weights=q, bins=self.bins, range=(0,self.r[0,self.bins,self.bins])) 
+       val, bin_edges = np.histogram(self.r, weights=q, bins=self.bins) 
        rbar, qbar = 0.5 * (bin_edges[:-1] + bin_edges[1:]), val/self.num
        return qbar
       else:
@@ -398,7 +400,7 @@ def main():
 
     if(pg0.geometry=='cartesian') and (pg0.use_internal_boundaries=='true'):
       bins = pg0.nx1//fac
-      num, bin_edges = np.histogram(r, bins=bins, range=(0,r[0,bins,bins]))     
+      num, bin_edges = np.histogram(r, bins=bins)     
       pg0.num =  num
       pg0.bins = bins
 
@@ -533,8 +535,8 @@ def main():
         vt2 = pg.vx3 
       elif(pg.geometry=='cartesian') and (pg.use_internal_boundaries=='true'):
        if(pg.sdims==2):
-         vr = cos_phia*pg.vx1+sin_phia*vx2
-         vt1 = -sin_phia*pg.vx1+cos_phia*vx2
+         vr = cos_phia*pg.vx1+sin_phia*pg.vx2
+         vt1 = -sin_phia*pg.vx1+cos_phia*pg.vx2
          vt2 = 0.0
        if(pg.sdims==3):
         vr = sin_thetaa*cos_phia*pg.vx1+sin_thetaa*sin_phia*pg.vx2+cos_thetaa*pg.vx3
@@ -825,7 +827,7 @@ def main():
       dd['abs_br_bar'] = abs_br_bar
       dd['abs_bh_bar'] = abs_bh_bar
 
-      np.savez('%s/RPROFS_%d.npz'%(savedir,round(pg.time)), \
+      np.savez('%s/RPROFS_%d.npz'%(savedir,isnap), \
       time=pg.time, \
       geometry=pg0.geometry, \
       use_internal_boundaries=pg0.use_internal_boundaries, \

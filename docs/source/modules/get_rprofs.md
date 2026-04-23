@@ -47,7 +47,7 @@ Arguments:
 - `delta_dump`: stride between processed dumps.
 - `make_coarse`: `0` for no rebinning, `1` for x2 coarsening in each active dimension.
 - `snapshots_path/`: path to `grid_nXXXXX.h5` files (include trailing `/`).
-- `output_dir`: directory where `RPROFS_<time>.npz` files are written.
+- `output_dir`: directory where `RPROFS_<nth snapshot>.npz` files are written.
 
 Example:
 
@@ -83,7 +83,7 @@ Notes:
 
 For each processed dump, the script writes:
 
-- `RPROFS_<rounded_time>.npz`
+- `RPROFS_<nth snapshot>.npz`
 
 Stored fields include:
 
