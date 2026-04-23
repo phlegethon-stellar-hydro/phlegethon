@@ -12150,7 +12150,7 @@ contains
           lgrid%temp(i-1,j,k) = lgrid%temp(i,j,k)
 #ifdef BALANCE_THERMAL_DIFFUSION
           lgrid%eq_prim_cc(ieq_T,i-1,j,k) = &
-          grid%eq_prim_cc(ieq_T,i,j,k)
+          lgrid%eq_prim_cc(ieq_T,i,j,k)
 #endif
 #endif    
 
@@ -12171,7 +12171,7 @@ contains
           lgrid%temp(i+1,j,k) = lgrid%temp(i,j,k)
 #ifdef BALANCE_THERMAL_DIFFUSION
           lgrid%eq_prim_cc(ieq_T,i+1,j,k) = &
-          grid%eq_prim_cc(ieq_T,i,j,k)
+          lgrid%eq_prim_cc(ieq_T,i,j,k)
 #endif
 #endif    
 
@@ -12282,7 +12282,7 @@ contains
           lgrid%temp(i,j-1,k) = lgrid%temp(i,j,k)
 #ifdef BALANCE_THERMAL_DIFFUSION
           lgrid%eq_prim_cc(ieq_T,i,j-1,k) = &
-          grid%eq_prim_cc(ieq_T,i,j,k)
+          lgrid%eq_prim_cc(ieq_T,i,j,k)
 #endif
 #endif    
 
@@ -12303,7 +12303,7 @@ contains
           lgrid%temp(i,j+1,k) = lgrid%temp(i,j,k)
 #ifdef BALANCE_THERMAL_DIFFUSION
           lgrid%eq_prim_cc(ieq_T,i,j+1,k) = &
-          grid%eq_prim_cc(ieq_T,i,j,k)
+          lgrid%eq_prim_cc(ieq_T,i,j,k)
 #endif
 #endif    
 
@@ -12407,7 +12407,7 @@ contains
           lgrid%temp(i,j,k-1) = lgrid%temp(i,j,k)
 #ifdef BALANCE_THERMAL_DIFFUSION
           lgrid%eq_prim_cc(ieq_T,i,j,k-1) = &
-          grid%eq_prim_cc(ieq_T,i,j,k)
+          lgrid%eq_prim_cc(ieq_T,i,j,k)
 #endif
 #endif    
 
@@ -12428,7 +12428,7 @@ contains
           lgrid%temp(i,j,k+1) = lgrid%temp(i,j,k)
 #ifdef BALANCE_THERMAL_DIFFUSION
           lgrid%eq_prim_cc(ieq_T,i,j,k+1) = &
-          grid%eq_prim_cc(ieq_T,i,j,k)
+          lgrid%eq_prim_cc(ieq_T,i,j,k)
 #endif
 #endif    
 
@@ -19296,7 +19296,7 @@ contains
           lgrid%temp(i-1,j,k) = lgrid%temp(i,j,k)
 #ifdef BALANCE_THERMAL_DIFFUSION
           lgrid%eq_prim_cc(ieq_T,i-1,j,k) = &
-          grid%eq_prim_cc(ieq_T,i,j,k)
+          lgrid%eq_prim_cc(ieq_T,i,j,k)
 #endif
 #endif    
 
@@ -19317,7 +19317,7 @@ contains
           lgrid%temp(i+1,j,k) = lgrid%temp(i,j,k)
 #ifdef BALANCE_THERMAL_DIFFUSION
           lgrid%eq_prim_cc(ieq_T,i+1,j,k) = &
-          grid%eq_prim_cc(ieq_T,i,j,k)
+          lgrid%eq_prim_cc(ieq_T,i,j,k)
 #endif
 #endif    
 
@@ -19426,7 +19426,7 @@ contains
           lgrid%temp(i,j-1,k) = lgrid%temp(i,j,k)
 #ifdef BALANCE_THERMAL_DIFFUSION
           lgrid%eq_prim_cc(ieq_T,i,j-1,k) = &
-          grid%eq_prim_cc(ieq_T,i,j,k)
+          lgrid%eq_prim_cc(ieq_T,i,j,k)
 #endif
 #endif    
 
@@ -19447,7 +19447,7 @@ contains
           lgrid%temp(i,j+1,k) = lgrid%temp(i,j,k)
 #ifdef BALANCE_THERMAL_DIFFUSION
           lgrid%eq_prim_cc(ieq_T,i,j+1,k) = &
-          grid%eq_prim_cc(ieq_T,i,j,k)
+          lgrid%eq_prim_cc(ieq_T,i,j,k)
 #endif
 #endif    
 
@@ -19547,7 +19547,7 @@ contains
           lgrid%temp(i,j,k-1) = lgrid%temp(i,j,k)
 #ifdef BALANCE_THERMAL_DIFFUSION
           lgrid%eq_prim_cc(ieq_T,i,j,k-1) = &
-          grid%eq_prim_cc(ieq_T,i,j,k)
+          lgrid%eq_prim_cc(ieq_T,i,j,k)
 #endif
 #endif    
 
@@ -19568,7 +19568,7 @@ contains
           lgrid%temp(i,j,k+1) = lgrid%temp(i,j,k)
 #ifdef BALANCE_THERMAL_DIFFUSION
           lgrid%eq_prim_cc(ieq_T,i,j,k+1) = &
-          grid%eq_prim_cc(ieq_T,i,j,k)
+          lgrid%eq_prim_cc(ieq_T,i,j,k)
 #endif
 #endif    
 
