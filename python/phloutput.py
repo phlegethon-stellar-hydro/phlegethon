@@ -89,6 +89,9 @@ try:
 except KeyError:
  data = '../../data/'
 
+# Cache expensive EOS table loads across multiple snapshot reads.
+_EOS_TABLE_CACHE = {}
+
 #######################################################################################
 # point-probe class
 #######################################################################################
@@ -1300,8 +1303,13 @@ class h5grid:
         else:
          table_path = helm_table_path
 
-        self.eos_table = eos_fort.eos_fort_mod.load_table(table_path,NRHO,NT,
-        LOGRHOMIN,LOGRHOMAX,LOGTMIN,LOGTMAX)
+        eos_key = (table_path, NRHO, NT, LOGRHOMIN, LOGRHOMAX, LOGTMIN, LOGTMAX)
+        if eos_key in _EOS_TABLE_CACHE:
+         self.eos_table = _EOS_TABLE_CACHE[eos_key]
+        else:
+         self.eos_table = eos_fort.eos_fort_mod.load_table(table_path,NRHO,NT,
+         LOGRHOMIN,LOGRHOMAX,LOGTMIN,LOGTMAX)
+         _EOS_TABLE_CACHE[eos_key] = self.eos_table
  
         self.eos_evaluated = False
        
@@ -2211,22 +2219,34 @@ class h5grid:
 def timeprof(expr,i1=0,i2=-1,delta=1,path=""):
 
     files = file_list(path=path)
-    nfiles = len(files)
     t = []
     out = []
 
     if(i2==-1):
      i2 = len(files)-1
-     nfiles = i2
-    else:
-     nfiles = i2+1-i1
+    nfiles = i2+1-i1
+
+    if(nfiles<=0):
+     return np.array(t),np.array(out)
+
+    indices = list(range(i1,i2+1,delta))
+    niter = len(indices)
+
+    if(niter==0):
+     return np.array(t),np.array(out)
+
+    # Compile once to avoid reparsing the same expression for each snapshot.
+    code = compile(expr, '<timeprof_expr>', 'eval')
 
     ic = 0
-    for i in range(i1,i2+1,delta):
-     print('reading snapshot # %d | advance: %.2f'%(i,ic/nfiles*delta ))     
+    for i in indices:
+     print('reading snapshot # %d | advance: %.2f'%(i,ic/niter ))
      grid = h5grid(i,path=path)
      time = grid.time
-     out.append(grid.evaluate_expression(expr))
+     try:
+      out.append(eval(code, {}, {'self': grid, 'np': np, 'scipy': scipy}))
+     except Exception as e:
+      out.append(f"Error: {e}")
      t.append(time)
      ic += 1
 
