@@ -1,0 +1,305 @@
+# =============================================================
+# Make.checks - Build option validation for Phlegethon
+# Included from Makefile.config to validate OPTS before compilation.
+#
+# Checks performed:
+#   1. Required options: precision, geometry, reconstruction,
+#      Riemann solver, and time stepper must each be set.
+#   2. Mutually exclusive options: at most one choice per group
+#      (output mode, EOS, advection method, thermal diffusion,
+#      endianness, boundary conditions per face).
+#   3. Dependency checks: e.g. MHD flux solvers require USE_MHD,
+#      USE_NUCLEAR_NETWORK requires ADVECT_SPECIES, etc.
+#   4. Unknown boolean option detection: flags in OPTS not
+#      recognized by source.F90 are reported as warnings so that
+#      typos (e.g. FIX_TEMPERATURE_AR_X1U) are caught early.
+# =============================================================
+
+# Split OPTS into boolean flags (no '=') and key=value parameters
+_OPTS_BOOL   := $(foreach opt,$(OPTS),$(if $(findstring =,$(opt)),,$(opt)))
+_OPTS_PARAMS := $(foreach opt,$(OPTS),$(if $(findstring =,$(opt)),$(opt),))
+
+# Helper: evaluates to a non-empty string when a word list has more than one
+# element, used to detect "at most one" violations without magic numbers.
+_more_than_one = $(filter-out 0 1,$(words $(1)))
+
+# =============================================================
+# SECTION 1: REQUIRED + MUTUALLY EXCLUSIVE OPTION GROUPS
+# =============================================================
+
+# 1.1 Floating-point precision (exactly one required)
+_PREC_ALL := USE_SINGLE_PRECISION USE_DOUBLE_PRECISION
+_PREC_SET := $(filter $(_PREC_ALL),$(_OPTS_BOOL))
+ifeq ($(words $(_PREC_SET)),0)
+$(error [Config] No floating-point precision specified. \
+  Add one of: $(_PREC_ALL))
+endif
+ifneq ($(words $(_PREC_SET)),1)
+$(error [Config] Multiple precision options specified: $(_PREC_SET). \
+  Choose exactly one of: $(_PREC_ALL))
+endif
+
+# 1.2 Geometry (exactly one required)
+_GEOM_ALL := GEOMETRY_CARTESIAN_UNIFORM GEOMETRY_CARTESIAN_NONUNIFORM \
+             GEOMETRY_2D_POLAR GEOMETRY_2D_SPHERICAL GEOMETRY_3D_SPHERICAL \
+             GEOMETRY_CUBED_SPHERE
+_GEOM_SET := $(filter $(_GEOM_ALL),$(_OPTS_BOOL))
+ifeq ($(words $(_GEOM_SET)),0)
+$(error [Config] No geometry specified. \
+  Choose one of: $(_GEOM_ALL))
+endif
+ifneq ($(words $(_GEOM_SET)),1)
+$(error [Config] Multiple geometry options specified: $(_GEOM_SET). \
+  Choose exactly one)
+endif
+
+# 1.3 Reconstruction scheme (exactly one required)
+_REC_ALL := LIM2ND_REC PPH_REC LIM5TH_REC
+_REC_SET := $(filter $(_REC_ALL),$(_OPTS_BOOL))
+ifeq ($(words $(_REC_SET)),0)
+$(error [Config] No reconstruction scheme specified. \
+  Choose one of: $(_REC_ALL))
+endif
+ifneq ($(words $(_REC_SET)),1)
+$(error [Config] Multiple reconstruction schemes specified: $(_REC_SET). \
+  Choose exactly one)
+endif
+
+# 1.4 Riemann/flux solver (exactly one required)
+_FLUX_ALL := HLLC_FLUX LHLLC_FLUX HLLD_FLUX LHLLD_FLUX
+_FLUX_SET := $(filter $(_FLUX_ALL),$(_OPTS_BOOL))
+ifeq ($(words $(_FLUX_SET)),0)
+$(error [Config] No Riemann solver/flux specified. \
+  Choose one of: $(_FLUX_ALL))
+endif
+ifneq ($(words $(_FLUX_SET)),1)
+$(error [Config] Multiple Riemann solvers/fluxes specified: $(_FLUX_SET). \
+  Choose exactly one)
+endif
+
+# 1.5 Time stepper (exactly one required)
+_STEPPER_ALL := RK2_STEPPER RK3_STEPPER
+_STEPPER_SET := $(filter $(_STEPPER_ALL),$(_OPTS_BOOL))
+ifeq ($(words $(_STEPPER_SET)),0)
+$(error [Config] No time stepper specified. \
+  Choose one of: $(_STEPPER_ALL))
+endif
+ifneq ($(words $(_STEPPER_SET)),1)
+$(error [Config] Multiple time steppers specified: $(_STEPPER_SET). \
+  Choose exactly one)
+endif
+
+# =============================================================
+# SECTION 2: MUTUAL EXCLUSIVITY (AT MOST ONE PER GROUP)
+# =============================================================
+
+# 2.1 Output mode (at most one)
+_OUTPUT_ALL := OUTPUT_NSTEPS OUTPUT_DT
+_OUTPUT_SET := $(filter $(_OUTPUT_ALL),$(_OPTS_BOOL))
+ifneq ($(call _more_than_one,$(_OUTPUT_SET)),)
+$(error [Config] Multiple output modes specified: $(_OUTPUT_SET). \
+  Choose at most one of: $(_OUTPUT_ALL))
+endif
+
+# 2.2 Complex EOS (at most one)
+_EOS_ALL := HELMHOLTZ_EOS PIG_EOS
+_EOS_SET := $(filter $(_EOS_ALL),$(_OPTS_BOOL))
+ifneq ($(call _more_than_one,$(_EOS_SET)),)
+$(error [Config] Multiple complex EOS options specified: $(_EOS_SET). \
+  Choose at most one of: $(_EOS_ALL))
+endif
+
+# 2.3 Species advection method (at most one)
+_ADVECT_ALL := ADVECT_SPECIES ADVECT_YE_IABAR
+_ADVECT_SET := $(filter $(_ADVECT_ALL),$(_OPTS_BOOL))
+ifneq ($(call _more_than_one,$(_ADVECT_SET)),)
+$(error [Config] Multiple species advection options specified: $(_ADVECT_SET). \
+  Choose at most one of: $(_ADVECT_ALL))
+endif
+
+# 2.4 Thermal diffusion method (at most one)
+_TDIFF_ALL := THERMAL_DIFFUSION_STS THERMAL_DIFFUSION_EXPLICIT
+_TDIFF_SET := $(filter $(_TDIFF_ALL),$(_OPTS_BOOL))
+ifneq ($(call _more_than_one,$(_TDIFF_SET)),)
+$(error [Config] Multiple thermal diffusion methods specified: $(_TDIFF_SET). \
+  Choose at most one of: $(_TDIFF_ALL))
+endif
+
+# 2.5 Endianness (at most one)
+_ENDIAN_ALL := LITTLE_ENDIAN BIG_ENDIAN
+_ENDIAN_SET := $(filter $(_ENDIAN_ALL),$(_OPTS_BOOL))
+ifneq ($(call _more_than_one,$(_ENDIAN_SET)),)
+$(error [Config] Multiple endianness options specified: $(_ENDIAN_SET). \
+  Choose at most one of: $(_ENDIAN_ALL))
+endif
+
+# 2.6 Boundary conditions: X_PERIODIC is incompatible with face-specific BCs
+ifneq ($(filter X1_PERIODIC,$(_OPTS_BOOL)),)
+ifneq ($(filter X1L_REFLECTIVE X1L_OUTFLOW X1L_DIODE X1U_REFLECTIVE X1U_OUTFLOW X1U_DIODE,$(_OPTS_BOOL)),)
+$(error [Config] X1_PERIODIC is incompatible with individual X1L/X1U boundary conditions)
+endif
+endif
+
+ifneq ($(filter X2_PERIODIC,$(_OPTS_BOOL)),)
+ifneq ($(filter X2L_REFLECTIVE X2L_OUTFLOW X2L_DIODE X2U_REFLECTIVE X2U_OUTFLOW X2U_DIODE,$(_OPTS_BOOL)),)
+$(error [Config] X2_PERIODIC is incompatible with individual X2L/X2U boundary conditions)
+endif
+endif
+
+ifneq ($(filter X3_PERIODIC,$(_OPTS_BOOL)),)
+ifneq ($(filter X3L_REFLECTIVE X3L_OUTFLOW X3L_DIODE X3U_REFLECTIVE X3U_OUTFLOW X3U_DIODE,$(_OPTS_BOOL)),)
+$(error [Config] X3_PERIODIC is incompatible with individual X3L/X3U boundary conditions)
+endif
+endif
+
+# 2.7 Multiple boundary conditions on the same face (at most one per face)
+_X1L_BC := $(filter X1L_REFLECTIVE X1L_OUTFLOW X1L_DIODE,$(_OPTS_BOOL))
+ifneq ($(call _more_than_one,$(_X1L_BC)),)
+$(error [Config] Multiple X1 lower face boundary conditions specified: $(_X1L_BC))
+endif
+
+_X1U_BC := $(filter X1U_REFLECTIVE X1U_OUTFLOW X1U_DIODE,$(_OPTS_BOOL))
+ifneq ($(call _more_than_one,$(_X1U_BC)),)
+$(error [Config] Multiple X1 upper face boundary conditions specified: $(_X1U_BC))
+endif
+
+_X2L_BC := $(filter X2L_REFLECTIVE X2L_OUTFLOW X2L_DIODE,$(_OPTS_BOOL))
+ifneq ($(call _more_than_one,$(_X2L_BC)),)
+$(error [Config] Multiple X2 lower face boundary conditions specified: $(_X2L_BC))
+endif
+
+_X2U_BC := $(filter X2U_REFLECTIVE X2U_OUTFLOW X2U_DIODE,$(_OPTS_BOOL))
+ifneq ($(call _more_than_one,$(_X2U_BC)),)
+$(error [Config] Multiple X2 upper face boundary conditions specified: $(_X2U_BC))
+endif
+
+_X3L_BC := $(filter X3L_REFLECTIVE X3L_OUTFLOW X3L_DIODE,$(_OPTS_BOOL))
+ifneq ($(call _more_than_one,$(_X3L_BC)),)
+$(error [Config] Multiple X3 lower face boundary conditions specified: $(_X3L_BC))
+endif
+
+_X3U_BC := $(filter X3U_REFLECTIVE X3U_OUTFLOW X3U_DIODE,$(_OPTS_BOOL))
+ifneq ($(call _more_than_one,$(_X3U_BC)),)
+$(error [Config] Multiple X3 upper face boundary conditions specified: $(_X3U_BC))
+endif
+
+# =============================================================
+# SECTION 3: DEPENDENCY CHECKS
+# =============================================================
+
+# 3.1 MHD flux solvers require USE_MHD
+_MHD_FLUXES := $(filter HLLD_FLUX LHLLD_FLUX,$(_FLUX_SET))
+ifneq ($(_MHD_FLUXES),)
+ifeq ($(filter USE_MHD,$(_OPTS_BOOL)),)
+$(error [Config] Flux solver '$(_MHD_FLUXES)' is a MHD Riemann solver and requires USE_MHD)
+endif
+endif
+
+# 3.2 Non-MHD flux solver used together with USE_MHD (warning)
+_HYDRO_FLUXES := $(filter HLLC_FLUX LHLLC_FLUX,$(_FLUX_SET))
+ifneq ($(_HYDRO_FLUXES),)
+ifneq ($(filter USE_MHD,$(_OPTS_BOOL)),)
+$(warning [Config] Flux solver '$(_HYDRO_FLUXES)' is not a MHD Riemann solver \
+  but USE_MHD is enabled. Consider using HLLD_FLUX or LHLLD_FLUX instead)
+endif
+endif
+
+# 3.3 USE_RESISTIVITY requires USE_MHD
+ifneq ($(filter USE_RESISTIVITY,$(_OPTS_BOOL)),)
+ifeq ($(filter USE_MHD,$(_OPTS_BOOL)),)
+$(error [Config] USE_RESISTIVITY requires USE_MHD)
+endif
+endif
+
+# 3.4 USE_NUCLEAR_NETWORK requires ADVECT_SPECIES
+ifneq ($(filter USE_NUCLEAR_NETWORK,$(_OPTS_BOOL)),)
+ifeq ($(filter ADVECT_SPECIES,$(_OPTS_BOOL)),)
+$(error [Config] USE_NUCLEAR_NETWORK requires ADVECT_SPECIES)
+endif
+endif
+
+# 3.5 USE_FASTEOS requires a complex EOS (HELMHOLTZ_EOS or PIG_EOS)
+ifneq ($(filter USE_FASTEOS,$(_OPTS_BOOL)),)
+ifeq ($(_EOS_SET),)
+$(error [Config] USE_FASTEOS requires HELMHOLTZ_EOS or PIG_EOS)
+endif
+endif
+
+# 3.6 EVALUATE_PARABOLIC_TIMESTEP requires a thermal diffusion method
+ifneq ($(filter EVALUATE_PARABOLIC_TIMESTEP,$(_OPTS_BOOL)),)
+ifeq ($(_TDIFF_SET),)
+$(error [Config] EVALUATE_PARABOLIC_TIMESTEP requires \
+  THERMAL_DIFFUSION_STS or THERMAL_DIFFUSION_EXPLICIT)
+endif
+endif
+
+# 3.7 BALANCE_THERMAL_DIFFUSION requires a thermal diffusion method
+ifneq ($(filter BALANCE_THERMAL_DIFFUSION,$(_OPTS_BOOL)),)
+ifeq ($(_TDIFF_SET),)
+$(error [Config] BALANCE_THERMAL_DIFFUSION requires \
+  THERMAL_DIFFUSION_STS or THERMAL_DIFFUSION_EXPLICIT)
+endif
+endif
+
+# 3.8 STS_EVOLVE_TEMP requires THERMAL_DIFFUSION_STS
+ifneq ($(filter STS_EVOLVE_TEMP,$(_OPTS_BOOL)),)
+ifeq ($(filter THERMAL_DIFFUSION_STS,$(_OPTS_BOOL)),)
+$(error [Config] STS_EVOLVE_TEMP requires THERMAL_DIFFUSION_STS)
+endif
+endif
+
+# =============================================================
+# SECTION 4: UNKNOWN / UNRECOGNIZED BOOLEAN OPTIONS
+# All boolean flags recognized by source.F90 are listed here.
+# Any flag in OPTS that is not on this list will trigger a
+# warning, helping to catch typos before compilation.
+# =============================================================
+
+_KNOWN_BOOL_OPTS := \
+  USE_SINGLE_PRECISION USE_DOUBLE_PRECISION \
+  GEOMETRY_CARTESIAN_UNIFORM GEOMETRY_CARTESIAN_NONUNIFORM \
+  GEOMETRY_2D_POLAR GEOMETRY_2D_SPHERICAL GEOMETRY_3D_SPHERICAL GEOMETRY_CUBED_SPHERE \
+  LIM2ND_REC PPH_REC LIM5TH_REC \
+  HLLC_FLUX LHLLC_FLUX HLLD_FLUX LHLLD_FLUX \
+  RK2_STEPPER RK3_STEPPER VARIABLE_TIMESTEP \
+  OUTPUT_NSTEPS OUTPUT_DT RESIZE_OUTPUT \
+  HELMHOLTZ_EOS PIG_EOS USE_PRAD USE_FASTEOS USE_TIMMES_KAPPA \
+  ADVECT_SPECIES ADVECT_YE_IABAR \
+  USE_MHD USE_RESISTIVITY \
+  USE_GRAVITY USE_GRAVITY_SOLVER USE_MONOPOLE_GRAVITY GRAVITY_SOLVER_RK \
+  GS_QUADRUPOLE_BCS GS_OCTUPOLE_BCS CONST_GRAV_UNITY \
+  EVOLVE_ETOT USE_WB \
+  USE_EDOT USE_VARIABLE_EDOT VARIABLE_EDOT \
+  USE_VDAMPING USE_VARIABLE_VDAMPING \
+  USE_NUCLEAR_NETWORK NUCLEAR_NETWORK_GODUNOV NUCLEAR_NETWORK_STRANG \
+  NUCLEAR_NETWORK_TRBDF2 NUCLEAR_NETWORK_BE \
+  PARTITION_FUNCTIONS_FOR_REVERSE_RATES \
+  USE_ELECTRON_SCREENING USE_COULOMB_CORRECTIONS \
+  USE_LMP_WEAK_RATES BOOST_NEULOSS BOOST_NUCLEAR_REACTIONS USE_NEULOSS \
+  THERMAL_DIFFUSION_STS THERMAL_DIFFUSION_EXPLICIT \
+  EVALUATE_PARABOLIC_TIMESTEP BALANCE_THERMAL_DIFFUSION STS_EVOLVE_TEMP \
+  USE_CONSTANT_ACCELERATION COROTATING_FRAME \
+  USE_SHOCK_FLATTENING FLUX_IS_ALL_MACH \
+  USE_POINT_PROBES SAVE_PLANES SAVE_SPHERICAL_PROJECTIONS SAVE_SPECIES_FLUXES \
+  USE_INTERNAL_BOUNDARIES SKIP_HYDRO \
+  RESTART_LAST LITTLE_ENDIAN BIG_ENDIAN \
+  NONUNIFORM_RADIAL_NODES CHECK_MAX_TEMP \
+  FIX_TEMPERATURE_AT_X1L FIX_TEMPERATURE_AT_X1U \
+  FIX_TEMPERATURE_AT_X2L FIX_TEMPERATURE_AT_X2U \
+  FIX_TEMPERATURE_AT_X3L FIX_TEMPERATURE_AT_X3U \
+  X1_PERIODIC X2_PERIODIC X3_PERIODIC \
+  X1L_REFLECTIVE X1L_OUTFLOW X1L_DIODE X1L_BFIELD_PMC \
+  X1U_REFLECTIVE X1U_OUTFLOW X1U_DIODE X1U_BFIELD_PMC \
+  X2L_REFLECTIVE X2L_OUTFLOW X2L_DIODE X2L_BFIELD_PMC \
+  X2U_REFLECTIVE X2U_OUTFLOW X2U_DIODE X2U_BFIELD_PMC \
+  X3L_REFLECTIVE X3L_OUTFLOW X3L_DIODE X3L_BFIELD_PMC \
+  X3U_REFLECTIVE X3U_OUTFLOW X3U_DIODE X3U_BFIELD_PMC
+
+# Flags present in OPTS that are not in the known list above.
+# These may be application-specific flags in $(APPNAME).F90 or typos.
+_UNKNOWN_BOOL_OPTS := $(filter-out $(_KNOWN_BOOL_OPTS),$(_OPTS_BOOL))
+ifneq ($(_UNKNOWN_BOOL_OPTS),)
+$(warning [Config] Unrecognized boolean option(s) not found in source.F90: \
+  $(_UNKNOWN_BOOL_OPTS). These may be application-specific flags in \
+  $(APPNAME).F90 or typos. Verify with: grep -E '#(ifdef|ifndef)' $(SRC)/source.F90)
+endif
