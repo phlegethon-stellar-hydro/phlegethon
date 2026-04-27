@@ -1226,8 +1226,18 @@ contains
 
     allocate(lgrid%state0(1:nvars,lx1:ux1,lx2:ux2,lx3:ux3))
 
+#ifdef FIX_BFIELD_AT_X1
+    allocate(lgrid%res(1:nvars,lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc, &
+#if sdims_make==2
+    lx3:ux3))
+#endif
+#if sdims_make==3
+    lx3-ngc:ux3+ngc))
+#endif
+#else
     allocate(lgrid%res(1:nvars,lx1:ux1,lx2:ux2,lx3:ux3))
-    
+#endif
+
     allocate(lgrid%nodes(1:sdims,lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+1+ngc, &
 #if sdims_make==2
     lx3:ux3))
@@ -5066,6 +5076,18 @@ contains
      end do
     end do
 
+#ifdef FIX_BFIELD_AT_X1
+    do k=lbound(lgrid%prim,4),ubound(lgrid%prim,4)
+     do j=lbound(lgrid%prim,3),ubound(lgrid%prim,3)
+      do i=lbound(lgrid%prim,2),ubound(lgrid%prim,2)
+       do iv=1,nvars
+        lgrid%res(iv,i,j,k) = rp0
+       end do
+      end do
+     end do
+    end do
+#endif
+
 #ifdef USE_POINT_PROBES
     
     do ipr=1,nprobes
@@ -6693,9 +6715,11 @@ contains
           lgrid%prim(iv,i,j,k) = bc_fac(iv)*lgrid%prim(iv,ir,j,k)
          end do
 #ifdef USE_MHD
+#ifndef FIX_BFIELD_AT_X1
          do iv=1,sdims
           lgrid%b_cc(iv,i,j,k) = bc_facb(iv)*lgrid%b_cc(iv,ir,j,k)
          end do
+#endif
 #endif
 #if defined(HELMHOLTZ_EOS) || defined(USE_PRAD) || defined(PIG_EOS)
          lgrid%temp(i,j,k) = lgrid%temp(ir,j,k)
@@ -6763,9 +6787,11 @@ contains
            lgrid%prim(iv,i,j,k) = bc_fac(iv)*lgrid%prim(iv,ir,j,k)
          end do
 #ifdef USE_MHD
+#ifndef FIX_BFIELD_AT_X1
          do iv=1,sdims
            lgrid%b_cc(iv,i,j,k) = bc_facb(iv)*lgrid%b_cc(iv,ir,j,k)
          end do
+#endif
 #endif
 #if defined(HELMHOLTZ_EOS) || defined(USE_PRAD) || defined(PIG_EOS)
          lgrid%temp(i,j,k) = lgrid%temp(ir,j,k)
@@ -8301,7 +8327,11 @@ contains
 #endif
 
      do k=lx3,ux3
+#ifdef FIX_BFIELD_AT_X1
+      do i=lx1-1,ux1+1
+#else
       do i=lx1,ux1
+#endif
 
 #ifdef LIM2ND_REC
 
@@ -10454,7 +10484,9 @@ contains
 #ifndef USE_INTERNAL_BOUNDARIES
  
 #if defined(X1L_REFLECTIVE) || defined(X1L_OUTFLOW) || defined(X1L_DIODE)
-     
+
+#ifndef FIX_BFIELD_AT_X1
+
      if(mgrid%coords_dd(1)==0) then
 
 #ifdef X1L_REFLECTIVE
@@ -10549,7 +10581,8 @@ contains
 
 #endif
 
-       
+#endif
+ 
 #if defined(X2L_REFLECTIVE) || defined(X2L_OUTFLOW) || defined(X2L_DIODE)
      
      if(mgrid%coords_dd(2)==0) then
@@ -10833,7 +10866,6 @@ contains
      end if
 
 #endif
-
        
 #if defined(X2L_DIODE)
      
@@ -11314,6 +11346,12 @@ contains
 
 #endif
 
+#ifdef FIX_BFIELD_AT_X1
+        if(i==1 .or. i==nx1+1) then
+         tmp = rp0
+        endif
+#endif
+    
 #ifdef USE_INTERNAL_BOUNDARIES
         lgrid%b_x1(i,j,k) = &
         a1rk*lgrid%b0_x1(i,j,k) + &
