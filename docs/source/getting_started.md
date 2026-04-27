@@ -114,6 +114,7 @@ python -c 'import eos_fort; print(eos_fort.__file__)'
 export PYTHONPATH=$PYTHONPATH:<path-to-phlegethon>/python/
 export PYTHONPATH=$PYTHONPATH:<path-to-phlegethon>/miscellaneous/eos/
 export PHLEGETHONDATA=<path-to-phlegethon>/data/
+mamba activate phl_env
 ```
 
 - Reload the `.bashrc`:
