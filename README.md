@@ -122,6 +122,7 @@ f2py -c eos.f90 -m eos_fort --opt='-O3'
 export PYTHONPATH=$PYTHONPATH:<path-to-phlegethon>/python/
 export PYTHONPATH=$PYTHONPATH:<path-to-phlegethon>/miscellaneous/eos/
 export PHLEGETHONDATA=<path-to-phlegethon>/data/
+mamba activate phl_env
 ```
 
 - Reload the `.bashrc`:
