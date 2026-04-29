@@ -1399,12 +1399,22 @@ contains
     lx3-ngc:ux3+ngc))
 #endif
 
+#ifdef FIX_BFIELD_AT_X1
+    allocate(lgrid%phi_x1(lx1:ux1+1,lx2:ux2,lx3:ux3))
+
+    allocate(lgrid%phi_x2(lx1-1:ux1+1,lx2:ux2+1,lx3:ux3))
+
+#if sdims_make==3
+    allocate(lgrid%phi_x3(lx1-1:ux1+1,lx2:ux2,lx3:ux3+1))
+#endif
+#else
     allocate(lgrid%phi_x1(lx1:ux1+1,lx2:ux2,lx3:ux3))
 
     allocate(lgrid%phi_x2(lx1:ux1,lx2:ux2+1,lx3:ux3))
 
 #if sdims_make==3
     allocate(lgrid%phi_x3(lx1:ux1,lx2:ux2,lx3:ux3+1))
+#endif
 #endif
 
 #endif
@@ -1419,12 +1429,22 @@ contains
     lx3-ngc:ux3+ngc))
 #endif 
 
+#ifdef FIX_BFIELD_AT_X1
+    allocate(lgrid%eq_prim_x1(1:nvars_eq,lx1:ux1+1,lx2:ux2,lx3:ux3))
+
+    allocate(lgrid%eq_prim_x2(1:nvars_eq,lx1-1:ux1+1,lx2:ux2+1,lx3:ux3))
+
+#if sdims_make==3
+    allocate(lgrid%eq_prim_x3(1:nvars_eq,lx1-1:ux1+1,lx2:ux2,lx3:ux3+1))
+#endif
+#else
     allocate(lgrid%eq_prim_x1(1:nvars_eq,lx1:ux1+1,lx2:ux2,lx3:ux3))
 
     allocate(lgrid%eq_prim_x2(1:nvars_eq,lx1:ux1,lx2:ux2+1,lx3:ux3))
 
 #if sdims_make==3
     allocate(lgrid%eq_prim_x3(1:nvars_eq,lx1:ux1,lx2:ux2,lx3:ux3+1))
+#endif
 #endif
 
 #ifdef USE_FASTEOS
@@ -1437,6 +1457,15 @@ contains
     lx3-ngc:ux3+ngc))
 #endif 
 
+#ifdef FIX_BFIELD_AT_X1
+    allocate(lgrid%eq_gammae_x1(lx1:ux1+1,lx2:ux2,lx3:ux3))
+
+    allocate(lgrid%eq_gammae_x2(lx1-1:ux1+1,lx2:ux2+1,lx3:ux3))
+
+#if sdims_make==3
+    allocate(lgrid%eq_gammae_x3(lx1-1:ux1+1,lx2:ux2,lx3:ux3+1))
+#endif
+#else
     allocate(lgrid%eq_gammae_x1(lx1:ux1+1,lx2:ux2,lx3:ux3))
 
     allocate(lgrid%eq_gammae_x2(lx1:ux1,lx2:ux2+1,lx3:ux3))
@@ -1444,7 +1473,7 @@ contains
 #if sdims_make==3
     allocate(lgrid%eq_gammae_x3(lx1:ux1,lx2:ux2,lx3:ux3+1))
 #endif
-
+#endif
 #endif
 
 #endif
