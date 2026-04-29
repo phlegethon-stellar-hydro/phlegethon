@@ -5983,6 +5983,7 @@ contains
     gx1,gx2,gx3,rho_eq,p_eq,ye,abar,inv_abar,Res0,Res_prad,dRes_dT,x,y,z,r,inv_r,dp_drho,dp_deps, &
     rmi,rpl,sin_theta_m,sin_theta_p,sin_theta,inv_r_sin_theta,r2,inv_r2,T2,T3,T4,zbar,sound,sound2,vn, &
     cos_theta,Tminus,Tplus,gradT,Krad,Kint,Kminus,Kplus
+    real(kind=rp) :: sum3tmp1,sum3tmp2,sum3tmp3,sum3tmp
 
     real(kind=rp), dimension(1:nvars) :: qLbuf,qRbuf
 
@@ -6191,8 +6192,11 @@ contains
 #endif
 
        eint = lgrid%eint(i,j,k)
-
-       rhoe = eint + rph*rho*(vx1*vx1+vx2*vx2+vx3*vx3)
+       sum3tmp1 = (vx1*vx1+vx2*vx2) + vx3*vx3
+       sum3tmp2 = (vx3*vx3+vx1*vx1) + vx2*vx2
+       sum3tmp3 = (vx2*vx2+vx3*vx3) + vx1*vx1
+       sum3tmp = rph*(max(sum3tmp1,max(sum3tmp2,sum3tmp3)) + min(sum3tmp1,min(sum3tmp2,sum3tmp3)))
+       rhoe = eint + rph*rho*sum3tmp
 
 #ifdef USE_MHD
        bx1 = lgrid%b_cc(1,i,j,k)
@@ -12546,8 +12550,11 @@ contains
         rhoe = lgrid%state(i_rhoe,i,j,k)
 
         inv_rho = rp1/rho
-
-        eint = rhoe - rph*(rhovx1*rhovx1+rhovx2*rhovx2+rhovx3*rhovx3)*inv_rho
+        sum3tmp1 = (rhovx1*rhovx1+rhovx2*rhovx2) + rhovx3*rhovx3
+        sum3tmp2 = (rhovx3*rhovx3+rhovx1*rhovx1) + rhovx2*rhovx2
+        sum3tmp3 = (rhovx2*rhovx2+rhovx3*rhovx3) + rhovx1*rhovx1
+        sum3tmp = rph*(max(sum3tmp1,max(sum3tmp2,sum3tmp3)) + min(sum3tmp1,min(sum3tmp2,sum3tmp3)))
+        eint = rhoe - rph*sum3tmp*inv_rho
 
 #ifdef USE_MHD
         bx1 = lgrid%b_cc(1,i,j,k)
@@ -12984,6 +12991,7 @@ contains
    vx22star,bx22star,vx32star,bx32star,vdotb2star,&
    rhoe2starL,rhoe2starR,&
    rho,vx1,vx2,vx3,rhoe,bx2,bx3,phi,pres,abs_bx1,dummy
+   real(kind=rp) :: sum3tmp1,sum3tmp2,sum3tmp3,sum3tmp
 
    real(kind=rp) :: dp_drho,dp_deps
 
@@ -13079,7 +13087,10 @@ contains
 #else
       vx3L = rp0
 #endif
-      v2L = vx1L*vx1L+vx2L*vx2L+vx3L*vx3L
+      sum3tmp1 = (vx1L*vx1L+vx2L*vx2L) + vx3L*vx3L
+      sum3tmp2 = (vx3L*vx3L+vx1L*vx1L) + vx2L*vx2L
+      sum3tmp3 = (vx2L*vx2L+vx3L*vx3L) + vx1L*vx1L
+      v2L = rph*(max(sum3tmp1,max(sum3tmp2,sum3tmp3)) + min(sum3tmp1,min(sum3tmp2,sum3tmp3)))
 
 #ifdef USE_PRAD
 #ifdef ADVECT_YE_IABAR
@@ -13203,7 +13214,10 @@ contains
 #else
       vx3R = rp0
 #endif
-      v2R = vx1R*vx1R+vx2R*vx2R+vx3R*vx3R
+      sum3tmp1 = (vx1R*vx1R+vx2R*vx2R) + vx3R*vx3R
+      sum3tmp2 = (vx3R*vx3R+vx1R*vx1R) + vx2R*vx2R
+      sum3tmp3 = (vx2R*vx2R+vx3R*vx3R) + vx1R*vx1R
+      v2R = rph*(max(sum3tmp1,max(sum3tmp2,sum3tmp3)) + min(sum3tmp1,min(sum3tmp2,sum3tmp3)))
 
 #ifdef USE_PRAD
 #ifdef ADVECT_YE_IABAR
@@ -13351,7 +13365,7 @@ contains
       
       inv_temp1 = rp1 / (dsuR*rhoR-dsuL*rhoL)
 
-      ustar = (dsuR*rhoR*vx1R - dsuL*rhoL*vx1L - ptR + ptL) * inv_temp1
+      ustar = ((dsuR*rhoR*vx1R - dsuL*rhoL*vx1L) - (ptR - ptL)) * inv_temp1
 
       dsumL = sL - ustar
       dsumR = sR - ustar
@@ -14037,6 +14051,7 @@ contains
    real(kind=rp) :: max_c,sL,sR,dsuL,dsuR,ustar, &
    rhostarL,rhostarR,rhoestarL,rhoestarR,v2L,v2R,inv_rhoL,inv_rhoR, &
    T,eint,inv_mu,T2,T3,T4,inv_abar,dummy,vnL,vnR,nn1,nn2,nn3
+   real(kind=rp) :: sum3tmp1,sum3tmp2,sum3tmp3,sum3tmp
 
    real(kind=rp) :: dp_drho,dp_deps,phi
 
@@ -14103,7 +14118,10 @@ contains
 #else
       vx3L = rp0
 #endif
-      v2L = vx1L*vx1L+vx2L*vx2L+vx3L*vx3L
+      sum3tmp1 = (vx1L*vx1L+vx2L*vx2L) + vx3L*vx3L
+      sum3tmp2 = (vx3L*vx3L+vx1L*vx1L) + vx2L*vx2L
+      sum3tmp3 = (vx2L*vx2L+vx3L*vx3L) + vx1L*vx1L
+      v2L = rph*(max(sum3tmp1,max(sum3tmp2,sum3tmp3)) + min(sum3tmp1,min(sum3tmp2,sum3tmp3)))
 
 #ifdef USE_PRAD
 #ifdef ADVECT_YE_IABAR
@@ -14218,7 +14236,10 @@ contains
 #else
       vx3R = rp0
 #endif
-      v2R = vx1R*vx1R+vx2R*vx2R+vx3R*vx3R
+      sum3tmp1 = (vx1R*vx1R+vx2R*vx2R) + vx3R*vx3R
+      sum3tmp2 = (vx3R*vx3R+vx1R*vx1R) + vx2R*vx2R
+      sum3tmp3 = (vx2R*vx2R+vx3R*vx3R) + vx1R*vx1R
+      v2R = rph*(max(sum3tmp1,max(sum3tmp2,sum3tmp3)) + min(sum3tmp1,min(sum3tmp2,sum3tmp3)))
 
 #ifdef USE_PRAD
 #ifdef ADVECT_YE_IABAR
@@ -14344,7 +14365,7 @@ contains
       dsuL = sL-vnL
       dsuR = sR-vnR
 
-      ustar = (pR-pL+rhoL*vnL*dsuL-rhoR*vnR*dsuR) / (rhoL*dsuL-rhoR*dsuR)
+      ustar = ((pR-pL)+(rhoL*vnL*dsuL-rhoR*vnR*dsuR)) / (rhoL*dsuL-rhoR*dsuR)
 
       rhostarL = rhoL*(dsuL/(sL-ustar))
       rhoestarL = rhostarL*(rhoeL*inv_rhoL+(ustar-vnL)*(ustar+pL*inv_rhoL/dsuL)) 
@@ -14434,7 +14455,7 @@ contains
        pstar*nn3
 #endif
 
-       flux(i_rhoe,idx) = (half_one_plus_sign*rhoestarL+half_one_minus_sign*rhoestarR+pstar)*ustar
+      flux(i_rhoe,idx) = ((half_one_plus_sign*rhoestarL+half_one_minus_sign*rhoestarR+pstar))*ustar
 
 #if nas_make>0
        do iv=i_as1,i_asl
@@ -14465,7 +14486,7 @@ contains
       pstar*nn3
 #endif
 
-      flux(i_rhoe,idx) = (half_one_plus_sign*rhoestarL+half_one_minus_sign*rhoestarR+pstar)*ustar
+      flux(i_rhoe,idx) = ((half_one_plus_sign*rhoestarL+half_one_minus_sign*rhoestarR+pstar))*ustar
 
 #if nas_make>0
       do iv=i_as1,i_asl
@@ -14614,6 +14635,7 @@ contains
    real(kind=rp) :: max_c,sL,sR,dsuL,dsuR,ustar, &
    rhostarL,rhostarR,rhoestarL,rhoestarR,v2L,v2R,inv_rhoL,inv_rhoR, &
    T,eint,inv_mu,T2,T3,T4,inv_abar,dummy
+   real(kind=rp) :: sum3tmp1,sum3tmp2,sum3tmp3
 
    real(kind=rp) :: dp_drho,dp_deps,phi
 
@@ -14684,7 +14706,10 @@ contains
 #else
       vx3L = rp0
 #endif
-      v2L = vx1L*vx1L+vx2L*vx2L+vx3L*vx3L
+      sum3tmp1 = (vx1L*vx1L+vx2L*vx2L) + vx3L*vx3L
+      sum3tmp2 = (vx3L*vx3L+vx1L*vx1L) + vx2L*vx2L
+      sum3tmp3 = (vx2L*vx2L+vx3L*vx3L) + vx1L*vx1L
+      v2L = rph*(max(sum3tmp1,max(sum3tmp2,sum3tmp3)) + min(sum3tmp1,min(sum3tmp2,sum3tmp3)))
 
 #ifdef USE_PRAD
 #ifdef ADVECT_YE_IABAR
@@ -14799,7 +14824,10 @@ contains
 #else
       vx3R = rp0
 #endif
-      v2R = vx1R*vx1R+vx2R*vx2R+vx3R*vx3R
+      sum3tmp1 = (vx1R*vx1R+vx2R*vx2R) + vx3R*vx3R
+      sum3tmp2 = (vx3R*vx3R+vx1R*vx1R) + vx2R*vx2R
+      sum3tmp3 = (vx2R*vx2R+vx3R*vx3R) + vx1R*vx1R
+      v2R = rph*(max(sum3tmp1,max(sum3tmp2,sum3tmp3)) + min(sum3tmp1,min(sum3tmp2,sum3tmp3)))
 
 #ifdef USE_PRAD
 #ifdef ADVECT_YE_IABAR
@@ -14913,7 +14941,7 @@ contains
       dsuL = sL-vx1L
       dsuR = sR-vx1R
 
-      ustar = (pR-pL+rhoL*vx1L*dsuL-rhoR*vx1R*dsuR) / (rhoL*dsuL-rhoR*dsuR)
+      ustar = ((pR-pL)+(rhoL*vx1L*dsuL-rhoR*vx1R*dsuR)) / (rhoL*dsuL-rhoR*dsuR)
 
       rhostarL = rhoL*(dsuL/(sL-ustar))
       rhoestarL = rhostarL*(rhoeL*inv_rhoL+(ustar-vx1L)*(ustar+pL*inv_rhoL/dsuL)) 
@@ -15081,7 +15109,7 @@ contains
 #if sdims_make==3
        flux(i_rhovx3,idx) = rhostar*ustar*(half_one_plus_sign*vx3L+half_one_minus_sign*vx3R)
 #endif
-       flux(i_rhoe,idx) = (half_one_plus_sign*rhoestarL+half_one_minus_sign*rhoestarR+pstar)*ustar
+       flux(i_rhoe,idx) = ((half_one_plus_sign*rhoestarL+half_one_minus_sign*rhoestarR+pstar))*ustar
 
 #if nas_make>0
        do iv=i_as1,i_asl
@@ -15104,7 +15132,7 @@ contains
 #if sdims_make==3
       flux(i_rhovx3,idx) = rhostar*ustar*(half_one_plus_sign*vx3L+half_one_minus_sign*vx3R)
 #endif
-      flux(i_rhoe,idx) = (half_one_plus_sign*rhoestarL+half_one_minus_sign*rhoestarR+pstar)*ustar
+      flux(i_rhoe,idx) = ((half_one_plus_sign*rhoestarL+half_one_minus_sign*rhoestarR+pstar))*ustar
 
 #if nas_make>0
       do iv=i_as1,i_asl
