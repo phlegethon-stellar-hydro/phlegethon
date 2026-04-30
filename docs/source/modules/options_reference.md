@@ -291,9 +291,10 @@ For `LHLL-type` solvers, if both low-Mach and supersonic flows need to be captur
 | `nprobes_make=2` | The number of point probes used in the run. |
 |`RESIZE_OUTPUT` | Performs rebinning to save a grid snapshot to the output at half the original resolution, without modifying the restart files. |
 
-### 13. Precision and endianity
+### 13. Specs
 
 | Option| Meaning |
 | --- | --- |
 | `USE_SINGLE_PRECISION` / `USE_DOUBLE_PRECISION` | floating-point precision mode |
 | `LITTLE_ENDIAN`  / `BIG_ENDIAN`|  endianness setting for binary I/O paths |
+| `ENFORCE_BARRIERS` | enforces mpi-barrier calls before communication calls |
