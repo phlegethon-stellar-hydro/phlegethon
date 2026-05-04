@@ -102,7 +102,7 @@ $(error [Config] Multiple output modes specified: $(_OUTPUT_SET). \
 endif
 
 # 2.2 Complex EOS (at most one)
-_EOS_ALL := HELMHOLTZ_EOS PIG_EOS
+_EOS_ALL := USE_PRAD HELMHOLTZ_EOS PIG_EOS
 _EOS_SET := $(filter $(_EOS_ALL),$(_OPTS_BOOL))
 ifneq ($(call _more_than_one,$(_EOS_SET)),)
 $(error [Config] Multiple complex EOS options specified: $(_EOS_SET). \
@@ -218,10 +218,10 @@ $(error [Config] USE_NUCLEAR_NETWORK requires ADVECT_SPECIES)
 endif
 endif
 
-# 3.5 USE_FASTEOS requires a complex EOS (HELMHOLTZ_EOS or PIG_EOS)
+# 3.5 USE_FASTEOS requires a complex EOS (USE_PRAD, HELMHOLTZ_EOS, or PIG_EOS)
 ifneq ($(filter USE_FASTEOS,$(_OPTS_BOOL)),)
 ifeq ($(_EOS_SET),)
-$(error [Config] USE_FASTEOS requires HELMHOLTZ_EOS or PIG_EOS)
+$(error [Config] USE_FASTEOS requires USE_PRAD, HELMHOLTZ_EOS,  or PIG_EOS)
 endif
 endif
 
