@@ -46,13 +46,16 @@ To set a grid geometry, you need to define one of the following options:
 | `GEOMETRY_CARTESIAN_UNIFORM` | Cartesian geometry (uniform). |
 | `GEOMETRY_CARTESIAN_NONUNIFORM` | Cartesian geometry (nonuniform). |
 | `GEOMETRY_2D_POLAR` | 2D polar geometry (requires `sdims_make=2`). |
+| `GEOMETRY_2D_CYLINDRICAL` | 2D cylindrical geometry (requires `sdims_make=2`) |
 | `GEOMETRY_2D_SPHERICAL` | 2D spherical geometry (requires `sdims_make=2`). |
 | `GEOMETRY_3D_SPHERICAL` | 3D spherical geometry (requires `sdims_make=3`). |
 | `GEOMETRY_CUBED_SPHERE` | 2D/3D cubed-sphere geometry of [Calhoun+08](https://ui.adsabs.harvard.edu/abs/2008SIAMR..50..723C/abstract). |
 
-For polar or spherical grids, the user can enable arbitrarily nonuniform radial grid spacing with `NONUNIFORM_RADIAL_NODES`.
+For polar, cylindrical, or spherical grids, the user can enable arbitrarily nonuniform radial grid spacing with `NONUNIFORM_RADIAL_NODES`.
 In this case, the subroutine `create_geometry` must be defined by the user in `app.F90` (see, e.g., `tests/logarithmic-grid/app.F90`)
 The same applies when non-uniform Cartesian grids are enabled with `GEOMETRY_CARTESIAN_NONUNIFORM`.
+
+For `GEOMETRY_2D_CYLINDRICAL`, `NONUNIFORM_RADIAL_NODES` will also enable non-uniform vertical spacing. 
 
 For `GEOMETRY_CUBED_SPHERE`, the following parameters must be defined at compile time:
 
