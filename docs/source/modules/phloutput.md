@@ -400,7 +400,8 @@ The class maps the `havg` dataset columns to named attributes, including:
 - Transport/source terms: `rho_eint_vr`, `rho_ekin_vr`, `rho_h_vr`, `rho_s_vr`, `div_vel`, `P_div_vel`, `inv_T`, `vr`, `abar_vr`, `zbar_vr`, `P_vr`, `T_vr`, `rho_vel_dot_grav`, `vel_dot_grav`, `dTdr`, `Kth`, `Kth_dTdr`, `edot_nuc`, `edot_neu`, `edot_nuc_inv_T`, `edot_neu_inv_T`.
 - Optional arrays (depending on network configuration): `edot_reacs`, `rho_X`, `rho_X_X`, `rho_X_vr`, `rho_Xdot`, `rho_X_Xdot`.
 - Reynolds/MHD stresses and couplings: `rho_vr_vr`, `rho_vt1`, `rho_vt1_vt1`, `rho_vt2`, `rho_vt2_vt2`, `emag`, `br`, `abs_b`, `abs_bh`, `br_br`, `bt1`, `bt2`, `bt1_bt1`, `bt2_bt2`, `rho_vr_vt1`, `rho_vr_vt2`, `rho_vt1_vt2`, `br_bt1`, `br_bt2`, `bt1_bt2`, `fpoy`.
-- Corotating acceleration terms: `twoov1`, `rho_oor1`, `twoov2`, `rho_oor2`, `twoov3`, `rho_oor3`, `rho_vel_dot_oor` 
+- Corotating acceleration terms: `twoov1`, `rho_oor1`, `twoov2`, `rho_oor2`, `twoov3`, `rho_oor3`, `rho_vel_dot_oor`.
+- Induction terms and Lorentz work: `emag_vr`, `emag_div_vel`, `b_dot_b_dot_nabla_vel`, `WL`. 
 
 ### Utility method
 

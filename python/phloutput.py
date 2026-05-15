@@ -734,7 +734,11 @@ class h5rprof:
         self.twoov3 = havg[:,off+26]
         self.rho_oor3 = havg[:,off+27]
         self.rho_vel_dot_oor = havg[:,off+28]
-
+        self.emag_vr = havg[:,off+29]
+        self.emag_div_vel = havg[:,off+30]
+        self.b_dot_b_dot_nabla_vel = havg[:,off+31]
+        self.WL = havg[:,off+32]
+        
         self.grid0 = h5grid(0,path=path_to_grids,data_path=data_path,helm_table=helm_table,pig_table=pig_table,NRHO=NRHO,NT=NT,LOGRHOMIN=LOGRHOMIN,LOGRHOMAX=LOGRHOMAX,LOGTMIN=LOGTMIN,LOGTMAX=LOGTMAX)
 
     def ap_bp_bar(self,a_bar,b_bar,a_b_bar):

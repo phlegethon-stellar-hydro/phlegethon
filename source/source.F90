@@ -3479,7 +3479,9 @@ contains
     abs_b,abs_bh,abs_vel,abs_vh,area,bt1,bt2,div_vel,dTdr,edot_neu, &
     edot_nuc,inv_T,Kth,s,tmp,vel_dot_grav,vt1,vt2,Eid,lswot15,mu,Pid,ywot, &
     sid,T4,Prad,Erad,srad,cos_phi,cos_theta,phi,sin_phi,sin_theta,theta, &
-    rmi,rpl,sin_theta_mi,sin_theta_pl,om1,om2,om3,oor1,oor2,oor3,ov1,ov2,ov3
+    rmi,rpl,sin_theta_mi,sin_theta_pl,om1,om2,om3,oor1,oor2,oor3,ov1,ov2,ov3, &
+    b_dot_b_dot_nabla_vel,d_vx1_d_x1,d_vx1_d_x2,d_vx1_d_x3,d_vx2_d_x1,d_vx2_d_x2,d_vx2_d_x3, &
+    d_vx3_d_x1,d_vx3_d_x2,d_vx3_d_x3,Jx1,Jx2,Jx3,WL
 
 #ifndef USE_NUCLEAR_NETWORK
     integer :: nreacs = 0
@@ -3566,6 +3568,20 @@ contains
     ov1 = rp0
     ov2 = rp0
     ov3 = rp0
+    b_dot_b_dot_nabla_vel = rp0
+    d_vx1_d_x1 = rp0
+    d_vx1_d_x2 = rp0
+    d_vx1_d_x3 = rp0
+    d_vx2_d_x1 = rp0
+    d_vx2_d_x2 = rp0 
+    d_vx2_d_x3 = rp0
+    d_vx3_d_x1 = rp0
+    d_vx3_d_x2 = rp0
+    d_vx3_d_x3 = rp0
+    Jx1 = rp0
+    Jx2 = rp0
+    Jx3 = rp0
+    WL = rp0
 
 #ifdef COROTATING_FRAME
     om1 = lgrid%omega_rot(1)
@@ -3575,7 +3591,7 @@ contains
 
     isp = 0
 
-    rprofs_nv = 74+nreacs+nas+nas+nas+nspecies+nspecies
+    rprofs_nv = 78+nreacs+nas+nas+nas+nspecies+nspecies
     rprofs_nr = lgrid%rprofs_nr
 
     rnv_tot = rprofs_nv*rprofs_nr
@@ -3939,6 +3955,77 @@ contains
 
 #endif
 
+#ifdef USE_MHD
+
+#if defined(GEOMETRY_CARTESIAN_UNIFORM) || defined(GEOMETRY_CARTESIAN_NONUNIFORM)
+
+        d_vx1_d_x1 = &
+        (lgrid%prim(i_vx1,i+1,j,k)-lgrid%prim(i_vx1,i-1,j,k)) / &
+        (lgrid%coords(1,i+1,j,k)-lgrid%coords(1,i-1,j,k))
+
+        d_vx1_d_x2 = &
+        (lgrid%prim(i_vx1,i,j+1,k)-lgrid%prim(i_vx1,i,j-1,k)) / &
+        (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k))
+
+        d_vx1_d_x3 = &
+        (lgrid%prim(i_vx1,i,j,k+1)-lgrid%prim(i_vx1,i,j,k-1)) / &
+        (lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1))
+
+        d_vx2_d_x1 = &
+        (lgrid%prim(i_vx2,i+1,j,k)-lgrid%prim(i_vx2,i-1,j,k)) / &
+        (lgrid%coords(1,i+1,j,k)-lgrid%coords(1,i-1,j,k))
+
+        d_vx2_d_x2 = &
+        (lgrid%prim(i_vx2,i,j+1,k)-lgrid%prim(i_vx2,i,j-1,k)) / &
+        (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k))
+
+        d_vx2_d_x3 = &
+        (lgrid%prim(i_vx2,i,j,k+1)-lgrid%prim(i_vx2,i,j,k-1)) / &
+        (lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1))
+
+        d_vx3_d_x1 = &
+        (lgrid%prim(i_vx3,i+1,j,k)-lgrid%prim(i_vx3,i-1,j,k)) / &
+        (lgrid%coords(1,i+1,j,k)-lgrid%coords(1,i-1,j,k))
+
+        d_vx3_d_x2 = &
+        (lgrid%prim(i_vx3,i,j+1,k)-lgrid%prim(i_vx3,i,j-1,k)) / &
+        (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k))
+
+        d_vx3_d_x3 = &
+        (lgrid%prim(i_vx3,i,j,k+1)-lgrid%prim(i_vx3,i,j,k-1)) / &
+        (lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1))
+
+        b_dot_b_dot_nabla_vel = &
+        bx1*(bx1*d_vx1_d_x1+bx2*d_vx1_d_x2+bx3*d_vx1_d_x3) + &
+        bx2*(bx1*d_vx2_d_x1+bx2*d_vx2_d_x2+bx3*d_vx2_d_x3) + &
+        bx3*(bx1*d_vx3_d_x1+bx2*d_vx3_d_x2+bx3*d_vx3_d_x3) 
+
+        Jx1 = &
+        (lgrid%b_cc(3,i,j+1,k)-lgrid%b_cc(3,i,j-1,k)) / &
+        (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k)) - & 
+        (lgrid%b_cc(2,i,j,k+1)-lgrid%b_cc(2,i,j,k-1)) / &
+        (lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1)) 
+
+        Jx2 = &
+        (lgrid%b_cc(1,i,j,k+1)-lgrid%b_cc(1,i,j,k-1)) / &
+        (lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1)) - &
+        (lgrid%b_cc(3,i+1,j,k)-lgrid%b_cc(3,i-1,j,k)) / &
+        (lgrid%coords(1,i+1,j,k)-lgrid%coords(1,i-1,j,k)) 
+
+        Jx3 = &
+        (lgrid%b_cc(2,i+1,j,k)-lgrid%b_cc(2,i-1,j,k)) / &
+        (lgrid%coords(1,i+1,j,k)-lgrid%coords(1,i-1,j,k)) - &
+        (lgrid%b_cc(1,i,j+1,k)-lgrid%b_cc(1,i,j-1,k)) / &
+        (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k)) 
+
+        WL = vx1*(Jx2*bx3-Jx3*bx2) + &
+        vx2*(Jx3*bx1-Jx1*bx3) + &
+        vx3*(Jx1*bx2-Jx2*bx1)        
+
+#endif
+
+#endif
+
         lbuff(ir) = lbuff(ir) + area
         lbuff(rprofs_nr+ir) = lbuff(rprofs_nr+ir) + gr
         lbuff(2*rprofs_nr+ir) = lbuff(2*rprofs_nr+ir) + epot
@@ -4062,6 +4149,10 @@ contains
 #else
         lbuff((off+28)*rprofs_nr+ir) = lbuff((off+28)*rprofs_nr+ir) + (rho*vx1*oor1+rho*vx2*oor2+rho*vx3*oor3)
 #endif
+        lbuff((off+29)*rprofs_nr+ir) = lbuff((off+29)*rprofs_nr+ir) + emag*vr
+        lbuff((off+30)*rprofs_nr+ir) = lbuff((off+30)*rprofs_nr+ir) + emag*div_vel
+        lbuff((off+31)*rprofs_nr+ir) = lbuff((off+31)*rprofs_nr+ir) + b_dot_b_dot_nabla_vel
+        lbuff((off+32)*rprofs_nr+ir) = lbuff((off+32)*rprofs_nr+ir) + WL
 
        endif
 
