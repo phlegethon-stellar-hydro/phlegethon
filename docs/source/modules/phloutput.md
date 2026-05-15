@@ -127,6 +127,18 @@ spj.mollweide(spj.rho(ir=0), cmap='viridis', cb_lbl=r'$\rho$')
 
 For both classes, `path_to_grids` should point to a directory containing  also `grid_n00000.h5`.
 
+### 7. Quick look at Reynolds-profile outputs (`h5rprof`)
+
+If your run writes `rprofs_nXXXXX.h5` (for example with `SAVE_RPROFS`), use `h5rprof`:
+
+```python
+rp = h5rprof(0, path=<path_to_rprofs>, path_to_grids=<path_to_grids>, mode='i')
+print(rp.time, rp.step)
+print(rp.r, rp.rho, rp.P)
+```
+
+`h5rprof` exposes radial Reynolds-averaged profiles directly as attributes (for example `rho`, `P`, `T`, `rho_vr`, `rho_vr_vr`, `edot_nuc`).
+
 ## Core concepts
 
 ### Slice selection convention
@@ -355,7 +367,45 @@ spj.mollweide(np.log10(rho_shell))
 
 ```
 
-### 5. `Probe`: point-probe time series and spectra
+### 5. `h5rprof`: reader for Reynolds-profile outputs
+
+`h5rprof` reads `rprofs_nXXXXX.h5` files produced by in-simulation radial averaging output.
+
+Initialize:
+
+```python
+rp = h5rprof(
+    0,
+    path="./rprofs",
+    path_to_grids="./grids",
+    mode='i',
+    data_path="../../data/",
+    helm_table='helm_table_timmes_x2.dat',
+    pig_table='401x401_pig_table_h2_offset.dat',
+)
+```
+
+### Metadata and profile geometry
+
+- Attributes (no function call): `time`, `dt`, `step`, `nas`, `nspecies`, `nreacs`, `rf`, `r`, `nr`.
+- `rf` stores radial cell faces; `r` is the cell-centered radius (`0.5*(rf[1:]+rf[:-1])`).
+- `path_to_grids` should point to a directory containing `grid_n00000.h5` metadata/EOS context.
+
+### Exposed profile fields
+
+The class maps the `havg` dataset columns to named attributes, including:
+
+- Mean/background fields: `area`, `gr`, `epot`, `kappa`, `edot`, `rho`, `P`, `T`, `s`, `abar`, `ye`, `zbar`.
+- Second moments and correlations: `rho_rho`, `T_T`, `P_P`, `s_s`, `rho_vr`, `rho_eint`, `rho_ekin`, `rho_etot`, `rho_h`, `rho_s`.
+- Transport/source terms: `rho_eint_vr`, `rho_ekin_vr`, `rho_h_vr`, `rho_s_vr`, `div_vel`, `P_div_vel`, `inv_T`, `vr`, `abar_vr`, `zbar_vr`, `P_vr`, `T_vr`, `rho_vel_dot_grav`, `vel_dot_grav`, `dTdr`, `Kth`, `Kth_dTdr`, `edot_nuc`, `edot_neu`, `edot_nuc_inv_T`, `edot_neu_inv_T`.
+- Optional arrays (depending on network configuration): `edot_reacs`, `rho_X`, `rho_X_X`, `rho_X_vr`, `rho_Xdot`, `rho_X_Xdot`.
+- Reynolds/MHD stresses and couplings: `rho_vr_vr`, `rho_vt1`, `rho_vt1_vt1`, `rho_vt2`, `rho_vt2_vt2`, `emag`, `br`, `abs_b`, `abs_bh`, `br_br`, `bt1`, `bt2`, `bt1_bt1`, `bt2_bt2`, `rho_vr_vt1`, `rho_vr_vt2`, `rho_vt1_vt2`, `br_bt1`, `br_bt2`, `bt1_bt2`, `fpoy`.
+
+### Utility method
+
+- `ap_bp_bar(a_bar, b_bar, a_b_bar)`: returns the fluctuation covariance-like term `a_b_bar - a_bar*b_bar`.
+
+### 6. `Probe`: point-probe time series and spectra
 
 A point probe is at one fixed grid location that records selected simulation variables as the run evolves. `Probe` reads all `pp<id>_<chunk>.dat` files for one probe ID and stitches the chunked records into one continuous time series.
 
@@ -416,5 +466,4 @@ probe.power_spectrum(
 # Results:
 # probe.t, probe.signal, probe.freq, probe.pow
 ```
-
 

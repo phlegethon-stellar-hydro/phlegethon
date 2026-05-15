@@ -3,6 +3,20 @@
 
 Utilities in this directory extract Reynolds-averaged radial profiles from PHLEGETHON snapshot files (`grid_nXXXXX.h5`).
 
+This repository now supports two Reynolds-profile workflows:
+
+1. **Inline simulation output**: enable `SAVE_RPROFS` and read `rprofs_nXXXXX.h5` directly with `phloutput.h5rprof`.
+2. **Post-processing extraction** (described in this page): run `extract_rprofs.py` on saved grid snapshots and write `RPROFS_*.npz`.
+
+Quick inline-reader example:
+
+```python
+from phloutput import h5rprof
+
+rp = h5rprof(0, path="./rprofs", path_to_grids="./grids", mode='i')
+print(rp.time, rp.rho, rp.rho_vr)
+```
+
 Files:
 
 - `extract_rprofs.py`: reads snapshot dumps and writes one radial-profile archive per dump. This module cotains the backend.
