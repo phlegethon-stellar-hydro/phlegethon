@@ -357,7 +357,7 @@ module source
 #endif
 #endif
 
-#ifdef USE_VARIABLE_EDOT
+#ifdef VARIABLE_EDOT
  real(kind=rp), parameter :: t_start_edot = &
 #ifdef t_start_edot_make
   t_start_edot_make

@@ -134,10 +134,10 @@ If your run writes `rprofs_nXXXXX.h5` (for example with `SAVE_RPROFS`), use `h5r
 ```python
 rp = h5rprof(0, path=<path_to_rprofs>, path_to_grids=<path_to_grids>, mode='i')
 print(rp.time, rp.step)
-print(rp.r, rp.rho, rp.P)
+print(rp.r, rp.dd['rho'], rp.dd['P'])
 ```
 
-`h5rprof` exposes radial Reynolds-averaged profiles directly as attributes (for example `rho`, `P`, `T`, `rho_vr`, `rho_vr_vr`, `edot_nuc`).
+`h5rprof` exposes radial Reynolds-averaged profiles directly as dataset columns to named entries in rp.dd (for example `rho`, `P`, `T`, `rho_vr`, `rho_vr_vr`, `edot_nuc`).
 
 ## Core concepts
 
@@ -412,7 +412,7 @@ Typical access:
 ```python
 rp = h5rprof(0, path="./rprofs", path_to_grids="./grids")
 rho_bar = rp.dd["rho"]
-conv_flux = rp.dd["rho_eint_vr"] - rp.dd["rho_eint"] * rp.dd["rho_vr"] / rp.dd["rho"]
+conv_flux = rp.dd["rho_h_vr"] - rp.dd["rho_h"] * rp.dd["rho_vr"] / rp.dd["rho"]
 ```
 
 ### 6. `ra_iles`: time-averaged Reynolds-ILES diagnostics

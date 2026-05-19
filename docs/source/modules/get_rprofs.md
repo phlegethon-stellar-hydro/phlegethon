@@ -14,7 +14,7 @@ Quick inline-reader example:
 from phloutput import h5rprof
 
 rp = h5rprof(0, path="./rprofs", path_to_grids="./grids", mode='i')
-print(rp.time, rp.rho, rp.rho_vr)
+print(rp.time, rp.dd['rho'], rp.dd['rho_vr'])
 ```
 
 Files:
