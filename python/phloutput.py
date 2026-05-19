@@ -606,7 +606,7 @@ def rprof_list(path=""):
 
 class h5rprof:
 
-    def __init__(self,filename,path='./rprofs',path_to_grids='./grids',mode='i',data_path=data,helm_table='helm_table_timmes_x2.dat',pig_table='401x401_pig_table_h2_offset.dat',
+    def __init__(self,filename,eval_eos=False,path='./rprofs',path_to_grids='./grids',mode='i',data_path=data,helm_table='helm_table_timmes_x2.dat',pig_table='401x401_pig_table_h2_offset.dat',
     NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
         if(mode=='n'):
             filename = os.path.join(path, 'planes_n{:05}.h5'.format(filename))
@@ -730,24 +730,67 @@ class h5rprof:
         self.dd['br_bt2'] = havg[:,off+19]
         self.dd['bt1_bt2'] = havg[:,off+20]
         self.dd['fpoy'] = havg[:,off+21]
-        self.dd['twoov1'] = havg[:,off+22]
+        self.dd['two_rho_ov1'] = havg[:,off+22]
         self.dd['rho_oor1'] = havg[:,off+23]
-        self.dd['twoov2'] = havg[:,off+24]
+        self.dd['two_rho_ov2'] = havg[:,off+24]
         self.dd['rho_oor2'] = havg[:,off+25]
-        self.dd['twoov3'] = havg[:,off+26]
+        self.dd['two_rho_ov3'] = havg[:,off+26]
         self.dd['rho_oor3'] = havg[:,off+27]
         self.dd['rho_vel_dot_oor'] = havg[:,off+28]
         self.dd['emag_vr'] = havg[:,off+29]
         self.dd['emag_div_vel'] = havg[:,off+30]
         self.dd['b_dot_b_dot_nabla_vel'] = havg[:,off+31]
         self.dd['WL'] = havg[:,off+32]
-        
+
+        self.dd['mu'] = self.dd['abar']/(self.dd['zbar']+1.0)
+        self.dd['nabla'] = \
+        np.gradient(np.log(self.dd['T']))/np.gradient(np.log(self.dd['P']))
+        self.dd['nabla_mu'] = \
+        np.gradient(np.log(self.dd['mu']))/np.gradient(np.log(self.dd['P']))
+
         self.grid0 = h5grid(0,path=path_to_grids,data_path=data_path,helm_table=helm_table,pig_table=pig_table,NRHO=NRHO,NT=NT,LOGRHOMIN=LOGRHOMIN,LOGRHOMAX=LOGRHOMAX,LOGTMIN=LOGTMIN,LOGTMAX=LOGTMAX)
 
-def ra_iles(i1,i2,delta=1,path='./rprofs',filename=None):
+        if(eval_eos):
+
+         self.full = rhoT_given(self.grid0.eos_table,self.dd['rho'],self.dd['T'],abar=self.dd['abar'],zbar=self.dd['zbar'],
+         gamma_ideal=self.grid0.gamma_gas,eos_mode=self.grid0.eos_mode)
+
+         self.dd['dPdrho'] = self.full[id_dPdrho]
+         self.dd['dPdT'] = self.full[id_dPdT]
+         self.dd['dEdrho'] = self.full[id_dEdrho]
+         self.dd['dEdT'] = self.full[id_dEdT]
+         self.dd['cv'] = self.full[id_cv]
+         self.dd['chiT'] = self.full[id_chiT]
+         self.dd['chirho'] = self.full[id_chirho]
+         self.dd['gam1'] = self.full[id_gam1]
+         self.dd['sound'] = self.full[id_sound]
+         self.dd['cp'] = self.full[id_cp]
+         self.dd['gam2'] = self.full[id_gam2]
+         self.dd['gam3'] = self.full[id_gam3]
+         self.dd['nabla_ad'] = self.full[id_nabla_ad]
+         self.dd['dsdrho'] = self.full[id_dsdrho]
+         self.dd['dsdT'] = self.full[id_dsdT]
+         self.dd['delta'] = self.full[id_delta]
+         self.dd['eta'] = self.full[id_eta]
+         self.dd['nep'] = self.full[id_nep]
+         self.dd['phi'] = self.full[id_phi]
+         self.dd['dPdA'] = self.full[id_dPdA]
+
+         self.dd['Schwarzschild'] = self.dd['nabla']-self.dd['nabla_ad']
+         self.dd['Ledoux'] = self.dd['nabla']-self.dd['nabla_ad']-self.dd['phi']/self.dd['delta']*self.dd['nabla_mu']
+
+def ra_iles(i1,i2,delta=1,path='./rprofs',filename=None,
+path_to_grids='./grids',mode='i',data_path=data,helm_table='helm_table_timmes_x2.dat',pig_table='401x401_pig_table_h2_offset.dat',
+NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
     
-  r1 = h5rprof(i1,path=path)
-  r2 = h5rprof(i2,path=path)
+  r1 = h5rprof(i1,path=path,
+  path_to_grids=path_to_grids,data_path=data_path,helm_table=helm_table,pig_table=pig_table,
+  NRHO=NRHO,NT=NT,LOGRHOMIN=LOGRHOMIN,LOGRHOMAX=LOGRHOMAX,LOGTMIN=LOGTMIN,LOGTMAX=LOGTMAX)
+
+  r2 = h5rprof(i2,path=path,
+  path_to_grids=path_to_grids,data_path=data_path,helm_table=helm_table,pig_table=pig_table,
+  NRHO=NRHO,NT=NT,LOGRHOMIN=LOGRHOMIN,LOGRHOMAX=LOGRHOMAX,LOGTMIN=LOGTMIN,LOGTMAX=LOGTMAX)
+              
   dd = {}
   dd['t1'] = r1.time
   dd['t2'] = r2.time
@@ -757,9 +800,11 @@ def ra_iles(i1,i2,delta=1,path='./rprofs',filename=None):
 
   cnt = 0
   for i in range(i1,i2+1,delta):
-    
-    rpr = h5rprof(i,path=path)
  
+    rpr = h5rprof(i,path=path,
+    path_to_grids=path_to_grids,data_path=data_path,helm_table=helm_table,pig_table=pig_table,
+    NRHO=NRHO,NT=NT,LOGRHOMIN=LOGRHOMIN,LOGRHOMAX=LOGRHOMAX,LOGTMIN=LOGTMIN,LOGTMAX=LOGTMAX)
+              
     for key in r1.dd.keys():
      dd[key] += rpr.dd[key]
 

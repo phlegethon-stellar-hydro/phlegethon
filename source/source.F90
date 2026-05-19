@@ -407,7 +407,7 @@ module source
 
 #ifdef SAVE_RPROFS
  real(kind=rp), parameter :: rprofs_dt_dump = &
-#ifdef planes_dt_dump_make
+#ifdef rprofs_dt_dump_make
   rprofs_dt_dump_make
 #else
   1.0_rp
@@ -1748,6 +1748,25 @@ contains
 
 #endif
 
+#ifdef SAVE_RPROFS
+    lgrid%rprofs_dstep_dump = 0
+    lgrid%rprofs_inextoutput = 0
+#ifdef USE_INTERNAL_BOUNDARIES
+    lgrid%rprofs_nr = int(nx1/2)
+#else
+#if defined(GEOMETRY_2D_POLAR) || defined(GEOMETRY_2D_SPHERICAL) || defined(GEOMETRY_3D_SPHERICAL)
+    lgrid%rprofs_nr = nx1
+#elif defined(GEOMETRY_CUBED_SPHERE)
+    lgrid%rprofs_nr = int(nx1/2)
+#else
+    lgrid%rprofs_nr = nx2
+#endif
+#endif
+    allocate(lgrid%rprofs_ir(lx1:ux1,lx2:ux2,lx3:ux3))
+    allocate(lgrid%rprofs_counts(1:lgrid%rprofs_nr))
+    allocate(lgrid%rprofs_r(1:lgrid%rprofs_nr+1))
+#endif
+
     call create_geometry(lgrid,mgrid)
 
     lgrid%time = rp0
@@ -1839,25 +1858,6 @@ contains
     lx3-ngc:ux3+ngc))
 #endif
 
-#endif
-
-#ifdef SAVE_RPROFS
-    lgrid%rprofs_dstep_dump = 0
-    lgrid%rprofs_inextoutput = 0
-#ifdef USE_INTERNAL_BOUNDARIES
-    lgrid%rprofs_nr = int(nx1/2)
-#else
-#ifdef GEOMETRY_3D_SPHERICAL
-    lgrid%rprofs_nr = nx1
-#elif defined(GEOMETRY_CUBED_SPHERE)
-    lgrid%rprofs_nr = int(nx1/2)
-#else
-    lgrid%rprofs_nr = nx2
-#endif
-#endif
-    allocate(lgrid%rprofs_ir(lx1:ux1,lx2:ux2,lx3:ux3))
-    allocate(lgrid%rprofs_counts(1:lgrid%rprofs_nr))
-    allocate(lgrid%rprofs_r(1:lgrid%rprofs_nr+1))
 #endif
 
 #ifdef SAVE_PLANES
@@ -3652,20 +3652,23 @@ contains
        if(ir>0) then
        
         rho = lgrid%prim(i_rho,i,j,k)
-        P = lgrid%prim(i_P,i,j,k)
+        P = lgrid%prim(i_p,i,j,k)
         T = lgrid%temp(i,j,k)
         eint = lgrid%eint(i,j,k)/rho
         h = eint + P/rho
 
         vx1 = lgrid%prim(i_vx1,i,j,k)
         vx2 = lgrid%prim(i_vx2,i,j,k)
+#if sdims_make==3
         vx3 = lgrid%prim(i_vx3,i,j,k)
-
+#endif
         ekin = rph*(vx1*vx1+vx2*vx2+vx3*vx3)
 
         x = lgrid%coords(1,i,j,k)
         y = lgrid%coords(2,i,j,k)
+#if sdims_make==3
         z = lgrid%coords(3,i,j,k)
+#endif
 
 #ifdef EVOLVE_ETOT
         epot = lgrid%phi_cc(i,j,k) 
@@ -3674,13 +3677,17 @@ contains
 #ifdef USE_GRAVITY
         gx1 = lgrid%grav(1,i,j,k) 
         gx2 = lgrid%grav(2,i,j,k) 
+#if sdims_make==3
         gx3 = lgrid%grav(3,i,j,k) 
+#endif
 #endif
  
 #ifdef USE_MHD
         bx1 = lgrid%b_cc(1,i,j,k)
         bx2 = lgrid%b_cc(2,i,j,k)
+#if sdims_make==3
         bx3 = lgrid%b_cc(3,i,j,k)
+#endif
         emag = rph*(bx1*bx1+bx2*bx2+bx3*bx3)
 #endif
 
@@ -3719,7 +3726,7 @@ contains
         bt1 = cos_theta*cos_phi*bx1+cos_theta*sin_theta*bx2-sin_theta*bx3
         bt2 = -sin_phi*bx1+cos_phi*bx2
 #endif
-#elif defined(GEOMETRY_3D_SPHERICAL)
+#elif defined(GEOMETRY_2D_POLAR) || defined(GEOMETRY_2D_SPHERICAL) || defined(GEOMETRY_3D_SPHERICAL)
         r = lgrid%r(i,j,k)
         vr = vx1
         vt1 = vx2
@@ -3733,7 +3740,7 @@ contains
         gr = gx1
 #endif
 #else
-        r = lgrid%coords(2,i,j,k)
+        r = y
         vr = vx2
         vt1 = vx1
         vt2 = vx3
@@ -3820,10 +3827,16 @@ contains
         area = CONST_PI*(lgrid%rprofs_r(ir)+lgrid%rprofs_r(ir+1))**2
 #elif defined(GEOMETRY_CUBED_SPHERE)
         area = CONST_PI*(lgrid%rprofs_r(ir)+lgrid%rprofs_r(ir+1))**2
-#elif defined(GEOMETRY_3D_SPHERICAL)
+#elif defined(GEOMETRY_2D_POLAR)
+        area = CONST_PI*(lgrid%rprofs_r(ir)+lgrid%rprofs_r(ir+1))
+#elif defined(GEOMETRY_2D_SPHERICAL) || defined(GEOMETRY_3D_SPHERICAL)
         area = CONST_PI*(lgrid%rprofs_r(ir)+lgrid%rprofs_r(ir+1))**2
 #else
+#if sdims_make==3
         area = (lgrid%x1u-lgrid%x1l)*(lgrid%x3u-lgrid%x3l)
+#else
+        area = (lgrid%x1u-lgrid%x1l)
+#endif
 #endif
 
         abs_vel = sqrt(rp2*ekin)
@@ -3834,11 +3847,41 @@ contains
         (lgrid%prim(i_vx1,i+1,j,k)-lgrid%prim(i_vx1,i-1,j,k)) / &
         (lgrid%coords(1,i+1,j,k)-lgrid%coords(1,i-1,j,k)) + &
         (lgrid%prim(i_vx2,i,j+1,k)-lgrid%prim(i_vx2,i,j-1,k)) / &
-        (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k)) + &
-        (lgrid%prim(i_vx3,i,j,k+1)-lgrid%prim(i_vx3,i,j,k-1)) / &
+        (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k)) 
+#if sdims_make==3
+        div_vel = div_vel + (lgrid%prim(i_vx3,i,j,k+1)-lgrid%prim(i_vx3,i,j,k-1)) / &
         (lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1))         
+#endif
 #elif defined(GEOMETRY_CUBED_SPHERE)
         div_vel = rp0
+#elif defined(GEOMETRY_2D_POLAR)
+        rpl = lgrid%r(i+1,j,k)
+        rmi = lgrid%r(i-1,j,k)
+
+        div_vel = & 
+        (rpl*lgrid%prim(i_vx1,i+1,j,k)-rmi*lgrid%prim(i_vx1,i-1,j,k)) / &
+        (r*(rpl-rmi)) 
+
+        div_vel = div_vel + &
+        (lgrid%prim(i_vx2,i,j+1,k)-lgrid%prim(i_vx2,i,j-1,k)) / &
+        (r*lgrid%dx2)
+#elif defined(GEOMETRY_2D_SPHERICAL)
+        rpl = lgrid%r(i+1,j,k)
+        rmi = lgrid%r(i-1,j,k)
+
+        div_vel = & 
+        (rpl*rpl*lgrid%prim(i_vx1,i+1,j,k)-rmi*rmi*lgrid%prim(i_vx1,i-1,j,k)) / &
+        (r*r*(rpl-rmi)) 
+
+        sin_theta_pl = lgrid%sin_theta(i,j+1,k)
+        sin_theta_mi = lgrid%sin_theta(i,j-1,k)
+
+        tmp = rp1/(r*lgrid%sin_theta(i,j,k))
+
+        div_vel = div_vel + & 
+        tmp* &
+        (sin_theta_pl*lgrid%prim(i_vx2,i,j+1,k)-sin_theta_mi*lgrid%prim(i_vx2,i,j-1,k)) / &
+        lgrid%dx2
 #elif defined(GEOMETRY_3D_SPHERICAL)
         rpl = lgrid%r(i+1,j,k)
         rmi = lgrid%r(i-1,j,k)
@@ -3866,9 +3909,11 @@ contains
         (lgrid%prim(i_vx1,i+1,j,k)-lgrid%prim(i_vx1,i-1,j,k)) / &
         (lgrid%coords(1,i+1,j,k)-lgrid%coords(1,i-1,j,k)) + &
         (lgrid%prim(i_vx2,i,j+1,k)-lgrid%prim(i_vx2,i,j-1,k)) / &
-        (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k)) + &
-        (lgrid%prim(i_vx3,i,j,k+1)-lgrid%prim(i_vx3,i,j,k-1)) / &
+        (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k)) 
+#if sdims_make==3
+        div_vel = div_vel + (lgrid%prim(i_vx3,i,j,k+1)-lgrid%prim(i_vx3,i,j,k-1)) / &
         (lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1)) 
+#endif
 #endif
 
         inv_T = rp1/T
@@ -3881,13 +3926,15 @@ contains
         lgrid%coords(1,i,j,k)*(lgrid%temp(i+1,j,k)-lgrid%temp(i-1,j,k)) / &
         (lgrid%coords(1,i+1,j,k)-lgrid%coords(1,i-1,j,k)) + &
         lgrid%coords(2,i,j,k)*(lgrid%temp(i,j+1,k)-lgrid%temp(i,j-1,k)) / &
-        (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k)) + &
-        lgrid%coords(3,i,j,k)*(lgrid%temp(i,j,k+1)-lgrid%temp(i,j,k-1)) / &
+        (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k)) 
+#if sdims_make==3
+        dTdr = dTdr + lgrid%coords(3,i,j,k)*(lgrid%temp(i,j,k+1)-lgrid%temp(i,j,k-1)) / &
         (lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1))         
+#endif
         dTdr = dTdr/lgrid%r(i,j,k)
 #elif defined(GEOMETRY_CUBED_SPHERE)
         dTdr = rp0
-#elif defined(GEOMETRY_3D_SPHERICAL)
+#elif defined(GEOMETRY_2D_POLAR) || defined(GEOMETRY_2D_SPHERICAL) || defined(GEOMETRY_3D_SPHERICAL)
         dTdr = &
         (lgrid%temp(i+1,j,k)-lgrid%temp(i-1,j,k)) / &
         (lgrid%r(i+1,j,k)-lgrid%r(i-1,j,k)) 
@@ -3927,6 +3974,15 @@ contains
         tmp = or3*om3
         oor1 = -sin_theta*tmp
         oor2 = -cos_theta*tmp
+
+#elif defined(GEOMETRY_2D_POLAR)
+
+        tmp = rho*vt2*om3
+        ov1 = -tmp
+        ov2 = rho*vr*om3
+        or2 = r*om3
+        tmp = or2*om3
+        oor1 = -tmp
 
 #elif defined(GEOMETRY_3D_SPHERICAL)
 
@@ -3970,9 +4026,11 @@ contains
         (lgrid%prim(i_vx1,i,j+1,k)-lgrid%prim(i_vx1,i,j-1,k)) / &
         (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k))
 
+#if sdims_make==3
         d_vx1_d_x3 = &
         (lgrid%prim(i_vx1,i,j,k+1)-lgrid%prim(i_vx1,i,j,k-1)) / &
         (lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1))
+#endif
 
         d_vx2_d_x1 = &
         (lgrid%prim(i_vx2,i+1,j,k)-lgrid%prim(i_vx2,i-1,j,k)) / &
@@ -3982,9 +4040,11 @@ contains
         (lgrid%prim(i_vx2,i,j+1,k)-lgrid%prim(i_vx2,i,j-1,k)) / &
         (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k))
 
+#if sdims_make==3
         d_vx2_d_x3 = &
         (lgrid%prim(i_vx2,i,j,k+1)-lgrid%prim(i_vx2,i,j,k-1)) / &
         (lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1))
+#endif
 
         d_vx3_d_x1 = &
         (lgrid%prim(i_vx3,i+1,j,k)-lgrid%prim(i_vx3,i-1,j,k)) / &
@@ -3994,15 +4054,18 @@ contains
         (lgrid%prim(i_vx3,i,j+1,k)-lgrid%prim(i_vx3,i,j-1,k)) / &
         (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k))
 
+#if sdims_make==3
         d_vx3_d_x3 = &
         (lgrid%prim(i_vx3,i,j,k+1)-lgrid%prim(i_vx3,i,j,k-1)) / &
         (lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1))
+#endif 
 
         b_dot_b_dot_nabla_vel = &
         bx1*(bx1*d_vx1_d_x1+bx2*d_vx1_d_x2+bx3*d_vx1_d_x3) + &
         bx2*(bx1*d_vx2_d_x1+bx2*d_vx2_d_x2+bx3*d_vx2_d_x3) + &
         bx3*(bx1*d_vx3_d_x1+bx2*d_vx3_d_x2+bx3*d_vx3_d_x3) 
 
+#if sdims_make==3
         Jx1 = &
         (lgrid%b_cc(3,i,j+1,k)-lgrid%b_cc(3,i,j-1,k)) / &
         (lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k)) - & 
@@ -4014,6 +4077,7 @@ contains
         (lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1)) - &
         (lgrid%b_cc(3,i+1,j,k)-lgrid%b_cc(3,i-1,j,k)) / &
         (lgrid%coords(1,i+1,j,k)-lgrid%coords(1,i-1,j,k)) 
+#endif 
 
         Jx3 = &
         (lgrid%b_cc(2,i+1,j,k)-lgrid%b_cc(2,i-1,j,k)) / &
@@ -5830,19 +5894,6 @@ contains
 
 #ifdef SAVE_RPROFS
 
-    do ipr=1,lgrid%rprofs_nr+1
-#ifdef USE_INTERNAL_BOUNDARIES
-      tmp = real(lgrid%x1u/lgrid%rprofs_nr*(ipr-1),kind=rp)
-#elif defined(GEOMETRY_CUBED_SPHERE)
-      tmp = real(cs_r1/lgrid%rprofs_nr*(ipr-1),kind=rp)
-#elif defined(GEOMETRY_3D_SPHERICAL)
-      tmp = real(lgrid%x1l+(lgrid%x1u-lgrid%x1l)/lgrid%rprofs_nr*(ipr-1),kind=rp)
-#else
-      tmp = real(lgrid%x2l+(lgrid%x2u-lgrid%x2l)/lgrid%rprofs_nr*(ipr-1),kind=rp)
-#endif
-      lgrid%rprofs_r(ipr) = tmp
-    end do
-
     allocate(rprofs_counts(1:lgrid%rprofs_nr))
 
     do ipr=1,lgrid%rprofs_nr
@@ -5853,12 +5904,12 @@ contains
      do j=lx2,ux2
       do i=lx1,ux1
 
-#if defined(USE_INTERNAL_BOUNDARIES) || defined(GEOMETRY_3D_SPHERICAL) || defined(GEOMETRY_CUBED_SPHERE)
+#if defined(USE_INTERNAL_BOUNDARIES) || defined(GEOMETRY_2D_POLAR) || defined(GEOMETRY_2D_SPHERICAL) || defined(GEOMETRY_3D_SPHERICAL) || defined(GEOMETRY_CUBED_SPHERE)
         tmp = lgrid%r(i,j,k)
 #else
         tmp = lgrid%coords(2,i,j,k)
 #endif
- 
+
         lgrid%rprofs_ir(i,j,k) = 0
 
         do ipr=1,lgrid%rprofs_nr
@@ -5871,11 +5922,12 @@ contains
       end do
      end do
     end do
-    
+
     call mpi_reduce(rprofs_counts,lgrid%rprofs_counts,lgrid%rprofs_nr, &
     MPI_INTEGER,MPI_SUM,master_rank,mgrid%comm_cart,ierr)
 
     deallocate(rprofs_counts)
+
 
 #endif
 
@@ -6543,7 +6595,7 @@ contains
 #ifdef SAVE_RPROFS
        if(lgrid%step==lgrid%rprofs_inextoutput) then
         call mpi_barrier(mgrid%comm_cart,ierr)
-        call communicate_ndarray(mgrid,3,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_vx1:i_vx3,:,:,:),.false.)
+        call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_vx1:i_vx3,:,:,:),.false.)
 #if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(THERMAL_DIFFUSION_STS)
         call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.false.)
 #endif
@@ -6706,7 +6758,7 @@ contains
 
 #ifdef SAVE_RPROFS
     if((lgrid%step==lgrid%rprofs_inextoutput) .or. (lgrid%time>=tmax) .or. (lgrid%step==stepmax)) then
-      call communicate_ndarray(mgrid,3,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_vx1:i_vx3,:,:,:),.false.)
+      call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_vx1:i_vx3,:,:,:),.false.)
 #if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(THERMAL_DIFFUSION_STS)
       call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.false.)
 #endif
@@ -16301,7 +16353,19 @@ contains
     end do
    end do
 #endif
- 
+
+#ifdef SAVE_RPROFS
+#ifdef USE_INTERNAL_BOUNDARIES
+  do i=1,lgrid%rprofs_nr+1
+   lgrid%rprofs_r(i) = real(lgrid%x1u/lgrid%rprofs_nr*(i-1),kind=rp)
+  end do
+#else
+  do j=1,nx2+1
+   lgrid%rprofs_r(j) = lgrid%x2l + (j-rp1)*lgrid%dx2
+  end do
+#endif
+#endif
+
    mgrid%dummy = rp1
 
  end subroutine create_geometry
@@ -16387,6 +16451,12 @@ contains
        lgrid%cm(i,j,k) = (rpl+rp2*rm)/(rp3*(rpl+rm))
      end do 
     end do
+   end do
+#endif
+
+#ifdef SAVE_RPROFS
+   do i=1,nx1+1
+    lgrid%rprofs_r(i) = lgrid%x1l + real(i-1.0,kind=rp)*lgrid%dx1
    end do
 #endif
 
@@ -16588,6 +16658,12 @@ contains
    end do
 #endif
 
+#ifdef SAVE_RPROFS
+   do i=1,nx1+1
+    lgrid%rprofs_r(i) = lgrid%x1l + real(i-1.0,kind=rp)*lgrid%dx1
+   end do
+#endif
+
    mgrid%dummy = rp1
 
  end subroutine create_geometry
@@ -16736,6 +16812,12 @@ contains
    end do
 #endif
 
+#ifdef SAVE_RPROFS
+   do i=1,nx1+1
+    lgrid%rprofs_r(i) = lgrid%x1l + real(i-1.0,kind=rp)*lgrid%dx1
+   end do
+#endif
+
    mgrid%dummy = rp1
 
  end subroutine create_geometry
@@ -16870,6 +16952,12 @@ contains
      end do
     end do
    end do
+
+#ifdef SAVE_RPROFS
+    do i=1,lgrid%rprofs_nr+1
+     lgrid%rprofs_r(i) = real(cs_r1/lgrid%rprofs_nr*(i-1),kind=rp)
+    end do
+#endif
 
    mgrid%dummy = rp1
 
@@ -17151,6 +17239,12 @@ contains
      end do
     end do
    end do
+
+#ifdef SAVE_RPROFS
+   do i=1,lgrid%rprofs_nr+1
+    lgrid%rprofs_r(i) = real(cs_r1/lgrid%rprofs_nr*(i-1),kind=rp)
+   end do
+#endif
 
    mgrid%dummy = rp1
 

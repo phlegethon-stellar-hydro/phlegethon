@@ -282,7 +282,7 @@ For `LHLL-type` solvers, if both low-Mach and supersonic flows need to be captur
 | `info_terminal_rate_make=100000` | Frequency at which the simulation time, cycle, and time step are written to terminal. Further information on the gravity solver or the thermal diffusion step (if used) is also shown. |
 | `dt_restart_make=100.0_rp` | Dumps a restart file every `dt_restart_make` of wall clock time (in seconds). |
 | `RESTART_LAST` | Restarts the simulation from the restart file indicated in the last line of `restart_info.txt` (by default, the last restart). The restart files are saved in the `restarts` directory, which is automatically created at compile time. |
-| `SAVE_RPROFS` | Dumps horizontal Reynolds averages as functions of radius to a separate hdf5 output channel (only if `sdims_make=3`). |
+| `SAVE_RPROFS` | Dumps horizontal Reynolds averages as functions of radius to a separate hdf5 output channel (for all grids except `GRID_2D_CYLINDRICAL`). |
 | `rprofs_dt_dump_make=1.0_rp` | Output cadence of the horizontal averages in units of simulation time. |
 | `SAVE_PLANES` | Dumps 2D slices (planes) to a separate hdf5 output channel (only if `sdims_make=3`). In `app.F90`, the indices of the slices must be provided as `lgrid%planes_x1_index(<plane index>) = <x1 index>` and analogously for slices in the other directions. Planes are saved in the `planes` directory, which is automatically created at compile time. |
 | `nplanes_x1_make=2` | Number of `(x2,x3)` planes to be saved to output. |

@@ -354,6 +354,14 @@ end program test
     end do
    end do
 
+#ifdef SAVE_RPROFS
+   do i=1,nx1+1
+    logr = logr1 + real(i-1,kind=rp)*dlogr
+    r = exp(logr)
+    lgrid%rprofs_r(i) = r
+   end do
+#endif
+
    mgrid%dummy = 1.0_rp
 
  end subroutine create_geometry

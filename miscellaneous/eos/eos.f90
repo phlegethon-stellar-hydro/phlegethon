@@ -1079,7 +1079,11 @@ subroutine rhoT_given_3d(rho_arr,T_arr,abar_arr,zbar_arr, &
      eos_arr(id_gam2,i,j,k) = 1.0d0 / (1.0d0 - eos_arr(id_nabla_ad,i,j,k))
      eos_arr(id_gam3,i,j,k) = x+1.0d0
      eos_arr(id_cp,i,j,k) = cv*gam1/chirho
-     eos_arr(id_phi,i,j,k) = -abar_arr(i,j,k)/rho*eos_arr(id_dPdA,i,j,k)/dPdrho
+     if(ideal) then
+      eos_arr(id_phi,i,j,k) = -(abar_arr(i,j,k)/(zbar_arr(i,j,k)+1.0d0))/rho*eos_arr(id_dPdA,i,j,k)/dPdrho
+     else
+      eos_arr(id_phi,i,j,k) = -abar_arr(i,j,k)/rho*eos_arr(id_dPdA,i,j,k)/dPdrho
+     end if
 
     end do
    end do
