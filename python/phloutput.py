@@ -985,12 +985,20 @@ NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
 
 def gradr(r,q,geometry,use_internal_boundaries):
 
-   if(geometry=='3d-spherical'):
+   if(geometry!='cartesian'):
+    if(geometry=='2d-polar'):
+     gradr_q = np.gradient(r*q,r)/r
+    elif(pg.geometry=='2d-spherical'):
+     gradr_q = np.gradient(r*r*q,r)/(r*r)
+    elif(geometry=='3d-spherical-3d'):
      gradr_q = np.gradient(r*r*q,r)/(r*r)
    elif(geometry=='cartesian' and use_internal_boundaries=='true'):
-     gradr_q = np.gradient(r*r*q,r)/(r*r)
+     if(sdims==2):
+      gradr_q = np.gradient(r*q,r)/r
+     if(sdims==3):
+      gradr_q = np.gradient(r*r*q,r)/(r*r)
    else:
-     gradr_q = np.gradient(q,r)
+      gradr_q = np.gradient(q,r)
 
    return gradr_q
 
