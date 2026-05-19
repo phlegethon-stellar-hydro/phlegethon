@@ -83,7 +83,7 @@ For `GEOMETRY_CUBED_SPHERE`, the following parameters must be defined at compile
 | `THERMAL_DIFFUSION_STS` | Enables radiative diffusion solved with the RKL2 super time stepper of [Meyer+14](https://ui.adsabs.harvard.edu/abs/2014JCoPh.257..594M/abstract) (see, Sect. 2.10). The cell-centered opacity must be filled in `app.F90` as `lgrid%kappa(i,j,k)`. |
 | `USE_EDOT` | Enables time independent heating. The heating rate per unit volume (`lgrid%edot(i,j,k)`) must be provided in `app.F90` at every cell center. |
 | `USE_VARIABLE_EDOT` | Switches on a fixed heating source after `t=t_start_edot_make` |
-| `VARIABLE_EDOT` | Alias flag for time-dependent heating source activation (use with `USE_EDOT`). |
+| `VARIABLE_EDOT` | Makes `USE_EDOT` time-dependent by applying `lgrid%edot` only for `t >= t_start_edot_make`. |
 | `t_start_edot_make=1.0_rp` | Time after which the heating source is activated. |
 | `USE_NEULOSS` | Enables nonnuclear neutrino cooling, computed according to [Itoh+1996](https://ui.adsabs.harvard.edu/abs/1996ApJS..102..411I/abstract) (adapted from Frank Timmes' [cococubed](https://cococubed.com/code_pages/nuloss.shtml)). |
 
