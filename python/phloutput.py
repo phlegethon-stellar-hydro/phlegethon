@@ -196,7 +196,7 @@ class h5spj:
 
         if(mode=='n'):
             filename = os.path.join(path, 'spj_n{:05}.h5'.format(filename))
-        if(mode=='i'):
+        elif(mode=='i'):
             filename = spj_list(path=path)[filename][1]
         else:
           raise ValueError('Unknown mode' + str(mode),': mode must be n or i')
@@ -610,7 +610,7 @@ class h5rprof:
     NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
         if(mode=='n'):
             filename = os.path.join(path, 'planes_n{:05}.h5'.format(filename))
-        if(mode=='i'):
+        elif(mode=='i'):
             filename = rprof_list(path=path)[filename][1]
         else:
           raise ValueError('Unknown mode' + str(mode),': mode must be n or i')
@@ -1027,7 +1027,7 @@ class h5plane:
     NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
         if(mode=='n'):
             filename = os.path.join(path, 'planes_n{:05}.h5'.format(filename))
-        if(mode=='i'):
+        elif(mode=='i'):
             filename = plane_list(path=path)[filename][1]
         else:
           raise ValueError('Unknown mode' + str(mode),': mode must be n or i')
@@ -1723,7 +1723,7 @@ class h5grid:
     NRHO=541,NT=201,LOGRHOMIN=-12.0,LOGRHOMAX=15.0,LOGTMIN=3.0,LOGTMAX=13.0):
         if(mode=='n'):
             filename = os.path.join(path, 'grid_n{:05}.h5'.format(filename))
-        if(mode=='i'):
+        elif(mode=='i'):
             filename = file_list(path=path)[filename][1]
         else:
           raise ValueError('Unknown mode' + str(mode),': mode must be n or i')
