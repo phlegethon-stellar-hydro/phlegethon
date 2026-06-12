@@ -1686,10 +1686,10 @@ class h5plane:
 
      cb = fig.colorbar(im,cax=cax,label=cb_lbl,orientation=orientation)
 
-     return fig,axs
-
      if(figname!=None):
       savefig(figname,dpi=figdpi)
+     
+     return fig,axs
 
      if(showfig):
       show()
