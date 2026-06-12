@@ -1688,8 +1688,6 @@ class h5plane:
 
      if(figname!=None):
       savefig(figname,dpi=figdpi)
-     
-     return fig,axs
 
      if(showfig):
       show()
@@ -1698,6 +1696,7 @@ class h5plane:
 
      rc('text', usetex=False)
 
+     return fig,axs
 #######################################################################################
 # h5grid class
 #######################################################################################
@@ -2669,8 +2668,6 @@ class h5grid:
      if(figname!=None):
       savefig(figname,dpi=figdpi)
 
-     return fig,axs
-
      if(showfig):
       show()
      elif(multiplot):
@@ -2679,6 +2676,8 @@ class h5grid:
       close()
 
      rc('text', usetex=False)
+
+     return fig,axs
 
     def radialshow(self,quant,ib_bins=None,slices=False,s1=-1,s2=-1,s3=-1, \
                     figdpi=500,figname=None, \
