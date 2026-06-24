@@ -1,6 +1,6 @@
 program test
  use source
- 
+
  type(mpigrid) :: mgrid
  type(locgrid) :: lgrid
 
@@ -119,8 +119,34 @@ program test
   end do
  end do
 
+!Define the opacity (currently assumed to be constant)
+
+ do j=lbound(lgrid%kap_cc,2),ubound(lgrid%kap_cc,2)
+  do i=lbound(lgrid%kap_cc,1),ubound(lgrid%kap_cc,1)
+      lgrid%kap_cc(i,j) = 1.0_rp
+  end do
+ end do
+
+ do j=lbound(lgrid%kap_x1,2),ubound(lgrid%kap_x1,2)
+  do i=lbound(lgrid%kap_x1,1),ubound(lgrid%kap_x1,1)
+      lgrid%kap_x1(i,j) = 1.0_rp
+  end do
+ end do
+
+ do j=lbound(lgrid%kap_x2,2),ubound(lgrid%kap_x2,2)
+  do i=lbound(lgrid%kap_x2,1),ubound(lgrid%kap_x2,1)
+      lgrid%kap_x2(i,j) = 1.0_rp
+  end do
+ end do
+
+ do j=lbound(lgrid%kap_cor,2),ubound(lgrid%kap_cor,2)
+  do i=lbound(lgrid%kap_cor,1),ubound(lgrid%kap_cor,1)
+      lgrid%kap_cor(i,j) = 1.0_rp
+  end do
+ end do
+
  call time_loop(mgrid,lgrid)
 
  call finalize_simulation(lgrid)
- 
+
 end program test
