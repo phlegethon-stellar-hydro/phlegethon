@@ -28,4 +28,4 @@ OPTS += tmax_make=1.26_rp
 OPTS +=nvars_make=4
 
 #include machine-specific configuration
-include ${SRC}/../Makefile_af.config 
+include ${SRC}/../Makefile_af.config

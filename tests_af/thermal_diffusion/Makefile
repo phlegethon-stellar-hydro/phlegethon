@@ -2,8 +2,8 @@ SRC = ../../source
 APPNAME = app
 
 #grid
-OPTS += nx1_make=128
-OPTS += nx2_make=64
+OPTS += nx1_make=30
+OPTS += nx2_make=30
 OPTS += ddx1_make=2
 OPTS += ddx2_make=2
 OPTS += ngc_make=2
@@ -17,18 +17,24 @@ OPTS += cfl_make=0.2_rp
 
 #output
 OPTS += OUTPUT_DT
-OPTS += dt_dump_make=1.0_rp
-OPTS += info_terminal_rate_make=1000
+OPTS += dt_dump_make=5000_rp
+OPTS += info_terminal_rate_make=10
 
-#stopping criteria
-OPTS += tmax_make=8.0_rp
+#stopping criteria200000_rp
+OPTS += tmax_make=20000_rp
 
-#use pst
+
+
+#parabolic source term
 OPTS += use_pst_make
+#use hydro
+OPTS += deactivate_hydro_make
+#use parabolic time step
+OPTS += use_pb_dt_make
 
 #--------------------------------#
 
-OPTS += nvars_make=4
+OPTS +=nvars_make=4
 
 #include machine-specific configuration
 include ${SRC}/../Makefile_af.config

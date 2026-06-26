@@ -1,12 +1,13 @@
 program test
  use source
- 
+
  type(mpigrid) :: mgrid
  type(locgrid) :: lgrid
 
  integer :: i,j
  real(kind=rp) :: x1l,x1u,x2l,x2u,gamma_ad,mu
  real(kind=rp) :: x,y,eta,mach0,rho0,p0,vx1,vx2
+
 
  x1l = 0.0_rp
  x1u = 2.0_rp
@@ -20,7 +21,7 @@ program test
  rho0 = gamma_ad
  mach0 = 0.1_rp
  p0 = 1.0_rp
- 
+
  call initialize_simulation(mgrid,lgrid,x1l,x1u,x2l,x2u,gamma_ad,mu)
 
  do j=lbound(lgrid%q_cor,3),ubound(lgrid%q_cor,3)
@@ -104,8 +105,38 @@ program test
   end do
  end do
 
+
+  !initialize temperature
+  call compute_temp(mgrid,lgrid)
+
+  !Define the opacity (currently assumed to be constant)
+   do j=lbound(lgrid%kap_cc,2),ubound(lgrid%kap_cc,2)
+    do i=lbound(lgrid%kap_cc,1),ubound(lgrid%kap_cc,1)
+
+        lgrid%kap_cc(i,j) = 1.0e-34_rp
+    end do
+   end do
+
+   do j=lbound(lgrid%kap_x1,2),ubound(lgrid%kap_x1,2)
+    do i=lbound(lgrid%kap_x1,1),ubound(lgrid%kap_x1,1)
+        lgrid%kap_x1(i,j) =  1.0e-34_rp
+    end do
+   end do
+
+   do j=lbound(lgrid%kap_x2,2),ubound(lgrid%kap_x2,2)
+    do i=lbound(lgrid%kap_x2,1),ubound(lgrid%kap_x2,1)
+        lgrid%kap_x2(i,j) =  1.0e-34_rp
+    end do
+   end do
+
+   do j=lbound(lgrid%kap_cor,2),ubound(lgrid%kap_cor,2)
+    do i=lbound(lgrid%kap_cor,1),ubound(lgrid%kap_cor,1)
+        lgrid%kap_cor(i,j) = 1.0e-34_rp
+    end do
+   end do
+
  call time_loop(mgrid,lgrid)
 
  call finalize_simulation(lgrid)
- 
+
 end program test
