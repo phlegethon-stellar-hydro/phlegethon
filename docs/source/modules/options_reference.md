@@ -202,6 +202,8 @@ Choose one of the following spatial reconstruction methods (see Sect. 2.5)
 
 The option `USE_SHOCK_FLATTENING` will enable the shock-flattening procedure described in Sect. 2.7 (i.e., switch to a two-wave HLL Riemann solver and minmod slope-limited reconstruction in the presence of a shock). For this option to be used, the shock-flattening parameter needs to be defined by the user, e.g., `eps_sf_make=0.1`). This is such that the shock flattener will be activated if the relative jump in pressure at a certain cell location is larger than `eps_sf_make`.
 
+The option `USE_BOUNDARY_SHOCK_FLATTENING` forces `is_flattened` on in user-specified layers next to selected boundaries for the whole simulation. It can be used on its own, or together with `USE_SHOCK_FLATTENING` if you also want shock detection in the interior. The layer thickness is controlled with compile-time integer options such as `nflat_x1l_make=32`, `nflat_x1u_make=32`, `nflat_x2l_make=32`, `nflat_x2u_make=32`, `nflat_x3l_make=32`, and `nflat_x3u_make=32`. Setting a value to `0` disables that side. This option only applies to physical outer boundaries; periodic boundaries are ignored.
+
 Riemann solvers (see Sect. 2.6). For hydrodynamic simulations, choose one of the following options:
 
 | Option | Meaning |
