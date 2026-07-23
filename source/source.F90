@@ -188,48 +188,6 @@ module source
   1e-6_rp
 #endif
 
- integer, parameter :: nflat_x1l = &
-#ifdef nflat_x1l_make
-    nflat_x1l_make
-#else
-    0
-#endif
-
- integer, parameter :: nflat_x1u = &
-#ifdef nflat_x1u_make
-    nflat_x1u_make
-#else
-    0
-#endif
-
- integer, parameter :: nflat_x2l = &
-#ifdef nflat_x2l_make
-    nflat_x2l_make
-#else
-    0
-#endif
-
- integer, parameter :: nflat_x2u = &
-#ifdef nflat_x2u_make
-    nflat_x2u_make
-#else
-    0
-#endif
-
- integer, parameter :: nflat_x3l = &
-#ifdef nflat_x3l_make
-    nflat_x3l_make
-#else
-    0
-#endif
-
- integer, parameter :: nflat_x3u = &
-#ifdef nflat_x3u_make
-    nflat_x3u_make
-#else
-    0
-#endif
-
 #ifdef HELMHOLTZ_EOS
   integer, parameter :: helm_nT = &
 #ifdef helm_nT_make
@@ -914,7 +872,7 @@ module source
 
  end type
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
  type i_flux
 
     integer, allocatable, dimension(:) :: val  
@@ -958,7 +916,7 @@ module source
 #endif
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
    type(i_flux), dimension(sdims) :: is_flattened
 #endif
 
@@ -1286,7 +1244,7 @@ module source
 #endif
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
     integer, allocatable, dimension(:,:,:) :: is_flattened
 #endif
 
@@ -1947,7 +1905,7 @@ contains
     call extract_network_information(lgrid)
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
     allocate(lgrid%is_flattened(lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc, &
 #if sdims_make==2
     lx3:ux3))
@@ -2119,7 +2077,7 @@ contains
     lgrid%spj_inextoutput = 0
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
     allocate(lgrid%ru%is_flattened(1)%val(lx1:ux1+1))
     allocate(lgrid%ru%is_flattened(2)%val(lx2:ux2+1))
 #if sdims_make==3
@@ -2444,7 +2402,7 @@ contains
 #endif
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
     deallocate(lgrid%is_flattened)
     do ierr=1,sdims
      deallocate(lgrid%ru%is_flattened(ierr)%val)
@@ -7615,7 +7573,7 @@ contains
 
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
      communicate_corners = .true.
 #else
 #ifdef USE_MHD
@@ -8582,7 +8540,7 @@ contains
 
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
 
 #if sdims_make==3
     do k=lx3-1,ux3+1
@@ -8598,56 +8556,8 @@ contains
      end do
     end do
 
-#ifdef USE_BOUNDARY_SHOCK_FLATTENING
-
-#if sdims_make==3
-    do k=lx3,ux3
-     do j=lx2,ux2
-      do i=lx1,ux1
-       if((.not.mgrid%periodic(1)).and.(nflat_x1l>0)) then
-        if(mgrid%i1(1)+i-lx1 <= nflat_x1l) lgrid%is_flattened(i,j,k) = 1
-       end if
-       if((.not.mgrid%periodic(1)).and.(nflat_x1u>0)) then
-        if(mgrid%i1(1)+i-lx1 >= nx1-nflat_x1u+1) lgrid%is_flattened(i,j,k) = 1
-       end if
-
-       if((.not.mgrid%periodic(2)).and.(nflat_x2l>0)) then
-        if(mgrid%i1(2)+j-lx2 <= nflat_x2l) lgrid%is_flattened(i,j,k) = 1
-       end if
-       if((.not.mgrid%periodic(2)).and.(nflat_x2u>0)) then
-        if(mgrid%i1(2)+j-lx2 >= nx2-nflat_x2u+1) lgrid%is_flattened(i,j,k) = 1
-       end if
-
-       if((.not.mgrid%periodic(3)).and.(nflat_x3l>0)) then
-        if(mgrid%i1(3)+k-lx3 <= nflat_x3l) lgrid%is_flattened(i,j,k) = 1
-       end if
-       if((.not.mgrid%periodic(3)).and.(nflat_x3u>0)) then
-        if(mgrid%i1(3)+k-lx3 >= nx3-nflat_x3u+1) lgrid%is_flattened(i,j,k) = 1
-       end if
-      end do
-     end do
-    end do
-#else
-    do k=lx3,ux3
-     do j=lx2,ux2
-      do i=lx1,ux1
-       if((.not.mgrid%periodic(1)).and.(nflat_x1l>0)) then
-        if(mgrid%i1(1)+i-lx1 <= nflat_x1l) lgrid%is_flattened(i,j,k) = 1
-       end if
-       if((.not.mgrid%periodic(1)).and.(nflat_x1u>0)) then
-        if(mgrid%i1(1)+i-lx1 >= nx1-nflat_x1u+1) lgrid%is_flattened(i,j,k) = 1
-       end if
-
-       if((.not.mgrid%periodic(2)).and.(nflat_x2l>0)) then
-        if(mgrid%i1(2)+j-lx2 <= nflat_x2l) lgrid%is_flattened(i,j,k) = 1
-       end if
-       if((.not.mgrid%periodic(2)).and.(nflat_x2u>0)) then
-        if(mgrid%i1(2)+j-lx2 >= nx2-nflat_x2u+1) lgrid%is_flattened(i,j,k) = 1
-       end if
-      end do
-     end do
-    end do
-#endif
+#ifdef USE_USERDEF_SHOCK_FLATTENING
+    call userdef_shock_flattening(mgrid,lgrid)
 
 #endif
 
@@ -9297,7 +9207,7 @@ contains
 
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
 
         do i=lx1,ux1+1
          if(lgrid%is_flattened(i-1,j,k)==1 .or. lgrid%is_flattened(i,j,k)==1) then         
@@ -10254,7 +10164,7 @@ contains
 
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
 
         do j=lx2,ux2+1
          if(lgrid%is_flattened(i,j-1,k)==1 .or. lgrid%is_flattened(i,j,k)==1) then         
@@ -10626,7 +10536,7 @@ contains
 
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
        do j=lx2-1,ux2+1
          if(lgrid%is_flattened(i,j,k)==1) then
 
@@ -11450,7 +11360,7 @@ contains
 
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
 
         do k=lx3,ux3+1
          if(lgrid%is_flattened(i,j,k-1)==1 .or. lgrid%is_flattened(i,j,k)==1) then         
@@ -11834,7 +11744,7 @@ contains
 
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
        do k=lx3-1,ux3+1
          if(lgrid%is_flattened(i,j,k)==1) then
 
@@ -14703,7 +14613,7 @@ contains
    real(kind=rp) :: machL,machR,chi,cu2L,cu2R
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
    real(kind=rp), dimension(1:nvars) :: UL,UR,fL,fR
    real(kind=rp), dimension(1:sdims) :: UbL,UbR,fbL,fbR
 #endif
@@ -15085,7 +14995,7 @@ contains
       phi = rp1
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
       if(ru%is_flattened(ru%dir)%val(idx)==1) then
 
         sL = min(rp0,sL)
@@ -15717,7 +15627,7 @@ contains
 
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
      end if
 #endif
 
@@ -16333,7 +16243,7 @@ contains
    real(kind=rp), dimension(1:nvars) :: U,Us,f
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
    real(kind=rp), dimension(1:nvars) :: UL,UR,fL,fR
 #endif
 
@@ -16628,7 +16538,7 @@ contains
       rhostarR = rhoR*(dsuR/(sR-ustar))
       rhoestarR = rhostarR*(rhoeR*inv_rhoR+(ustar-vx1R)*(ustar+pR*inv_rhoR/dsuR)) 
  
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
       if(ru%is_flattened(ru%dir)%val(idx)==1) then
 
         sL = min(rp0,sL)
@@ -16953,7 +16863,7 @@ contains
 
 #endif
 
-#if defined(USE_SHOCK_FLATTENING) || defined(USE_BOUNDARY_SHOCK_FLATTENING)
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
     endif
 #endif
 
