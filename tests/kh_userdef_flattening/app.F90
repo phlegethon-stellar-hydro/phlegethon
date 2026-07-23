@@ -10,8 +10,6 @@ program test
 
 
  mach0 = 1e-1_rp
- ye = 0.5_rp
- abar = 0.0_rp
 
  x1l = 0.0_rp
  x1u = 2.0_rp
