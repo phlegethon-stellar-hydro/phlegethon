@@ -7,13 +7,11 @@ program test
  integer :: i,j,k
  real(kind=rp) :: x,y,eta,mach0
  real(kind=rp) :: x1l,x1u,x2l,x2u,x3l,x3u,gamma_ad,mu
- real(kind=rp) :: ye,abar,abar0,dabar
+
 
  mach0 = 1e-1_rp
  ye = 0.5_rp
  abar = 0.0_rp
- abar0 = 16.0_rp
- dabar = 0.5_rp
 
  x1l = 0.0_rp
  x1u = 2.0_rp
