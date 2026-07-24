@@ -219,7 +219,7 @@ integer, parameter :: eos_type = &
     coords_cc,coords_x1,coords_x2,coords_cor
     
     real(kind=rp), allocatable, dimension(:,:,:) :: &
-    qbar_cc,q_x1,q_x2,q_cor   
+    qbar_cc,q_x1,q_x2,q_cor,q_cc
 
     real(kind=rp), allocatable, dimension(:,:,:) :: &
     flux_x1,flux_x2,flux_cor   
@@ -329,6 +329,7 @@ contains
     allocate(lgrid%q_x1(1:nvars,lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+ngc))
     allocate(lgrid%q_x2(1:nvars,lx1-ngc:ux1+ngc,lx2-ngc:ux2+1+ngc))
     allocate(lgrid%q_cor(1:nvars,lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+1+ngc))
+    allocate(lgrid%q_cc(1:nvars,lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc))
 
     allocate(lgrid%flux_x1(1:nvars,lx1:ux1+1,lx2:ux2))
     allocate(lgrid%flux_x2(1:nvars,lx1:ux1,lx2:ux2+1))
@@ -376,6 +377,7 @@ contains
     deallocate(lgrid%coords_cor)
 
     deallocate(lgrid%qbar_cc)
+    deallocate(lgrid%q_cc)
     deallocate(lgrid%q_x1)
     deallocate(lgrid%q_x2)
     deallocate(lgrid%q_cor)
@@ -464,10 +466,11 @@ contains
      do i=lbound(lgrid%qbar_cc,2),ubound(lgrid%qbar_cc,2)
 
        do iv=1,nvars
-        lgrid%qbar_cc(iv,i,j) = ( rp2* &
-        (lgrid%q_x1(iv,i,j)+lgrid%q_x1(iv,i+1,j)+lgrid%q_x2(iv,i,j)+lgrid%q_x2(iv,i,j+1)) + &
+        lgrid%qbar_cc(iv,i,j) = & 
+        ( rp16*lgrid%q_cc(iv,i,j) + &
+        rp4*(lgrid%q_x1(iv,i,j)+lgrid%q_x1(iv,i+1,j)+lgrid%q_x2(iv,i,j)+lgrid%q_x2(iv,i,j+1)) + &
         (lgrid%q_cor(iv,i,j)+lgrid%q_cor(iv,i+1,j)+lgrid%q_cor(iv,i,j+1)+lgrid%q_cor(iv,i+1,j+1)) &
-        ) / rp12
+        ) / rp36
        end do
 
      end do

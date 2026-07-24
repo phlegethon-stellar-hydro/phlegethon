@@ -107,6 +107,33 @@ program test
   end do
  end do
 
+ do j=lbound(lgrid%q_cc,3),ubound(lgrid%q_cc,3)
+  do i=lbound(lgrid%q_cc,2),ubound(lgrid%q_cc,2)
+
+     x = lgrid%coords_cc(1,i,j)/cs0
+     y = lgrid%coords_cc(2,i,j)/cs0
+
+     if ((y.gt.(-0.25_rp-1.0_rp/32.0_rp)).and.(y.lt.(-0.25_rp+1.0_rp/32.0_rp))) then
+       eta = 0.5_rp*(1.0_rp+sin(16.0_rp*CONST_PI*(y+0.25_rp)))
+     else if ((y.ge.(-0.25_rp+1.0_rp/32.0_rp)).and.(y.le.(0.25_rp-1.0_rp/32.0_rp))) then
+       eta = 1.0_rp
+     else if ((y.gt.(0.25_rp-1.0_rp/32.0_rp)).and.(y.lt.(0.25_rp+1.0_rp/32.0_rp))) then
+       eta = 0.5_rp*(1.0_rp+sin(-16.0_rp*CONST_PI*(y-0.25_rp)))
+     else
+       eta = 0.0
+     end if
+
+     vx1 = mach0*cs0*(1.0_rp-2.0_rp*eta)
+     vx2 = 0.1_rp*mach0*cs0*sin(2.0_rp*CONST_PI*x)
+
+     lgrid%q_cc(i_rhovx1,i,j) = rho0*vx1
+     lgrid%q_cc(i_rhovx2,i,j) = rho0*vx2
+     lgrid%q_cc(i_rho,i,j) = rho0
+     lgrid%q_cc(i_rhoe,i,j) = (rho0*CONST_RGAS*T0)/(mu*(lgrid%gm-1.0_rp)) + CONST_RAD*(T0**4) + 0.5_rp*rho0*(vx1**2+vx2**2)
+
+  end do
+ end do
+
  call time_loop(mgrid,lgrid)
 
  call finalize_simulation(lgrid)
