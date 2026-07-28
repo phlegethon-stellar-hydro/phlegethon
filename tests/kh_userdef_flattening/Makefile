@@ -9,7 +9,7 @@ OPTS += nx3_make=1
 OPTS += ddx1_make=2
 OPTS += ddx2_make=2
 OPTS += ddx3_make=1
-OPTS += ngc_make=2
+OPTS += ngc_make=3
 OPTS += nas_make=2
 
 #geometry
