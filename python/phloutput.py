@@ -1806,6 +1806,7 @@ class h5rays:
         self.nx1 = self.grid0['nx1'][()]
         self.nx2 = self.grid0['nx2'][()]
         self.nx3 = self.grid0['nx3'][()]
+        self.has_is_flattened = 'is_flattened' in self.grid
         self.nvars = self.grid0['nvars'][()]
 
         self.use_mhd = self.grid0.attrs['use_mhd'].decode('ASCII')
@@ -2058,6 +2059,17 @@ class h5grid:
          return self.vec3d(self.grid['kappa'],ix=ix,iy=iy,iz=iz)
         else:
          return self.vec3d(self.grid0['kappa'],ix=ix,iy=iy,iz=iz)
+
+    def flattened(self,ix=-1,iy=-1,iz=-1,as_bool=True):
+      if not self.has_is_flattened:
+        raise KeyError('is_flattened not available in this output')
+
+      flattened = self.vec3d(self.grid['is_flattened'],ix=ix,iy=iy,iz=iz)
+
+      if as_bool:
+        return flattened > 0.0
+
+      return flattened
  
     def rho(self,ix=-1,iy=-1,iz=-1):
         return self.vec3d(self.grid['prim'][:,:,:,self.i_rho],ix=ix,iy=iy,iz=iz)

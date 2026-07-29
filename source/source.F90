@@ -3164,6 +3164,9 @@ contains
     integer(HID_T) :: id,plist_id
 
     real(kind=rp), allocatable, dimension(:,:,:) :: vol
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
+    real(kind=rp), allocatable, dimension(:,:,:) :: is_flattened_r
+#endif
 
     write(h5%filename, "('./grids/grid_n',I0.5,'.h5')") lgrid%step
 
@@ -3376,6 +3379,18 @@ contains
 
     call hdf5_write_array(h5,id,"temp",mgrid, &
     mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%temp,0)
+
+#if defined(USE_SHOCK_FLATTENING) || defined(USE_USERDEF_SHOCK_FLATTENING)
+    allocate(is_flattened_r(lbound(lgrid%is_flattened,1):ubound(lgrid%is_flattened,1), &
+                            lbound(lgrid%is_flattened,2):ubound(lgrid%is_flattened,2), &
+                            lbound(lgrid%is_flattened,3):ubound(lgrid%is_flattened,3)))
+    is_flattened_r = real(lgrid%is_flattened, kind=rp)
+
+    call hdf5_write_array(h5,id,"is_flattened",mgrid, &
+    mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,is_flattened_r,0)
+
+    deallocate(is_flattened_r)
+#endif
 
 #ifdef USE_MHD
     call hdf5_write_ndarray(h5,id,"bfield",mgrid,sdims, &

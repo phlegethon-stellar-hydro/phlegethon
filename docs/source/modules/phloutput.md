@@ -238,6 +238,7 @@ grid = h5grid(
   - `radial_profile(quant, ib_bins=None, slices=False, s1=-1, s2=-1, s3=-1)`: angle-averaged (or shell-binned) radial profile of a field.
   - `r2raxis()`: radius axis corresponding to radial-profile outputs.
   - `r2maxis()`: cumulative mass axis inferred from radius and radial density profile.
+  - `flattened(ix=-1, iy=-1, iz=-1, as_bool=True)`: flattened-cell mask from the grid snapshot, optionally returned as a boolean array.
 
 
 ### Plotting methods in `h5grid`
