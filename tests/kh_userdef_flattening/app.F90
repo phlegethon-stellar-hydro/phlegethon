@@ -75,7 +75,7 @@ end program test
 
  integer :: i,j,k
  real(kind=rp) :: y
- do k=mgrid%i1(3)-1,mgrid%i2(3)+1
+ do k=mgrid%i1(3),mgrid%i2(3)
   do j=mgrid%i1(2)-1,mgrid%i2(2)+1
      do i=mgrid%i1(1)-1,mgrid%i2(1)+1
           y = lgrid%coords(2,i,j,k)

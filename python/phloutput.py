@@ -1806,7 +1806,6 @@ class h5rays:
         self.nx1 = self.grid0['nx1'][()]
         self.nx2 = self.grid0['nx2'][()]
         self.nx3 = self.grid0['nx3'][()]
-        self.has_is_flattened = 'is_flattened' in self.grid
         self.nvars = self.grid0['nvars'][()]
 
         self.use_mhd = self.grid0.attrs['use_mhd'].decode('ASCII')
@@ -1931,6 +1930,9 @@ class h5grid:
         self.nx1 = self.grid0['nx1'][()]
         self.nx2 = self.grid0['nx2'][()]
         self.nx3 = self.grid0['nx3'][()]
+        self.has_is_flattened = 'is_flattened' in self.grid
+
+        
 
         self.advect_yeiabar = self.grid0.attrs['advect_yeiabar'].decode('ASCII')
         self.advect_species = self.grid0.attrs['advect_species'].decode('ASCII')
