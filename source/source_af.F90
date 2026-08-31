@@ -230,6 +230,14 @@ integer, parameter :: eos_type = &
     real(kind=rp), allocatable, dimension(:,:,:) :: &
     qbar0_cc,q0_x1,q0_x2,q0_cor   
 
+#ifdef USE_GRAVITY
+    real(kind=rp), allocatable, dimension(:,:,:) :: &
+    grav_cc,grav_x1,grav_x2,grav_cor
+
+    real(kind=rp), allocatable, dimension(:,:,:) :: &
+    Sgrav_cc,Sgrav_x1,Sgrav_x2,Sgrav_cor,Sgravbar_cc
+#endif
+
  end type locgrid
  
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -343,6 +351,19 @@ contains
     allocate(lgrid%q0_x2(1:nvars,lx1:ux1,lx2:ux2+1))
     allocate(lgrid%q0_cor(1:nvars,lx1:ux1+1,lx2:ux2+1))
 
+#ifdef USE_GRAVITY
+    allocate(lgrid%grav_cc(1:2,lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc))
+    allocate(lgrid%grav_x1(1:2,lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+ngc))
+    allocate(lgrid%grav_x2(1:2,lx1-ngc:ux1+ngc,lx2-ngc:ux2+1+ngc))
+    allocate(lgrid%grav_cor(1:2,lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+1+ngc))
+
+    allocate(lgrid%Sgrav_cc(i_rhovx1:i_rhoe,lx1:ux1,lx2:ux2))
+    allocate(lgrid%Sgrav_x1(i_rhovx1:i_rhoe,lx1:ux1+1,lx2:ux2))
+    allocate(lgrid%Sgrav_x2(i_rhovx1:i_rhoe,lx1:ux1,lx2:ux2+1))
+    allocate(lgrid%Sgrav_cor(i_rhovx1:i_rhoe,lx1:ux1+1,lx2:ux2+1))
+    allocate(lgrid%Sgravbar_cc(i_rhovx1:i_rhoe,lx1:ux1+1,lx2:ux2+1))
+#endif
+
     call create_geometry(lgrid,mgrid)
 
     lgrid%time = rp0
@@ -393,6 +414,19 @@ contains
     deallocate(lgrid%q0_x1)
     deallocate(lgrid%q0_x2)
     deallocate(lgrid%q0_cor)
+
+#ifdef USE_GRAVITY
+    deallocate(lgrid%grav_cc)
+    deallocate(lgrid%grav_x1)
+    deallocate(lgrid%grav_x2)
+    deallocate(lgrid%grav_cor)
+
+    deallocate(lgrid%Sgrav_cc)
+    deallocate(lgrid%Sgrav_x1)
+    deallocate(lgrid%Sgrav_x2)
+    deallocate(lgrid%Sgrav_cor)
+    deallocate(lgrid%Sgravbar_cc)
+#endif
 
  end subroutine finalize_simulation
  
@@ -565,6 +599,10 @@ contains
     real(kind=rp) :: vn_cor, v1_cor, v2_cor
     real(kind=rp) :: vn_x1, v1_x1, v2_x1
     real(kind=rp) :: vn_x2, v1_x2, v2_x2
+
+#ifdef USE_GRAVITY
+    real(kind=rp) :: rhovx1,rhovx2,gx1,gx2
+#endif
 
     vn_cc = rp0
     v1_cc = rp0
@@ -1883,6 +1921,138 @@ contains
  
      !---------------------------------------------------------------------------------------!
 
+#ifdef USE_GRAVITY      
+
+     do j=lbound(lgrid%Sgrav_cc,3),ubound(lgrid%Sgrav_cc,3)
+      do i=lbound(lgrid%Sgrav_cc,2),ubound(lgrid%Sgrav_cc,2)
+
+       rho = lgrid%q_cc(i_rho,i,j)
+       rhovx1 = lgrid%q_cc(i_rhovx1,i,j)
+       rhovx2 = lgrid%q_cc(i_rhovx2,i,j)
+       gx1 = lgrid%grav_cc(1,i,j)
+       gx2 = lgrid%grav_cc(2,i,j)
+
+       lgrid%Sgrav_cc(i_rhovx1,i,j) = rho*gx1
+       lgrid%Sgrav_cc(i_rhovx2,i,j) = rho*gx2
+       lgrid%Sgrav_cc(i_rhoe,i,j) = rhovx1*gx1+rhovx2*gx2
+
+      end do
+     end do
+
+     do j=lbound(lgrid%Sgrav_x1,3),ubound(lgrid%Sgrav_x1,3)
+      do i=lbound(lgrid%Sgrav_x1,2),ubound(lgrid%Sgrav_x1,2)
+
+       rho = lgrid%q_x1(i_rho,i,j)
+       rhovx1 = lgrid%q_x1(i_rhovx1,i,j)
+       rhovx2 = lgrid%q_x1(i_rhovx2,i,j)
+       gx1 = lgrid%grav_x1(1,i,j)
+       gx2 = lgrid%grav_x1(2,i,j)
+
+       lgrid%Sgrav_x1(i_rhovx1,i,j) = rho*gx1
+       lgrid%Sgrav_x1(i_rhovx2,i,j) = rho*gx2
+       lgrid%Sgrav_x1(i_rhoe,i,j) = rhovx1*gx1+rhovx2*gx2
+
+      end do
+     end do
+
+     do j=lbound(lgrid%Sgrav_x2,3),ubound(lgrid%Sgrav_x2,3)
+      do i=lbound(lgrid%Sgrav_x2,2),ubound(lgrid%Sgrav_x2,2)
+
+       rho = lgrid%q_x2(i_rho,i,j)
+       rhovx1 = lgrid%q_x2(i_rhovx1,i,j)
+       rhovx2 = lgrid%q_x2(i_rhovx2,i,j)
+       gx1 = lgrid%grav_x2(1,i,j)
+       gx2 = lgrid%grav_x2(2,i,j)
+
+       lgrid%Sgrav_x2(i_rhovx1,i,j) = rho*gx1
+       lgrid%Sgrav_x2(i_rhovx2,i,j) = rho*gx2
+       lgrid%Sgrav_x2(i_rhoe,i,j) = rhovx1*gx1+rhovx2*gx2
+
+      end do
+     end do
+
+     do j=lbound(lgrid%Sgrav_cor,3),ubound(lgrid%Sgrav_cor,3)
+      do i=lbound(lgrid%Sgrav_cor,2),ubound(lgrid%Sgrav_cor,2)
+
+       rho = lgrid%q_cor(i_rho,i,j)
+       rhovx1 = lgrid%q_cor(i_rhovx1,i,j)
+       rhovx2 = lgrid%q_cor(i_rhovx2,i,j)
+       gx1 = lgrid%grav_cor(1,i,j)
+       gx2 = lgrid%grav_cor(2,i,j)
+
+       lgrid%Sgrav_cor(i_rhovx1,i,j) = rho*gx1
+       lgrid%Sgrav_cor(i_rhovx2,i,j) = rho*gx2
+       lgrid%Sgrav_cor(i_rhoe,i,j) = rhovx1*gx1+rhovx2*gx2
+
+      end do
+     end do
+
+     do j=lbound(lgrid%Sgravbar_cc,3),ubound(lgrid%Sgravbar_cc,3)
+      do i=lbound(lgrid%Sgravbar_cc,2),ubound(lgrid%Sgravbar_cc,2)
+
+       do iv=i_rhovx1,i_rhoe
+
+        lgrid%Sgravbar_cc(iv,i,j) = &
+        ( rp16*lgrid%Sgrav_cc(iv,i,j) + &
+        rp4*(lgrid%Sgrav_x1(iv,i,j)+lgrid%Sgrav_x1(iv,i+1,j)+lgrid%Sgrav_x2(iv,i,j)+lgrid%Sgrav_x2(iv,i,j+1)) + &
+        (lgrid%Sgrav_cor(iv,i,j)+lgrid%Sgrav_cor(iv,i+1,j)+lgrid%Sgrav_cor(iv,i,j+1)+lgrid%Sgrav_cor(iv,i+1,j+1)) &
+        ) / rp36
+ 
+       end do
+
+      end do
+     end do
+
+     do j=lx2,ux2
+      do i=lx1,ux1
+
+        do iv=i_rhovx1,i_rhoe
+
+         lgrid%res_cc(iv,i,j) = lgrid%res_cc(iv,i,j) - lgrid%Sgravbar_cc(iv,i,j)
+
+        end do
+
+      end do
+     end do 
+
+     do j=lx2,ux2
+      do i=lx1,ux1+1
+
+        do iv=i_rhovx1,i_rhoe
+         
+         lgrid%res_x1(iv,i,j) = lgrid%res_x1(iv,i,j) - lgrid%Sgrav_x1(iv,i,j)
+
+        end do
+                      
+      end do
+     end do
+
+     do j=lx2,ux2+1
+      do i=lx1,ux1
+
+        do iv=i_rhovx1,i_rhoe
+
+         lgrid%res_x2(iv,i,j) = lgrid%res_x2(iv,i,j) - lgrid%Sgrav_x2(iv,i,j)
+
+        end do
+
+      end do
+     end do
+
+     do j=lx2,ux2+1
+      do i=lx1,ux1+1
+ 
+        do iv=i_rhovx1,i_rhoe
+
+         lgrid%res_cor(iv,i,j) = lgrid%res_cor(iv,i,j) - lgrid%Sgrav_cor(iv,i,j)
+    
+        end do
+                           
+      end do
+     end do
+
+#endif
+
      ! update
     
      a1rk = rk_coeff(irk,1)
@@ -1929,6 +2099,16 @@ contains
          a1rk*lgrid%q0_cor(iv,i,j) + &
          a2rk*lgrid%q_cor(iv,i,j) + &
          a3rk*lgrid%res_cor(iv,i,j) 
+       end do
+      end do
+     end do
+
+     do j=lx2,ux2
+      do i=lx1,ux1
+       do iv=1,nvars
+         lgrid%q_cc(iv,i,j) =  (rp36*lgrid%qbar_cc(iv,i,j) - rp4*(lgrid%q_x1(iv,i,j) + lgrid%q_x1(iv,i+1,j) + &
+         lgrid%q_x2(iv,i,j) + lgrid%q_x2(iv,i,j+1)) - (lgrid%q_cor(iv,i,j)+ lgrid%q_cor(iv,i+1,j) + &
+         lgrid%q_cor(iv,i,j+1)+ lgrid%q_cor(iv,i+1,j+1)) )/rp16
        end do
       end do
      end do
