@@ -361,7 +361,7 @@ contains
     allocate(lgrid%Sgrav_x1(i_rhovx1:i_rhoe,lx1:ux1+1,lx2:ux2))
     allocate(lgrid%Sgrav_x2(i_rhovx1:i_rhoe,lx1:ux1,lx2:ux2+1))
     allocate(lgrid%Sgrav_cor(i_rhovx1:i_rhoe,lx1:ux1+1,lx2:ux2+1))
-    allocate(lgrid%Sgravbar_cc(i_rhovx1:i_rhoe,lx1:ux1+1,lx2:ux2+1))
+    allocate(lgrid%Sgravbar_cc(i_rhovx1:i_rhoe,lx1:ux1,lx2:ux2))
 #endif
 
     call create_geometry(lgrid,mgrid)
@@ -786,7 +786,7 @@ contains
               ik = 1 - i
 
               do iv = 1, nvars
-                 lgrid%q_x1(iv,i,j) = lgrid%q_x1(iv,ik,j)
+                 lgrid%q_x2(iv,i,j) = lgrid%q_x2(iv,ik,j)
               end do
 
               v1_x2 = lgrid%q_x2(i_vx1, ik, j)
@@ -2136,10 +2136,10 @@ contains
    do j=mgrid%i1(2),mgrid%i2(2)
     do i=mgrid%i1(1),mgrid%i2(1)
 
-     rho = lgrid%qbar_cc(i_rho,i,j)
-     rhovx1 = lgrid%qbar_cc(i_rhovx1,i,j)
-     rhovx2 = lgrid%qbar_cc(i_rhovx2,i,j)
-     rhoe = lgrid%qbar_cc(i_rhoe,i,j)
+     rho = lgrid%q_cc(i_rho,i,j)
+     rhovx1 = lgrid%q_cc(i_rhovx1,i,j)
+     rhovx2 = lgrid%q_cc(i_rhovx2,i,j)
+     rhoe = lgrid%q_cc(i_rhoe,i,j)
 
      inv_rho = rp1/rho
 
