@@ -97,6 +97,11 @@ integer, parameter :: eos_type = &
   0
 #endif
 
+#if defined(ADVECT_YE_IABAR) && (eos_type_make != 1)
+#error "ADVECT_YE_IABAR requires eos_type_make = 1"
+#endif
+
+
  integer, parameter :: master_rank=0
  integer, parameter :: filename_size=256
  integer, parameter :: iunit=21
@@ -114,6 +119,14 @@ integer, parameter :: eos_type = &
  i_rhovx1 = i_vx1, &
  i_rhovx2 = i_vx2, &
  i_rhoe = i_p
+
+#ifdef ADVECT_YE_IABAR
+   integer, parameter :: &
+   i_ye = i_p + 1, &
+   i_iabar = i_p + 2, &
+   i_rhoye = i_ye, &
+   i_rhoiabar = i_iabar
+#endif
 
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
  ! NUMBERS 
@@ -230,12 +243,17 @@ integer, parameter :: eos_type = &
     real(kind=rp), allocatable, dimension(:,:,:) :: &
     qbar0_cc,q0_x1,q0_x2,q0_cor   
 
+
 #ifdef USE_GRAVITY
     real(kind=rp), allocatable, dimension(:,:,:) :: &
     grav_cc,grav_x1,grav_x2,grav_cor
-
     real(kind=rp), allocatable, dimension(:,:,:) :: &
     Sgrav_cc,Sgrav_x1,Sgrav_x2,Sgrav_cor,Sgravbar_cc
+#endif
+
+#if (eos_type_make == 1)
+    real(kind=rp), allocatable, dimension(:,:,:) :: &
+    temp_cc,temp_x1,temp_x2,temp_cor
 #endif
 
  end type locgrid
@@ -337,6 +355,17 @@ contains
     allocate(lgrid%q_cor(1:nvars,lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+1+ngc))
     allocate(lgrid%q_cc(1:nvars,lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc))
 
+#if (eos_type_make == 1)
+    allocate(lgrid%temp_cc(1:1,lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc))
+    allocate(lgrid%temp_x1(1:1,lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+ngc))
+    allocate(lgrid%temp_x2(1:1,lx1-ngc:ux1+ngc,lx2-ngc:ux2+1+ngc))
+    allocate(lgrid%temp_cor(1:1,lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+1+ngc))
+    lgrid%temp_cc  = rp0
+    lgrid%temp_x1  = rp0
+    lgrid%temp_x2  = rp0
+    lgrid%temp_cor = rp0
+#endif
+
     allocate(lgrid%flux_x1(1:nvars,lx1:ux1+1,lx2:ux2))
     allocate(lgrid%flux_x2(1:nvars,lx1:ux1,lx2:ux2+1))
     allocate(lgrid%flux_cor(1:nvars,lx1:ux1+1,lx2:ux2+1))
@@ -397,6 +426,9 @@ contains
 
     deallocate(lgrid%qbar_cc)
     deallocate(lgrid%q_cc)
+#if (eos_type_make == 1)
+    deallocate(lgrid%temp_cc,lgrid%temp_x1,lgrid%temp_x2,lgrid%temp_cor)
+#endif
     deallocate(lgrid%q_x1)
     deallocate(lgrid%q_x2)
     deallocate(lgrid%q_cor)
@@ -507,7 +539,7 @@ contains
 
      end do
     end do
-   
+
     call compute_hyperbolic_dt(mgrid,lgrid)
 
     wct_hydro = rp0
@@ -584,7 +616,14 @@ contains
 
     real(kind=rp), dimension(1:3,1:3) :: rk_coeff
     real(kind=rp) :: a1rk,a2rk,a3rk
-    real(kind=rp) :: gm,gmm1,rho,inv_rho,p,rhoe,vx1,vx2,T 
+
+    real(kind=rp) :: gm,gmm1,rho,inv_rho,p,rhoe,vx1,vx2,T
+    real(kind=rp) :: P_q1, P_q2, P_q3, P_q4, b_Gm
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp) :: Ye, inv_abar, P_q5, P_q6
+#else
+    real(kind=rp) :: mu
+#endif
 
     integer :: offset(2)
 
@@ -593,6 +632,9 @@ contains
     real(kind=rp), dimension(nvars,nvars) :: Jmat
 
     real(kind=rp) :: c,H,tmp,v2,l1,l2,l3,l4  
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp) :: l5,l6
+#endif
     real(kind=rp) :: n1_x1, n2_x1, n1_x2, n2_x2
 
     real(kind=rp) :: vn_cc, v1_cc, v2_cc
@@ -603,6 +645,7 @@ contains
 #ifdef USE_GRAVITY
     real(kind=rp) :: rhovx1,rhovx2,gx1,gx2
 #endif
+    real(rp) :: rho_cc, rhovx1_cc, rhovx2_cc
 
     vn_cc = rp0
     v1_cc = rp0
@@ -707,6 +750,24 @@ contains
      offset(1) = 1
      offset(2) = 1
      call communicate_array(mgrid,nvars,lx1,ux1+1,lx2,ux2+1,ngc,lgrid%q_cor,offset,.false.)
+
+#if (eos_type_make == 1)
+     offset(1) = 0
+     offset(2) = 0
+     call communicate_array(mgrid,1,lx1,ux1,lx2,ux2,ngc,lgrid%temp_cc,offset,.false.)
+
+     offset(1) = 1
+     offset(2) = 0
+     call communicate_array(mgrid,1,lx1,ux1+1,lx2,ux2,ngc,lgrid%temp_x1,offset,.false.)
+
+     offset(1) = 0
+     offset(2) = 1
+     call communicate_array(mgrid,1,lx1,ux1,lx2,ux2+1,ngc,lgrid%temp_x2,offset,.false.)
+
+     offset(1) = 1
+     offset(2) = 1
+     call communicate_array(mgrid,1,lx1,ux1+1,lx2,ux2+1,ngc,lgrid%temp_cor,offset,.false.)
+#endif
 
      !---------------------------------------------------------------------------------------!
      ! apply boundary conditions
@@ -1068,11 +1129,34 @@ contains
        vx1 = lgrid%q_x1(i_rhovx1,i,j)*inv_rho
        vx2 = lgrid%q_x1(i_rhovx2,i,j)*inv_rho
        rhoe = lgrid%q_x1(i_rhoe,i,j)
-       call get_fluid_state(rho, rhoe, vx1, vx2, gm, lgrid%mu, p, c, H, T)
+
+#ifdef ADVECT_YE_IABAR
+       Ye = lgrid%q_x1(i_rhoye,i,j)*inv_rho
+       inv_abar = lgrid%q_x1(i_rhoiabar,i,j)*inv_rho
+#else
+       mu = lgrid%mu
+#endif
+
+       call get_fluid_state(rho, rhoe, vx1, vx2, gm, &
+#ifdef ADVECT_YE_IABAR
+                            Ye, inv_abar, &
+#else
+                            mu, &
+#endif
+                            p, T)
+#if (eos_type_make == 1)
+       lgrid%temp_x1(1,i,j) = T
+#endif
+
        lgrid%flux_x1(i_rho,i,j) = rho*vx1
        lgrid%flux_x1(i_rhovx1,i,j) = rho*vx1*vx1+p
        lgrid%flux_x1(i_rhovx2,i,j) = rho*vx1*vx2
        lgrid%flux_x1(i_rhoe,i,j) = (rhoe+p)*vx1
+
+#ifdef ADVECT_YE_IABAR
+       lgrid%flux_x1(i_rhoye,i,j) = rho*Ye*vx1
+       lgrid%flux_x1(i_rhoiabar,i,j) = rho*inv_abar*vx1
+#endif
 
       end do
      end do
@@ -1085,11 +1169,34 @@ contains
        vx1 = lgrid%q_cor(i_rhovx1,i,j)*inv_rho
        vx2 = lgrid%q_cor(i_rhovx2,i,j)*inv_rho
        rhoe = lgrid%q_cor(i_rhoe,i,j) 
-       call get_fluid_state(rho, rhoe, vx1, vx2, gm, lgrid%mu, p, c, H, T)
+
+#ifdef ADVECT_YE_IABAR
+       Ye = lgrid%q_cor(i_rhoye,i,j)*inv_rho
+       inv_abar = lgrid%q_cor(i_rhoiabar,i,j)*inv_rho
+#else
+       mu = lgrid%mu
+#endif
+
+       call get_fluid_state(rho, rhoe, vx1, vx2, gm, &
+#ifdef ADVECT_YE_IABAR
+                            Ye, inv_abar, &
+#else
+                            mu, &
+#endif
+                            p, T)
+#if (eos_type_make == 1)
+       lgrid%temp_cor(1,i,j) = T
+#endif
+
        lgrid%flux_cor(i_rho,i,j) = rho*vx1
        lgrid%flux_cor(i_rhovx1,i,j) = rho*vx1*vx1+p
        lgrid%flux_cor(i_rhovx2,i,j) = rho*vx1*vx2
        lgrid%flux_cor(i_rhoe,i,j) = (rhoe+p)*vx1
+
+#ifdef ADVECT_YE_IABAR
+       lgrid%flux_cor(i_rhoye,i,j) = rho*Ye*vx1
+       lgrid%flux_cor(i_rhoiabar,i,j) = rho*inv_abar*vx1
+#endif
    
       end do
      end do
@@ -1114,12 +1221,34 @@ contains
        vx1 = lgrid%q_x2(i_rhovx1,i,j)*inv_rho
        vx2 = lgrid%q_x2(i_rhovx2,i,j)*inv_rho
        rhoe = lgrid%q_x2(i_rhoe,i,j)
-       call get_fluid_state(rho, rhoe, vx1, vx2, gm, lgrid%mu, p, c, H, T)
+
+#ifdef ADVECT_YE_IABAR
+       Ye = lgrid%q_x2(i_rhoye,i,j)*inv_rho
+       inv_abar = lgrid%q_x2(i_rhoiabar,i,j)*inv_rho
+#else
+       mu = lgrid%mu
+#endif
+
+       call get_fluid_state(rho, rhoe, vx1, vx2, gm, &
+#ifdef ADVECT_YE_IABAR
+                            Ye, inv_abar, &
+#else
+                            mu, &
+#endif
+                            p, T)
+#if (eos_type_make == 1)
+       lgrid%temp_x2(1,i,j) = T
+#endif
 
        lgrid%flux_x2(i_rho,i,j) = rho*vx2
        lgrid%flux_x2(i_rhovx1,i,j) = rho*vx1*vx2
        lgrid%flux_x2(i_rhovx2,i,j) = rho*vx2*vx2+p
        lgrid%flux_x2(i_rhoe,i,j) = (rhoe+p)*vx2
+
+#ifdef ADVECT_YE_IABAR
+       lgrid%flux_x2(i_rhoye,i,j) = rho*Ye*vx2
+       lgrid%flux_x2(i_rhoiabar,i,j) = rho*inv_abar*vx2
+#endif
    
       end do
      end do
@@ -1132,11 +1261,34 @@ contains
        vx1 = lgrid%q_cor(i_rhovx1,i,j)*inv_rho
        vx2 = lgrid%q_cor(i_rhovx2,i,j)*inv_rho
        rhoe = lgrid%q_cor(i_rhoe,i,j)
-       call get_fluid_state(rho, rhoe, vx1, vx2, gm, lgrid%mu, p, c, H, T)
+
+#ifdef ADVECT_YE_IABAR
+       Ye = lgrid%q_cor(i_rhoye,i,j)*inv_rho
+       inv_abar = lgrid%q_cor(i_rhoiabar,i,j)*inv_rho
+#else
+       mu = lgrid%mu
+#endif
+
+       call get_fluid_state(rho, rhoe, vx1, vx2, gm, &
+#ifdef ADVECT_YE_IABAR
+                            Ye, inv_abar, &
+#else
+                            mu, &
+#endif
+                            p, T)
+#if (eos_type_make == 1)
+       lgrid%temp_cor(1,i,j) = T 
+#endif
+
        lgrid%flux_cor(i_rho,i,j) = rho*vx2
        lgrid%flux_cor(i_rhovx1,i,j) = rho*vx1*vx2
        lgrid%flux_cor(i_rhovx2,i,j) = rho*vx2*vx2+p
        lgrid%flux_cor(i_rhoe,i,j) = (rhoe+p)*vx2
+
+#ifdef ADVECT_YE_IABAR
+       lgrid%flux_cor(i_rhoye,i,j) = rho*Ye*vx2
+       lgrid%flux_cor(i_rhoiabar,i,j) = rho*inv_abar*vx2
+#endif
        
       end do
      end do
@@ -1175,19 +1327,47 @@ contains
        vx1 = lgrid%q_x1(i_rhovx1,i,j)*inv_rho
        vx2 = lgrid%q_x1(i_rhovx2,i,j)*inv_rho
        rhoe = lgrid%q_x1(i_rhoe,i,j)
-       v2 = vx1*vx1+vx2*vx2
-       call get_fluid_state(rho, rhoe, vx1, vx2, gm, lgrid%mu, p, c, H, T)
+
+#ifdef ADVECT_YE_IABAR
+       Ye = lgrid%q_x1(i_rhoye,i,j)*inv_rho
+       inv_abar = lgrid%q_x1(i_rhoiabar,i,j)*inv_rho
+#else
+       mu = lgrid%mu
+#endif
+
+       call get_fluid_state(rho, rhoe, vx1, vx2, gm, &
+#ifdef ADVECT_YE_IABAR
+                            Ye, inv_abar, &
+#else
+                            mu, &
+#endif
+                            p, T, c, H, P_q1, P_q2, P_q3, P_q4, b_Gm &
+#ifdef ADVECT_YE_IABAR
+                            ,P_q5, P_q6 &
+#endif
+                           )
+#if (eos_type_make == 1)
+       lgrid%temp_x1(1,i,j) = T
+#endif
 
        l1 = vx1-c
        l2 = vx1
        l3 = vx1
        l4 = vx1+c
+#ifdef ADVECT_YE_IABAR
+       l5 = vx1
+       l6 = vx1
+#endif
 
        !-----------------------------------------------!
 
        ! Jy
 
-       call get_Jmatx2(p, T, rho, vx1, vx2, rhoe, H, gm, lgrid%mu, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Jmat)
+       call get_Jmatx2(p, rho, vx1, vx2, rhoe, H, gm, &
+#ifdef ADVECT_YE_IABAR
+                       Ye, inv_abar, P_q5, P_q6, &
+#endif
+                       P_q1, P_q2, P_q3, P_q4, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Jmat)
    
        !-----------------------------------------------!
 
@@ -1213,13 +1393,21 @@ contains
 
        ! R
 
-       call get_Rmatx2(c, H, vx1, vx2, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Rmat)
+      call get_Rmatx2(c, H, vx1, vx2, b_Gm, i_rho, i_rhovx1, i_rhovx2, i_rhoe, &
+#ifdef ADVECT_YE_IABAR
+                       Ye, inv_abar, P_q5, P_q6, i_rhoye, i_rhoiabar, &
+#endif
+                       Rmat)
 
        !-----------------------------------------------!
 
        ! R^-1
 
-       call get_Rimatx2(c, H, vx1, vx2, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Rimat)
+       call get_Rimatx2(c, H, vx1, vx2, b_Gm, i_rho, i_rhovx1, i_rhovx2, i_rhoe, &
+#ifdef ADVECT_YE_IABAR
+                        Ye, inv_abar, P_q5, P_q6, i_rhoye, i_rhoiabar, &
+#endif
+                        Rimat)
 
        !-----------------------------------------------!
 
@@ -1235,6 +1423,11 @@ contains
        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
        lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+
+#ifdef ADVECT_YE_IABAR
+       lammat(i_rhoye,i_rhoye) = max(rp0,l5)
+       lammat(i_rhoiabar,i_rhoiabar) = max(rp0,l6)
+#endif
 
        !-----------------------------------------------!
 
@@ -1306,6 +1499,11 @@ contains
        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
        lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+
+#ifdef ADVECT_YE_IABAR
+       lammat(i_rhoye,i_rhoye) = min(rp0,l5)
+       lammat(i_rhoiabar,i_rhoiabar) = min(rp0,l6)
+#endif
 
        !-----------------------------------------------!
 
@@ -1387,17 +1585,47 @@ contains
        vx2 = lgrid%q_x2(i_rhovx2,i,j)*inv_rho
        rhoe = lgrid%q_x2(i_rhoe,i,j)
        v2 = vx1*vx1+vx2*vx2
-       call get_fluid_state(rho, rhoe, vx1, vx2, gm, lgrid%mu, p, c, H, T)
+
+#ifdef ADVECT_YE_IABAR
+       Ye = lgrid%q_x2(i_rhoye,i,j)*inv_rho
+       inv_abar = lgrid%q_x2(i_rhoiabar,i,j)*inv_rho
+#else
+       mu = lgrid%mu
+#endif
+
+       call get_fluid_state(rho, rhoe, vx1, vx2, gm, &
+#ifdef ADVECT_YE_IABAR
+                            Ye, inv_abar, &
+#else
+                            mu, &
+#endif
+                            p, T, c, H, P_q1, P_q2, P_q3, P_q4, b_Gm &
+#ifdef ADVECT_YE_IABAR
+                            ,P_q5, P_q6 &
+#endif
+                           )
+#if (eos_type_make == 1)
+       lgrid%temp_x2(1,i,j) = T
+#endif
+
        l1 = vx2-c
        l2 = vx2
        l3 = vx2
        l4 = vx2+c
+#ifdef ADVECT_YE_IABAR
+       l5 = vx2
+       l6 = vx2
+#endif
 
        !-----------------------------------------------!
 
        !Jx
 
-       call get_Jmatx1(p, T, rho, vx1, vx2, rhoe, H, gm, lgrid%mu, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Jmat)
+       call get_Jmatx1(p, rho, vx1, vx2, rhoe, H, gm, &
+#ifdef ADVECT_YE_IABAR
+                       Ye, inv_abar, P_q5, P_q6, &
+#endif
+                       P_q1, P_q2, P_q3, P_q4, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Jmat)
 
        !-----------------------------------------------!
 
@@ -1423,13 +1651,21 @@ contains
 
        ! R
 
-       call get_Rmatx1(c, H, vx1, vx2, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Rmat)
+       call get_Rmatx1(c, H, vx1, vx2, b_Gm, i_rho, i_rhovx1, i_rhovx2, i_rhoe, &
+#ifdef ADVECT_YE_IABAR
+                       Ye, inv_abar, P_q5, P_q6, i_rhoye, i_rhoiabar, &
+#endif
+                       Rmat)
  
        !-----------------------------------------------!
 
        ! R^-1
 
-       call get_Rimatx1(c, H, vx1, vx2, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Rimat)
+       call get_Rimatx1(c, H, vx1, vx2, b_Gm, i_rho, i_rhovx1, i_rhovx2, i_rhoe, &
+#ifdef ADVECT_YE_IABAR
+                        Ye, inv_abar, P_q5, P_q6, i_rhoye, i_rhoiabar, &
+#endif
+                        Rimat)
 
        !-----------------------------------------------!
 
@@ -1445,6 +1681,11 @@ contains
        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
        lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+
+#ifdef ADVECT_YE_IABAR
+       lammat(i_rhoye,i_rhoye) = max(rp0,l5)
+       lammat(i_rhoiabar,i_rhoiabar) = max(rp0,l6)
+#endif
 
        !-----------------------------------------------!
 
@@ -1516,6 +1757,11 @@ contains
        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
        lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+
+#ifdef ADVECT_YE_IABAR
+       lammat(i_rhoye,i_rhoye) = min(rp0,l5)
+       lammat(i_rhoiabar,i_rhoiabar) = min(rp0,l6)
+#endif
  
        !-----------------------------------------------!
 
@@ -1595,7 +1841,26 @@ contains
        vx2 = lgrid%q_cor(i_rhovx2,i,j)*inv_rho
        rhoe = lgrid%q_cor(i_rhoe,i,j)
        v2 = vx1*vx1+vx2*vx2
-       call get_fluid_state(rho, rhoe, vx1, vx2, gm, lgrid%mu, p, c, H, T)
+#ifdef ADVECT_YE_IABAR
+       Ye = lgrid%q_cor(i_rhoye,i,j)*inv_rho
+       inv_abar = lgrid%q_cor(i_rhoiabar,i,j)*inv_rho
+#else
+       mu = lgrid%mu
+#endif
+       call get_fluid_state(rho, rhoe, vx1, vx2, gm, &
+#ifdef ADVECT_YE_IABAR
+                            Ye, inv_abar, &
+#else
+                            mu, &
+#endif
+                            p, T, c, H, P_q1, P_q2, P_q3, P_q4, b_Gm &
+#ifdef ADVECT_YE_IABAR
+                            ,P_q5, P_q6 &
+#endif
+                           )
+#if (eos_type_make == 1)
+       lgrid%temp_cor(1,i,j) = T
+#endif
 
        !-----------------------------------------------!
 
@@ -1607,15 +1872,26 @@ contains
        l2 = vx1
        l3 = vx1
        l4 = vx1+c
+#ifdef ADVECT_YE_IABAR
+       l5 = vx1
+       l6 = vx1
+#endif
 
        ! R
-       call get_Rmatx2(c, H, vx1, vx2, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Rmat)
+       call get_Rmatx2(c, H, vx1, vx2, b_Gm, i_rho, i_rhovx1, i_rhovx2, i_rhoe, &
+#ifdef ADVECT_YE_IABAR
+                       Ye, inv_abar, P_q5, P_q6, i_rhoye, i_rhoiabar, &
+#endif
+                       Rmat)
  
        !-----------------------------------------------!
 
        ! R^-1
-
-       call get_Rimatx2(c, H, vx1, vx2, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Rimat)
+       call get_Rimatx2(c, H, vx1, vx2, b_Gm, i_rho, i_rhovx1, i_rhovx2, i_rhoe, &
+#ifdef ADVECT_YE_IABAR
+                        Ye, inv_abar, P_q5, P_q6, i_rhoye, i_rhoiabar, &
+#endif
+                        Rimat)
 
        !-----------------------------------------------!
 
@@ -1631,6 +1907,11 @@ contains
        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
        lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+
+#ifdef ADVECT_YE_IABAR
+       lammat(i_rhoye,i_rhoye) = max(rp0,l5)
+       lammat(i_rhoiabar,i_rhoiabar) = max(rp0,l6)
+#endif
 
        !-----------------------------------------------!
 
@@ -1701,6 +1982,11 @@ contains
        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
        lammat(i_rhoe,i_rhoe) = min(rp0,l4)
 
+#ifdef ADVECT_YE_IABAR
+       lammat(i_rhoye,i_rhoye) = min(rp0,l5)
+       lammat(i_rhoiabar,i_rhoiabar) = min(rp0,l6)
+#endif
+
        !-----------------------------------------------!
 
        ! R-lam-
@@ -1765,17 +2051,29 @@ contains
        l2 = vx2
        l3 = vx2
        l4 = vx2+c
+#ifdef ADVECT_YE_IABAR
+       l5 = vx2
+       l6 = vx2
+#endif
 
        ! R
 
-       call get_Rmatx1(c, H, vx1, vx2, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Rmat)
+       call get_Rmatx1(c, H, vx1, vx2, b_Gm, i_rho, i_rhovx1, i_rhovx2, i_rhoe, &
+#ifdef ADVECT_YE_IABAR
+                       Ye, inv_abar, P_q5, P_q6, i_rhoye, i_rhoiabar, &
+#endif
+                       Rmat)
  
        !-----------------------------------------------!
 
        ! R^-1
 
-       call get_Rimatx1(c, H, vx1, vx2, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Rimat)
- 
+       call get_Rimatx1(c, H, vx1, vx2, b_Gm, i_rho, i_rhovx1, i_rhovx2, i_rhoe, &
+#ifdef ADVECT_YE_IABAR
+                        Ye, inv_abar, P_q5, P_q6, i_rhoye, i_rhoiabar, &
+#endif
+                        Rimat)
+
        !-----------------------------------------------!
 
        ! lam+
@@ -1790,6 +2088,11 @@ contains
        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
        lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+
+#ifdef ADVECT_YE_IABAR
+       lammat(i_rhoye,i_rhoye) = max(rp0,l5)
+       lammat(i_rhoiabar,i_rhoiabar) = max(rp0,l6)
+#endif
 
        !-----------------------------------------------!
 
@@ -1859,6 +2162,11 @@ contains
        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
        lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+
+#ifdef ADVECT_YE_IABAR
+       lammat(i_rhoye,i_rhoye) = min(rp0,l5)
+       lammat(i_rhoiabar,i_rhoiabar) = min(rp0,l6)
+#endif
  
        !-----------------------------------------------!
 
@@ -2128,8 +2436,12 @@ contains
    integer :: i,j,ierr
 
    real(kind=rp) :: rho,rhovx1,rhovx2,rhoe,inv_rho,&
-   rhoeint,p,cs,sx1,sx2,smax(1),smax_comm(1)
-   real(kind=rp) :: H, T
+   rhoeint,p,cs,sx1,sx2,smax(1),smax_comm(1),T
+#ifdef ADVECT_YE_IABAR   
+   real(kind=rp) :: Ye,inv_abar
+#else
+   real(kind=rp) :: mu
+#endif
 
    smax(1) = rp0
 
@@ -2143,9 +2455,26 @@ contains
 
      inv_rho = rp1/rho
 
+#ifdef ADVECT_YE_IABAR
+      Ye = lgrid%qbar_cc(i_rhoye,i,j)*inv_rho
+      inv_abar = lgrid%qbar_cc(i_rhoiabar,i,j)*inv_rho
+#else
+      mu = lgrid%mu
+#endif
+
      rhoeint = rhoe - rph*(rhovx1*rhovx1+rhovx2*rhovx2)*inv_rho
 
-     call get_fluid_state(rho, rhoe, rhovx1*inv_rho, rhovx2*inv_rho, lgrid%gm, lgrid%mu, p, cs, H, T)
+     call get_fluid_state(rho, rhoe, rhovx1*inv_rho, rhovx2*inv_rho, lgrid%gm, &
+#ifdef ADVECT_YE_IABAR
+                          Ye, inv_abar, &
+#else
+                          mu, &
+#endif
+                          p, T, c=cs)
+#if (eos_type_make == 1)
+     lgrid%temp_cc(1,i,j) = T
+#endif
+     
 
      sx1 = (abs(rhovx1)*inv_rho + cs)*lgrid%inv_dx1
      sx2 = (abs(rhovx2)*inv_rho + cs)*lgrid%inv_dx2
@@ -2164,21 +2493,46 @@ contains
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
  ! EOS SUBROUTINES
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-  
-  subroutine get_fluid_state(rho, rhoe, vx1, vx2, gm, mu, p, c, H, T)
+
+
+
+  subroutine get_fluid_state(rho, rhoe, vx1, vx2, gm, &
+#ifdef ADVECT_YE_IABAR
+                             Ye, inv_abar, &
+#else
+                             mu, &
+#endif
+                             p, T, c, H, P_q1, P_q2, P_q3, P_q4, b_Gm &
+#ifdef ADVECT_YE_IABAR
+                             ,P_q5, P_q6 &
+#endif
+                             )
     implicit none
 
-    real(kind=rp), intent(in) :: rho, rhoe, vx1, vx2, gm, mu
-    real(kind=rp), intent(out) :: p, c, H, T
+    real(kind=rp), intent(in) :: rho, rhoe, vx1, vx2, gm
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp), intent(in) :: Ye, inv_abar
+    real(kind=rp) :: mu
+#else
+    real(kind=rp), intent(in) :: mu
+#endif
+    real(kind=rp), intent(out) :: p
+    real(kind=rp), intent(inout) :: T
+    real(kind=rp), intent(out), optional :: c, H
+    real(kind=rp), intent(out), optional ::  P_q1, P_q2, P_q3, P_q4, b_Gm
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp), intent(out), optional ::  P_q5, P_q6
+#endif
     
     real(kind=rp) :: gas_coeff, T3, T4, gmm1, inv_rho, rhoeint
     real(kind=rp) :: f, df, delta, myTol
     integer       :: iter
-    real(kind=rp) :: dPdrho_T, dPdT_rho, deintdT_rho 
-    logical :: newt_conv
+    real(kind=rp) :: P_rho, P_T, Eps_T, k, Eps_rho, T_q1, T_q2, T_q3, T_q4
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp) :: P_mu, Eps_mu, mu_q1, mu_q5, mu_q6, T_q5, T_q6
+#endif
 
     myTol = 1e-10_rp
-    newt_conv = .false.
     gmm1 = (gm - rp1)
     inv_rho = rp1/rho
     rhoeint = rhoe-rph*rho*(vx1*vx1+vx2*vx2)
@@ -2188,10 +2542,20 @@ contains
       case (0)
 
         p = gmm1 * rhoeint
-        c = sqrt(gm*p*inv_rho)
-        H = (rhoe+p)*inv_rho
+        if (present(c)) then
+           c = sqrt(gm*p*inv_rho)
+        end if
+        if (present(H)) then
+           H = (rhoe+p)*inv_rho
+        end if
+        if (present(b_Gm)) then
+           b_Gm =  gmm1
+        end if
 
       case (1)
+#ifdef ADVECT_YE_IABAR
+        mu = rp1/(Ye + inv_abar)
+#endif
         gas_coeff = (rho * CONST_RGAS) / ( gmm1 * mu)
   
         T = min( rhoeint/gas_coeff, (rhoeint/CONST_RAD)**(rp1/rp4) )
@@ -2206,8 +2570,7 @@ contains
             delta = - f/df
             T  = T + delta
 
-            if (abs(delta) < myTol) then
-              newt_conv = .true.
+            if (abs(delta) < myTol*T) then
               exit
             endif              
         end do
@@ -2216,32 +2579,72 @@ contains
         T4 = T3*T
         p = (rho*CONST_RGAS*T/mu) + CONST_RAD*othird*T4  
         
-        dPdrho_T = CONST_RGAS*T/mu
-        dPdT_rho = (rho*CONST_RGAS/mu) + CONST_RAD*T3*fthirds
-        deintdT_rho = CONST_RGAS/(mu*gmm1) + rp4*CONST_RAD*T3*inv_rho
-        c = sqrt( dPdrho_T + (dPdT_rho**2)*T*(inv_rho**2)*(rp1/deintdT_rho) )
+        P_rho = CONST_RGAS*T/mu
+        P_T = (rho*CONST_RGAS/mu) + CONST_RAD*T3*fthirds
+        Eps_T = (CONST_RGAS*rho)/(mu*gmm1) + rp4*CONST_RAD*T3
 
-        H = (rhoe+p)*inv_rho
+        if (present(c)) then
+           c = sqrt( P_rho + (P_T**2)*T*(inv_rho)*(rp1/Eps_T) )
+        end if
+        
+        if (present(H)) then
+           H = (rhoe+p)*inv_rho
+        end if
+
+        if (present(b_Gm)) then
+           b_Gm = inv_rho*P_T*(rp1/(Eps_T*inv_rho))
+        end if
+
+        if (present(P_q1) ) then
+            k = rph*(vx1*vx1+vx2*vx2)
+            Eps_rho = (CONST_RGAS*T)/(mu*gmm1) 
+#ifdef ADVECT_YE_IABAR
+            P_mu = -rho*CONST_RGAS*T/(mu*mu)
+            Eps_mu = -rho*CONST_RGAS*T/(mu*mu*gmm1)
+            mu_q1 = mu*inv_rho
+            mu_q5 = -mu*mu*inv_rho
+            mu_q6 = mu_q5
+#endif
+            T_q1 = (k - Eps_rho)/Eps_T
+            T_q2 = -vx1/Eps_T
+            T_q3 = -vx2/Eps_T
+            T_q4 = rp1/Eps_T
+#ifdef ADVECT_YE_IABAR
+            T_q1 = T_q1 - Eps_mu*mu_q1/Eps_T
+            T_q5 = -Eps_mu*mu_q5/Eps_T
+            T_q6 = -Eps_mu*mu_q6/Eps_T
+#endif
+            P_q1 = P_rho + P_T*T_q1
+            P_q2 = P_T*T_q2
+            P_q3 = P_T*T_q3
+            P_q4 = P_T*T_q4
+#ifdef ADVECT_YE_IABAR
+            P_q1 = P_q1 + P_mu*mu_q1
+            P_q5 = P_T*T_q5 + P_mu*mu_q5
+            P_q6 = P_T*T_q6 + P_mu*mu_q6
+#endif
+        end if
 
       case default
-          continue
-          
+          continue     
     end select
 
   end subroutine get_fluid_state
 
-  subroutine get_Rmatx1(c, H, vx1, vx2, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Rmatx1)
+  subroutine get_Rmatx1(c, H, vx1, vx2, b_Gm, i_rho, i_rhovx1, i_rhovx2, i_rhoe, &
+#ifdef ADVECT_YE_IABAR
+                        Ye, inv_abar, P_q5, P_q6, i_rhoye, i_rhoiabar, &
+#endif
+                        Rmatx1)
     implicit none
 
-    real(kind=rp), intent(in) :: c, H, vx1, vx2
+    real(kind=rp), intent(in) :: c, H, vx1, vx2, b_Gm
     integer,  intent(in)  :: i_rho, i_rhovx1, i_rhovx2, i_rhoe
-    
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp), intent(in) :: Ye, inv_abar, P_q5, P_q6
+    integer, intent(in)       :: i_rhoye, i_rhoiabar
+#endif 
     real(kind=rp), dimension(nvars,nvars), intent(out) :: Rmatx1
-    
-    real(kind=rp) :: v2, k
-
-    v2 = vx1*vx1+vx2*vx2
-    k = rph*v2
 
     Rmatx1(i_rho,i_rho) = rp1
     Rmatx1(i_rhovx1,i_rho) = vx1
@@ -2256,27 +2659,57 @@ contains
     Rmatx1(i_rho,i_rhovx2) = rp1
     Rmatx1(i_rhovx1,i_rhovx2) = vx1
     Rmatx1(i_rhovx2,i_rhovx2) = vx2
-    Rmatx1(i_rhoe,i_rhovx2) = k
+    Rmatx1(i_rhoe,i_rhovx2) = H-(c*c/b_Gm)
   
     Rmatx1(i_rho,i_rhoe) = rp1
     Rmatx1(i_rhovx1,i_rhoe) = vx1
     Rmatx1(i_rhovx2,i_rhoe) = vx2+c
     Rmatx1(i_rhoe,i_rhoe) = H+c*vx2
 
+#ifdef ADVECT_YE_IABAR
+
+    Rmatx1(i_rho,     i_rhoye)    = rp0
+    Rmatx1(i_rhovx1,  i_rhoye)    = rp0
+    Rmatx1(i_rhovx2,  i_rhoye)    = rp0
+    Rmatx1(i_rhoe,    i_rhoye)    = -P_q5/b_Gm
+    Rmatx1(i_rhoye,   i_rhoye)    = rp1
+    Rmatx1(i_rhoiabar,i_rhoye)    = rp0
+
+    Rmatx1(i_rho,     i_rhoiabar) = rp0
+    Rmatx1(i_rhovx1,  i_rhoiabar) = rp0
+    Rmatx1(i_rhovx2,  i_rhoiabar) = rp0
+    Rmatx1(i_rhoe,    i_rhoiabar) = -P_q6/b_Gm
+    Rmatx1(i_rhoye,   i_rhoiabar) = rp0
+    Rmatx1(i_rhoiabar,i_rhoiabar) = rp1
+
+    Rmatx1(i_rhoye, i_rho)        = Ye
+    Rmatx1(i_rhoye, i_rhovx1)     = rp0
+    Rmatx1(i_rhoye, i_rhovx2)     = Ye
+    Rmatx1(i_rhoye, i_rhoe)       = Ye
+
+    Rmatx1(i_rhoiabar, i_rho)     = inv_abar
+    Rmatx1(i_rhoiabar, i_rhovx1)  = rp0
+    Rmatx1(i_rhoiabar, i_rhovx2)  = inv_abar
+    Rmatx1(i_rhoiabar, i_rhoe)    = inv_abar
+
+#endif
+
   end subroutine get_Rmatx1
 
-  subroutine get_Rmatx2(c, H, vx1, vx2, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Rmatx2)
+  subroutine get_Rmatx2(c, H, vx1, vx2, b_Gm, i_rho, i_rhovx1, i_rhovx2, i_rhoe, &
+#ifdef ADVECT_YE_IABAR
+                        Ye, inv_abar, P_q5, P_q6, i_rhoye, i_rhoiabar, &
+#endif
+                       Rmatx2)
     implicit none
 
-    real(kind=rp), intent(in) :: c, H, vx1, vx2
+    real(kind=rp), intent(in) :: c, H, vx1, vx2, b_Gm
     integer,  intent(in)  :: i_rho, i_rhovx1, i_rhovx2, i_rhoe
-    
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp), intent(in) :: Ye, inv_abar, P_q5, P_q6
+    integer, intent(in)       :: i_rhoye, i_rhoiabar
+#endif     
     real(kind=rp), dimension(nvars,nvars), intent(out) :: Rmatx2
-    
-    real(kind=rp) :: v2, k
-
-    v2 = vx1*vx1+vx2*vx2
-    k = rph*v2
 
     Rmatx2(i_rho,i_rho) = rp1
     Rmatx2(i_rhovx1,i_rho) = vx1-c
@@ -2291,102 +2724,218 @@ contains
     Rmatx2(i_rho,i_rhovx2) = rp1
     Rmatx2(i_rhovx1,i_rhovx2) = vx1
     Rmatx2(i_rhovx2,i_rhovx2) = vx2
-    Rmatx2(i_rhoe,i_rhovx2) = k
+    Rmatx2(i_rhoe,i_rhovx2) = H-(c*c/b_Gm)
   
     Rmatx2(i_rho,i_rhoe) = rp1
     Rmatx2(i_rhovx1,i_rhoe) = vx1+c
     Rmatx2(i_rhovx2,i_rhoe) = vx2
     Rmatx2(i_rhoe,i_rhoe) = H+c*vx1
 
+#ifdef ADVECT_YE_IABAR
+
+    Rmatx2(i_rho,     i_rhoye)    = rp0
+    Rmatx2(i_rhovx1,  i_rhoye)    = rp0
+    Rmatx2(i_rhovx2,  i_rhoye)    = rp0
+    Rmatx2(i_rhoe,    i_rhoye)    = -P_q5/b_Gm
+    Rmatx2(i_rhoye,   i_rhoye)    = rp1
+    Rmatx2(i_rhoiabar,i_rhoye)    = rp0
+
+    Rmatx2(i_rho,     i_rhoiabar) = rp0
+    Rmatx2(i_rhovx1,  i_rhoiabar) = rp0
+    Rmatx2(i_rhovx2,  i_rhoiabar) = rp0
+    Rmatx2(i_rhoe,    i_rhoiabar) = -P_q6/b_Gm
+    Rmatx2(i_rhoye,   i_rhoiabar) = rp0
+    Rmatx2(i_rhoiabar,i_rhoiabar) = rp1
+
+    Rmatx2(i_rhoye, i_rho)        = Ye
+    Rmatx2(i_rhoye, i_rhovx1)     = rp0
+    Rmatx2(i_rhoye, i_rhovx2)     = Ye
+    Rmatx2(i_rhoye, i_rhoe)       = Ye
+
+    Rmatx2(i_rhoiabar, i_rho)     = inv_abar
+    Rmatx2(i_rhoiabar, i_rhovx1)  = rp0
+    Rmatx2(i_rhoiabar, i_rhovx2)  = inv_abar
+    Rmatx2(i_rhoiabar, i_rhoe)    = inv_abar
+
+#endif
+
   end subroutine get_Rmatx2
 
-  subroutine get_Rimatx1(c, H, vx1, vx2, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Rimatx1)
+  subroutine get_Rimatx1(c, H, vx1, vx2, b_Gm, i_rho, i_rhovx1, i_rhovx2, i_rhoe, &
+#ifdef ADVECT_YE_IABAR
+                         Ye, inv_abar, P_q5, P_q6, i_rhoye, i_rhoiabar, &
+#endif
+                        Rimatx1)
     implicit none
 
-    real(kind=rp), intent(in) :: c, H, vx1, vx2
+    real(kind=rp), intent(in) :: c, H, vx1, vx2, b_Gm
     integer,  intent(in)  :: i_rho, i_rhovx1, i_rhovx2, i_rhoe
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp), intent(in) :: Ye, inv_abar, P_q5, P_q6
+    real(kind=rp)             :: aux
+    integer, intent(in)       :: i_rhoye, i_rhoiabar
+#endif    
 
     real(kind=rp), dimension(nvars,nvars), intent(out) :: Rimatx1
 
-    real(kind=rp) :: v2, k, aux1, aux2, aux3
+    real(kind=rp) :: v2
 
     v2 = vx1*vx1+vx2*vx2
-    k = rph*v2
-    aux1 = rp2*c*(H-k)
-    aux2 = -(vx1)/(rp2*(H-k))
-    aux3 = rp1/(rp2*(H-k))
 
-    Rimatx1(i_rho,i_rho)    = (H*vx2 - c*k - k*vx2 + c*v2)/aux1
-    Rimatx1(i_rhovx1,i_rho) = vx1
-    Rimatx1(i_rhovx2,i_rho) = -(v2 - H)/(H-k)
-    Rimatx1(i_rhoe,i_rho)   = (k*vx2 - c*k - H*vx2 + c*v2)/aux1
- 
-    Rimatx1(i_rho,i_rhovx1)    = aux2
-    Rimatx1(i_rhovx1,i_rhovx1) = -rp1
-    Rimatx1(i_rhovx2,i_rhovx1) = vx1/(H-k)
-    Rimatx1(i_rhoe,i_rhovx1)   = aux2
+   Rimatx1(i_rho,i_rho)    = c*c/b_Gm + c*vx2/b_Gm + v2 - H
+   Rimatx1(i_rhovx1,i_rho) = rp2*vx1*(c*c)/b_Gm
+   Rimatx1(i_rhovx2,i_rho) = rp2*(H - v2)
+   Rimatx1(i_rhoe,i_rho)   = c*c/b_Gm - c*vx2/b_Gm + v2 - H
 
-    Rimatx1(i_rho,i_rhovx2)    = -(H - k + c*vx2)/aux1
-    Rimatx1(i_rhovx1,i_rhovx2) = rp0
-    Rimatx1(i_rhovx2,i_rhovx2) = vx2/(H-k)
-    Rimatx1(i_rhoe,i_rhovx2)   = -(k - H + c*vx2)/aux1
-  
-    Rimatx1(i_rho,i_rhoe)    = aux3
-    Rimatx1(i_rhovx1,i_rhoe) = rp0
-    Rimatx1(i_rhovx2,i_rhoe) = -rp1/(H-k)
-    Rimatx1(i_rhoe,i_rhoe)   = aux3
+   Rimatx1(i_rho,i_rhovx1)    = -vx1    
+   Rimatx1(i_rhovx1,i_rhovx1) = -rp2*(c*c/b_Gm)
+   Rimatx1(i_rhovx2,i_rhovx1) = rp2*vx1
+   Rimatx1(i_rhoe,i_rhovx1)   = -vx1
+
+   Rimatx1(i_rho,i_rhovx2)    = -c/b_Gm - vx2
+   Rimatx1(i_rhovx1,i_rhovx2) = rp0
+   Rimatx1(i_rhovx2,i_rhovx2) = rp2*vx2
+   Rimatx1(i_rhoe,i_rhovx2)   = c/b_Gm - vx2
+
+   Rimatx1(i_rho,i_rhoe)    = rp1
+   Rimatx1(i_rhovx1,i_rhoe) = rp0
+   Rimatx1(i_rhovx2,i_rhoe) = -rp2
+   Rimatx1(i_rhoe,i_rhoe)   = rp1
+
+#ifdef ADVECT_YE_IABAR
+    aux = (P_q5*Ye + P_q6*inv_abar)*(rp1/b_Gm)
+
+    Rimatx1(i_rho,i_rho)          = Rimatx1(i_rho,i_rho) - aux
+    Rimatx1(i_rhovx2,i_rho)       = Rimatx1(i_rhovx2,i_rho) + rp2*aux
+    Rimatx1(i_rhoe,i_rho)         = Rimatx1(i_rhoe,i_rho) - aux
+
+    Rimatx1(i_rho,     i_rhoye)    = P_q5/b_Gm
+    Rimatx1(i_rhovx1,  i_rhoye)    = rp0
+    Rimatx1(i_rhovx2,  i_rhoye)    = -rp2*P_q5/b_Gm
+    Rimatx1(i_rhoe,    i_rhoye)    = P_q5/b_Gm
+    Rimatx1(i_rhoye,   i_rhoye)    = rp2*(c*c)/b_Gm
+    Rimatx1(i_rhoiabar,i_rhoye)    = rp0
+
+    Rimatx1(i_rho,     i_rhoiabar) = P_q6/b_Gm
+    Rimatx1(i_rhovx1,  i_rhoiabar) = rp0
+    Rimatx1(i_rhovx2,  i_rhoiabar) = -rp2*P_q6/b_Gm
+    Rimatx1(i_rhoe,    i_rhoiabar) = P_q6/b_Gm
+    Rimatx1(i_rhoye,   i_rhoiabar) = rp0
+    Rimatx1(i_rhoiabar,i_rhoiabar) = rp2*(c*c)/b_Gm
+
+    Rimatx1(i_rhoye, i_rho)        = -Ye*rp2*(c*c)/b_Gm
+    Rimatx1(i_rhoye, i_rhovx1)     = rp0
+    Rimatx1(i_rhoye, i_rhovx2)     = rp0
+    Rimatx1(i_rhoye, i_rhoe)       = rp0
+
+    Rimatx1(i_rhoiabar, i_rho)     = -inv_abar*rp2*(c*c)/b_Gm
+    Rimatx1(i_rhoiabar, i_rhovx1)  = rp0
+    Rimatx1(i_rhoiabar, i_rhovx2)  = rp0
+    Rimatx1(i_rhoiabar, i_rhoe)    = rp0
+#endif   
+
+   Rimatx1 = Rimatx1*b_Gm*rph*(rp1/(c*c)) 
 
   end subroutine get_Rimatx1
 
-  subroutine get_Rimatx2(c, H, vx1, vx2, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Rimatx2)
+  subroutine get_Rimatx2(c, H, vx1, vx2, b_Gm, i_rho, i_rhovx1, i_rhovx2, i_rhoe, &
+#ifdef ADVECT_YE_IABAR
+                        Ye, inv_abar, P_q5, P_q6, i_rhoye, i_rhoiabar, &
+#endif
+                        Rimatx2)
     implicit none
 
-    real(kind=rp), intent(in) :: c, H, vx1, vx2
+    real(kind=rp), intent(in) :: c, H, vx1, vx2, b_Gm
     integer,  intent(in)  :: i_rho, i_rhovx1, i_rhovx2, i_rhoe
+
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp), intent(in) :: Ye, inv_abar, P_q5, P_q6
+    real(kind=rp)             :: aux
+    integer, intent(in)       :: i_rhoye, i_rhoiabar
+#endif   
     
     real(kind=rp), dimension(nvars,nvars), intent(out) :: Rimatx2
 
-    real(kind=rp) :: v2, k, aux1, aux2, aux3
+    real(kind=rp) :: v2
 
     v2 = vx1*vx1+vx2*vx2
-    k = rph*v2
-    aux1 = rp2*c*(H-k)
-    aux2 = -(vx2)/(rp2*(H-k))
-    aux3 = rp1/(rp2*(H-k))
 
-    Rimatx2(i_rho,i_rho)    = (H*vx1 - c*k - k*vx1 + c*v2)/aux1
-    Rimatx2(i_rhovx1,i_rho) = -vx2
-    Rimatx2(i_rhovx2,i_rho) = -(v2 - H)/(H-k)
-    Rimatx2(i_rhoe,i_rho)   = (k*vx1 - c*k - H*vx1 + c*v2)/aux1
+    Rimatx2(i_rho,i_rho)       = c*c/b_Gm + c*vx1/b_Gm + v2 - H
+    Rimatx2(i_rhovx1,i_rho)    = -rp2*vx2*(c*c)/b_Gm
+    Rimatx2(i_rhovx2,i_rho)    = rp2*(H - v2)
+    Rimatx2(i_rhoe,i_rho)      = c*c/b_Gm - c*vx1/b_Gm + v2 - H
  
-    Rimatx2(i_rho,i_rhovx1)    = -(H - k + c*vx1)/aux1
+    Rimatx2(i_rho,i_rhovx1)    = -c/b_Gm - vx1
     Rimatx2(i_rhovx1,i_rhovx1) = rp0
-    Rimatx2(i_rhovx2,i_rhovx1) = vx1/(H-k)
-    Rimatx2(i_rhoe,i_rhovx1)   = -(k - H + c*vx1)/aux1
+    Rimatx2(i_rhovx2,i_rhovx1) = rp2*vx1
+    Rimatx2(i_rhoe,i_rhovx1)   = c/b_Gm - vx1
 
-    Rimatx2(i_rho,i_rhovx2)    = aux2
-    Rimatx2(i_rhovx1,i_rhovx2) = rp1
-    Rimatx2(i_rhovx2,i_rhovx2) = vx2/(H-k)
-    Rimatx2(i_rhoe,i_rhovx2)   = aux2
+    Rimatx2(i_rho,i_rhovx2)    = -vx2
+    Rimatx2(i_rhovx1,i_rhovx2) = rp2*(c*c/b_Gm)
+    Rimatx2(i_rhovx2,i_rhovx2) = rp2*vx2
+    Rimatx2(i_rhoe,i_rhovx2)   = -vx2
   
-    Rimatx2(i_rho,i_rhoe)    = aux3
-    Rimatx2(i_rhovx1,i_rhoe) = rp0
-    Rimatx2(i_rhovx2,i_rhoe) = -rp1/(H-k)
-    Rimatx2(i_rhoe,i_rhoe)   = aux3
+    Rimatx2(i_rho,i_rhoe)      = rp1
+    Rimatx2(i_rhovx1,i_rhoe)   = rp0
+    Rimatx2(i_rhovx2,i_rhoe)   = -rp2
+    Rimatx2(i_rhoe,i_rhoe)     = rp1
+
+#ifdef ADVECT_YE_IABAR
+    aux = (P_q5*Ye + P_q6*inv_abar)*(rp1/b_Gm)
+
+    Rimatx2(i_rho,i_rho)          = Rimatx2(i_rho,i_rho) - aux
+    Rimatx2(i_rhovx2,i_rho)       = Rimatx2(i_rhovx2,i_rho) + rp2*aux
+    Rimatx2(i_rhoe,i_rho)         = Rimatx2(i_rhoe,i_rho) - aux
+
+    Rimatx2(i_rho,     i_rhoye)    = P_q5/b_Gm
+    Rimatx2(i_rhovx1,  i_rhoye)    = rp0
+    Rimatx2(i_rhovx2,  i_rhoye)    = -rp2*P_q5/b_Gm
+    Rimatx2(i_rhoe,    i_rhoye)    = P_q5/b_Gm
+    Rimatx2(i_rhoye,   i_rhoye)    = rp2*(c*c)/b_Gm
+    Rimatx2(i_rhoiabar,i_rhoye)    = rp0
+
+    Rimatx2(i_rho,     i_rhoiabar) = P_q6/b_Gm
+    Rimatx2(i_rhovx1,  i_rhoiabar) = rp0
+    Rimatx2(i_rhovx2,  i_rhoiabar) = -rp2*P_q6/b_Gm
+    Rimatx2(i_rhoe,    i_rhoiabar) = P_q6/b_Gm
+    Rimatx2(i_rhoye,   i_rhoiabar) = rp0
+    Rimatx2(i_rhoiabar,i_rhoiabar) = rp2*(c*c)/b_Gm
+
+    Rimatx2(i_rhoye, i_rho)        = -Ye*rp2*(c*c)/b_Gm
+    Rimatx2(i_rhoye, i_rhovx1)     = rp0
+    Rimatx2(i_rhoye, i_rhovx2)     = rp0
+    Rimatx2(i_rhoye, i_rhoe)       = rp0
+
+    Rimatx2(i_rhoiabar, i_rho)     = -inv_abar*rp2*(c*c)/b_Gm
+    Rimatx2(i_rhoiabar, i_rhovx1)  = rp0
+    Rimatx2(i_rhoiabar, i_rhovx2)  = rp0
+    Rimatx2(i_rhoiabar, i_rhoe)    = rp0
+#endif   
+
+    Rimatx2 = Rimatx2*b_Gm*rph*(rp1/(c*c))
 
   end subroutine get_Rimatx2
 
-  subroutine get_Jmatx1(p, T, rho, vx1, vx2, rhoe, H, gm, mu, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Jmatx1)
+  subroutine get_Jmatx1(p, rho, vx1, vx2, rhoe, H, gm, &
+#ifdef ADVECT_YE_IABAR
+                        Ye, inv_abar, P_q5, P_q6, &
+#endif
+                        P_q1, P_q2, P_q3, P_q4, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Jmatx1)
     implicit none
 
-    real(kind=rp), intent(in) :: p, T, rho, vx1, vx2, rhoe, H, gm, mu
+    real(kind=rp), intent(in) :: p, rho, vx1, vx2, rhoe, H, gm, P_q1, P_q2, P_q3, P_q4
     integer,  intent(in)  :: i_rho, i_rhovx1, i_rhovx2, i_rhoe
-
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp), intent(in) :: Ye, inv_abar, P_q5, P_q6
+#endif
     real(kind=rp), dimension(nvars,nvars), intent(out) :: Jmatx1
 
-    real(kind=rp) :: v2, k, gmm1, phi, dPdrho_T, dPdT_rho, drhoeintdT_rho, drhoeintdrho_T, T3
-    real(kind=rp) :: drhoeintdq1, drhoeintdq2, drhoeintdq3, drhoeintdq4, dTdq1, dTdq2, dTdq3, dTdq4
-    real(kind=rp) :: q1, q2, q3, q4, dPdq1, dPdq2, dPdq3, dPdq4
+    real(kind=rp) :: v2, k, gmm1, phi
+    real(kind=rp) :: q1, q2, q3, q4
+    
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp) :: q5, q6
+#endif
 
     v2 = vx1*vx1+vx2*vx2
     k = rph*v2
@@ -2417,73 +2966,84 @@ contains
         Jmatx1(i_rhovx2,i_rhoe) = rp0
         Jmatx1(i_rhoe,i_rhoe) = gm*vx1
 
-      case (1) 
-        T3 = T*T*T
+      case (1)
 
         q1 = rho
         q2 = rho*vx1
         q3 = rho*vx2
         q4 = rhoe
-
-        ! Writing derivatives explicitely to easily track chain rule.
-        dPdrho_T = CONST_RGAS*T/mu
-        dPdT_rho = (rho*CONST_RGAS/mu) + CONST_RAD*T3*fthirds
-        drhoeintdT_rho = (CONST_RGAS*rho)/(mu*gmm1) + rp4*CONST_RAD*T3
-        drhoeintdrho_T = (CONST_RGAS*T)/(mu*gmm1) 
-
-        drhoeintdq1 = k
-        drhoeintdq2 = -vx1
-        drhoeintdq3 = -vx2
-        drhoeintdq4 = rp1
-
-        dTdq1 = (drhoeintdq1 - drhoeintdrho_T)/drhoeintdT_rho
-        dTdq2 = (drhoeintdq2)/drhoeintdT_rho
-        dTdq3 = (drhoeintdq3)/drhoeintdT_rho
-        dTdq4 = (drhoeintdq4)/drhoeintdT_rho
-
-        dPdq1 = dPdrho_T + dPdT_rho*dTdq1
-        dPdq2 = dPdT_rho*dTdq2
-        dPdq3 = dPdT_rho*dTdq3
-        dPdq4 = dPdT_rho*dTdq4
-      
+        
         Jmatx1(i_rho,i_rho)    = rp0
-        Jmatx1(i_rhovx1,i_rho) = dPdq1 - (q2**2)/(q1**2)
+        Jmatx1(i_rhovx1,i_rho) = P_q1 - (q2**2)/(q1**2)
         Jmatx1(i_rhovx2,i_rho) = -(q2*q3)/(q1**2)
-        Jmatx1(i_rhoe,i_rho)   = (-q2/(q1**2))*(p + q4) + (q2/q1)*dPdq1
-    
+        Jmatx1(i_rhoe,i_rho)   = (-q2/(q1**2))*(p + q4) + (q2/q1)*P_q1
         Jmatx1(i_rho,i_rhovx1)    = rp1
-        Jmatx1(i_rhovx1,i_rhovx1) = (rp2*q2/q1) + dPdq2
+        Jmatx1(i_rhovx1,i_rhovx1) = (rp2*q2/q1) + P_q2
         Jmatx1(i_rhovx2,i_rhovx1) = q3/q1
-        Jmatx1(i_rhoe,i_rhovx1)   = (q4/q1) + (p/q1) + (q2/q1)*dPdq2
-    
+        Jmatx1(i_rhoe,i_rhovx1)   = (q4/q1) + (p/q1) + (q2/q1)*P_q2
         Jmatx1(i_rho,i_rhovx2)    = rp0
-        Jmatx1(i_rhovx1,i_rhovx2) = dPdq3
+        Jmatx1(i_rhovx1,i_rhovx2) = P_q3
         Jmatx1(i_rhovx2,i_rhovx2) = (q2/q1)
-        Jmatx1(i_rhoe,i_rhovx2)   = (q2/q1)*dPdq3
-      
+        Jmatx1(i_rhoe,i_rhovx2)   = (q2/q1)*P_q3
         Jmatx1(i_rho,i_rhoe)    = rp0
-        Jmatx1(i_rhovx1,i_rhoe) = dPdq4
+        Jmatx1(i_rhovx1,i_rhoe) = P_q4
         Jmatx1(i_rhovx2,i_rhoe) = rp0
-        Jmatx1(i_rhoe,i_rhoe)   =(q2/q1)*(rp1 + dPdq4)
+        Jmatx1(i_rhoe,i_rhoe)   =(q2/q1)*(rp1 + P_q4)
 
+#ifdef ADVECT_YE_IABAR
+        q5 = rho*Ye
+        q6 = rho*inv_abar
+
+        Jmatx1(i_rho,     i_rhoye) = rp0
+        Jmatx1(i_rhovx1,  i_rhoye) = P_q5
+        Jmatx1(i_rhovx2,  i_rhoye) = rp0
+        Jmatx1(i_rhoe,    i_rhoye) = (q2/q1)*P_q5
+        Jmatx1(i_rhoye,   i_rhoye) = (q2/q1)
+        Jmatx1(i_rhoiabar,i_rhoye) = rp0
+
+        Jmatx1(i_rho,     i_rhoiabar) = rp0
+        Jmatx1(i_rhovx1,  i_rhoiabar) = P_q6
+        Jmatx1(i_rhovx2,  i_rhoiabar) = rp0
+        Jmatx1(i_rhoe,    i_rhoiabar) = (q2/q1)*P_q6
+        Jmatx1(i_rhoye,   i_rhoiabar) = rp0
+        Jmatx1(i_rhoiabar,i_rhoiabar) = (q2/q1)
+
+        Jmatx1(i_rhoye, i_rho)    = -q5*q2/(q1*q1)
+        Jmatx1(i_rhoye, i_rhovx1) = q5/q1
+        Jmatx1(i_rhoye, i_rhovx2) = rp0
+        Jmatx1(i_rhoye, i_rhoe)   = rp0
+
+        Jmatx1(i_rhoiabar, i_rho)    = -q6*q2/(q1*q1)
+        Jmatx1(i_rhoiabar, i_rhovx1) = q6/q1
+        Jmatx1(i_rhoiabar, i_rhovx2) = rp0
+        Jmatx1(i_rhoiabar, i_rhoe)   = rp0
+#endif
         case default
-          continue
-          
+          continue      
     end select
 
   end subroutine get_Jmatx1
 
-  subroutine get_Jmatx2(p, T, rho, vx1, vx2, rhoe, H, gm, mu, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Jmatx2)
+  subroutine get_Jmatx2(p, rho, vx1, vx2, rhoe, H, gm, &
+#ifdef ADVECT_YE_IABAR
+                        Ye, inv_abar, P_q5, P_q6, &
+#endif
+                        P_q1, P_q2, P_q3, P_q4, i_rho, i_rhovx1, i_rhovx2, i_rhoe, Jmatx2)
     implicit none
 
-    real(kind=rp), intent(in) :: p, T, rho, vx1, vx2, rhoe, H, gm, mu
+    real(kind=rp), intent(in) :: p, rho, vx1, vx2, rhoe, H, gm, P_q1, P_q2, P_q3, P_q4
     integer,  intent(in)  :: i_rho, i_rhovx1, i_rhovx2, i_rhoe
-
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp), intent(in) :: Ye, inv_abar, P_q5, P_q6
+#endif
     real(kind=rp), dimension(nvars,nvars), intent(out) :: Jmatx2
    
-    real(kind=rp) :: v2, k, gmm1, phi, dPdrho_T, dPdT_rho, drhoeintdT_rho, drhoeintdrho_T, T3
-    real(kind=rp) :: drhoeintdq1, drhoeintdq2, drhoeintdq3, drhoeintdq4, dTdq1, dTdq2, dTdq3, dTdq4
-    real(kind=rp) :: q1, q2, q3, q4, dPdq1, dPdq2, dPdq3, dPdq4
+    real(kind=rp) :: v2, k, gmm1, phi
+    real(kind=rp) :: q1, q2, q3, q4
+
+#ifdef ADVECT_YE_IABAR
+    real(kind=rp) :: q5, q6
+#endif
 
     v2 = vx1*vx1+vx2*vx2
     k = rph*v2
@@ -2514,58 +3074,60 @@ contains
         Jmatx2(i_rhovx2,i_rhoe) = gmm1
         Jmatx2(i_rhoe,i_rhoe) = gm*vx2
 
-      case (1) 
-        T3 = T*T*T
+      case (1)
 
         q1 = rho
         q2 = rho*vx1
         q3 = rho*vx2
         q4 = rhoe
 
-        ! Writing derivatives explicitely to easily track chain rule.
-        dPdrho_T = CONST_RGAS*T/mu
-        dPdT_rho = (rho*CONST_RGAS/mu) + CONST_RAD*T3*fthirds
-        drhoeintdT_rho = (CONST_RGAS*rho)/(mu*gmm1) + rp4*CONST_RAD*T3
-        drhoeintdrho_T = (CONST_RGAS*T)/(mu*gmm1) 
-        
-        drhoeintdq1 = k
-        drhoeintdq2 = -vx1
-        drhoeintdq3 = -vx2
-        drhoeintdq4 = rp1
-        !
-        dTdq1 = (drhoeintdq1 - drhoeintdrho_T)/drhoeintdT_rho
-        dTdq2 = (drhoeintdq2)/drhoeintdT_rho
-        dTdq3 = (drhoeintdq3)/drhoeintdT_rho
-        dTdq4 = (drhoeintdq4)/drhoeintdT_rho
-        !
-        dPdq1 = dPdrho_T + dPdT_rho*dTdq1
-        dPdq2 = dPdT_rho*dTdq2
-        dPdq3 = dPdT_rho*dTdq3
-        dPdq4 = dPdT_rho*dTdq4
-       
         Jmatx2(i_rho,i_rho)    = rp0
         Jmatx2(i_rhovx1,i_rho) = -q2*q3/(q1**2)
-        Jmatx2(i_rhovx2,i_rho) = dPdq1 - (q3**2)/(q1**2)
-        Jmatx2(i_rhoe,i_rho)   = (-q3/(q1**2))*(p + q4) + (q3/q1)*dPdq1
-    
+        Jmatx2(i_rhovx2,i_rho) = P_q1 - (q3**2)/(q1**2)
+        Jmatx2(i_rhoe,i_rho)   = (-q3/(q1**2))*(p + q4) + (q3/q1)*P_q1
         Jmatx2(i_rho,i_rhovx1)    = rp0
         Jmatx2(i_rhovx1,i_rhovx1) = q3/q1
-        Jmatx2(i_rhovx2,i_rhovx1) = dPdq2
-        Jmatx2(i_rhoe,i_rhovx1)   = (q3/q1)*dPdq2
-    
+        Jmatx2(i_rhovx2,i_rhovx1) = P_q2
+        Jmatx2(i_rhoe,i_rhovx1)   = (q3/q1)*P_q2
         Jmatx2(i_rho,i_rhovx2)    = rp1
         Jmatx2(i_rhovx1,i_rhovx2) = q2/q1
-        Jmatx2(i_rhovx2,i_rhovx2) = (rp2*q3/q1) + dPdq3
-        Jmatx2(i_rhoe,i_rhovx2)   = (q4/q1) + (p/q1) + (q3/q1)*dPdq3
-      
+        Jmatx2(i_rhovx2,i_rhovx2) = (rp2*q3/q1) + P_q3
+        Jmatx2(i_rhoe,i_rhovx2)   = (q4/q1) + (p/q1) + (q3/q1)*P_q3
         Jmatx2(i_rho,i_rhoe)    = rp0
         Jmatx2(i_rhovx1,i_rhoe) = rp0
-        Jmatx2(i_rhovx2,i_rhoe) = dPdq4
-        Jmatx2(i_rhoe,i_rhoe)   = (q3/q1)*(rp1 + dPdq4)
+        Jmatx2(i_rhovx2,i_rhoe) = P_q4
+        Jmatx2(i_rhoe,i_rhoe)   = (q3/q1)*(rp1 + P_q4)
 
+#ifdef ADVECT_YE_IABAR
+        q5 = rho*Ye
+        q6 = rho*inv_abar
+
+        Jmatx2(i_rho,     i_rhoye) = rp0
+        Jmatx2(i_rhovx1,  i_rhoye) = rp0
+        Jmatx2(i_rhovx2,  i_rhoye) = P_q5
+        Jmatx2(i_rhoe,    i_rhoye) = (q3/q1)*P_q5
+        Jmatx2(i_rhoye,   i_rhoye) = (q3/q1)
+        Jmatx2(i_rhoiabar,i_rhoye) = rp0
+
+        Jmatx2(i_rho,     i_rhoiabar) = rp0
+        Jmatx2(i_rhovx1,  i_rhoiabar) = rp0
+        Jmatx2(i_rhovx2,  i_rhoiabar) = P_q6
+        Jmatx2(i_rhoe,    i_rhoiabar) = (q3/q1)*P_q6
+        Jmatx2(i_rhoye,   i_rhoiabar) = rp0
+        Jmatx2(i_rhoiabar,i_rhoiabar) = (q3/q1)
+
+        Jmatx2(i_rhoye, i_rho)    = -q5*q3/(q1*q1)
+        Jmatx2(i_rhoye, i_rhovx1) = rp0
+        Jmatx2(i_rhoye, i_rhovx2) = q5/q1
+        Jmatx2(i_rhoye, i_rhoe)   = rp0
+
+        Jmatx2(i_rhoiabar, i_rho)    = -q6*q3/(q1*q1)
+        Jmatx2(i_rhoiabar, i_rhovx1) = rp0
+        Jmatx2(i_rhoiabar, i_rhovx2) = q6/q1
+        Jmatx2(i_rhoiabar, i_rhoe)   = rp0
+#endif
         case default
-          continue
-          
+          continue     
     end select
 
   end subroutine get_Jmatx2
@@ -2755,6 +3317,11 @@ contains
 
     call hdf5_write_ndarray(h5,id,"qbar_cc",mgrid,nvars, &
     mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),ngc,lgrid%qbar_cc)
+
+#if (eos_type_make == 1)
+    call hdf5_write_ndarray(h5,id,"temp_cc",mgrid,1, &
+    mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),ngc,lgrid%temp_cc)
+#endif
 
     call h5gclose_f(id,error)
     call h5fclose_f(h5%file_id,error)
@@ -2980,6 +3547,3 @@ contains
  end function str
 
 end module source
-                         
-
-
