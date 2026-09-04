@@ -1288,7 +1288,7 @@ contains
     !treat hydrogen separately
     Eb = -(2.0_rp*chi_h1+chi_h2)
     Eh2 = Eb + 1.5_rp*kb*T
-    Zh2 = 4.0_rp*(2.0_rp*pi*2.0_rp*mh*kb*T/h**2)**1.5_rp
+    Zh2 = (2.0_rp*pi*2.0_rp*mh*kb*T/h**2)**1.5_rp
 
     !vibrational part
     Zh2ext = 1.0_rp/(1.0_rp-exp(-theta_vib/T))
@@ -1355,7 +1355,7 @@ contains
     a1 = (2.0_rp*pi*me*kb*T/h**2)**1.5_rp * &
     exp(-min(chi_h1/(kb*T),250.0_rp))/ne
   
-    a2 = (0.5_rp*2.0_rp*pi*mh*kb*T/h**2)**1.5_rp * &
+    a2 = 4.0_rp*(pi*mh*kb*T/h**2)**1.5_rp * &
     exp(-min(chi_h2/(kb*T),250.0_rp))/Zh2ext
 
     a2 = 1.0_rp/a2
