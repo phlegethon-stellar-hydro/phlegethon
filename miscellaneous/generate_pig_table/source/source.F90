@@ -185,8 +185,8 @@ contains
    Zl(i_fe56) = 26.0_rp
 
    !multiplicity of the ground state of every ionized stage (from https://cococubed.com/code_pages/eos_ionize.shtml)
-   glj(i_h1,1) = 2.0_rp
-   glj(i_h1,2) = 1.0_rp
+   glj(i_h1,1) = 4.0_rp
+   glj(i_h1,2) = 2.0_rp
    
    glj(i_he4,1) = 1.0_rp
    glj(i_he4,2) = 2.0_rp
@@ -1355,7 +1355,7 @@ contains
     a1 = (2.0_rp*pi*me*kb*T/h**2)**1.5_rp * &
     exp(-min(chi_h1/(kb*T),250.0_rp))/ne
   
-    a2 = 4.0_rp*(pi*mh*kb*T/h**2)**1.5_rp * &
+    a2 = 16.0_rp*(pi*mh*kb*T/h**2)**1.5_rp * &
     exp(-min(chi_h2/(kb*T),250.0_rp))/Zh2ext
 
     a2 = 1.0_rp/a2
