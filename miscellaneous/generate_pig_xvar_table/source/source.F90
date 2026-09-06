@@ -1270,7 +1270,7 @@ contains
 
      do ir=0,101
       dZrotdT = dZrotdT + &
-      0.5_rp*(2.0_rp-(-1.0)**(ir))*(2.0_rp*ir+1.0_rp)*ir*(ir+1.0_rp)*exp(-0.5_rp*ir*(ir+1)*theta_rot/T) 
+      0.5_rp*theta_rot*(2.0_rp-(-1.0)**(ir))*(2.0_rp*ir+1.0_rp)*ir*(ir+1.0_rp)*exp(-0.5_rp*ir*(ir+1)*theta_rot/T) 
      end do
 
     Zh2ext = Zh2ext*Zrot 
