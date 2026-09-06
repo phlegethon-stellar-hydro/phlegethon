@@ -2567,15 +2567,35 @@ contains
 
     integer, dimension(3) :: sizes,subsizes,rstarts,sstarts
     integer :: ghost,is,prev_mpi,next_mpi,prev,next,ierror,itmp
-    integer :: edge,i,j,k,iv
+    integer :: edge,i,j,k,iv,tag,lb1,lb2,lb3
     integer, dimension(3) :: i1,i2,ri1,ri2,si1,si2
     integer :: sendtype,recvtype
+
+    integer :: nreq,ireq
+    integer, dimension(3*sdims) :: reqs
+    integer, dimension(3*sdims) :: postedtypes
 
     if(communicate_corners) then
       ghost = gst
     else
       ghost = 0
     endif
+
+    i1(1) = lx1
+    i1(2) = lx2
+    i1(3) = lx3
+
+    i2(1) = ux1
+    i2(2) = ux2
+    i2(3) = ux3
+
+    lb1 = lbound(vec,1)
+    lb2 = lbound(vec,2)
+    lb3 = lbound(vec,3)
+
+    sizes(:) = ubound(vec)-lbound(vec)+1
+
+    nreq = 0
 
     do is=1,sdims
 
@@ -2589,14 +2609,6 @@ contains
        next = MPI_PROC_NULL
      if ((.not.mgrid%periodic(is)).and.(mgrid%coords_dd(is)==0)) &
        prev = MPI_PROC_NULL
-
-     i1(1) = lx1
-     i1(2) = lx2
-     i1(3) = lx3
-
-     i2(1) = ux1
-     i2(2) = ux2
-     i2(3) = ux3
 
      do iv=1,3
       si1(iv) = i1(iv)
@@ -2620,6 +2632,8 @@ contains
      ri2(is) = i1(is)-1
 
      do edge=1,2
+
+      tag = (is-1)*2 + edge
 
       if ((mgrid%periodic(is)).and.(mgrid%bricks(is)==1)) then
 
@@ -2638,8 +2652,6 @@ contains
 
       else
 
-       sizes(:) = ubound(vec)-lbound(vec)+1
-
        do iv=1,3
         subsizes(iv) = sizes(iv)
        end do
@@ -2647,13 +2659,13 @@ contains
        subsizes(1:sdims) = subsizes(1:sdims)-2*(gst-ghost)
        subsizes(is) = gst
 
-       sstarts(1) = si1(1)-lbound(vec,1)
-       sstarts(2) = si1(2)-lbound(vec,2)
-       sstarts(3) = si1(3)-lbound(vec,3)
+       sstarts(1) = si1(1)-lb1
+       sstarts(2) = si1(2)-lb2
+       sstarts(3) = si1(3)-lb3
 
-       rstarts(1) = ri1(1)-lbound(vec,1)
-       rstarts(2) = ri1(2)-lbound(vec,2)
-       rstarts(3) = ri1(3)-lbound(vec,3)
+       rstarts(1) = ri1(1)-lb1
+       rstarts(2) = ri1(2)-lb2
+       rstarts(3) = ri1(3)-lb3
 
        call mpi_type_create_subarray(3,sizes,subsizes,sstarts,&
        MPI_ORDER_FORTRAN,MPI_RP,sendtype,ierror)
@@ -2663,13 +2675,13 @@ contains
        call mpi_type_commit(sendtype,ierror)
        call mpi_type_commit(recvtype,ierror)
 
-       call mpi_sendrecv( &
-       vec,1,sendtype,next,0, &
-       vec,1,recvtype,prev,0, &
-       mgrid%comm_cart,MPI_STATUS_IGNORE,ierror)
+       nreq = nreq + 1
+       call mpi_isend(vec,1,sendtype,next,tag,mgrid%comm_cart,reqs(nreq),ierror)
+       postedtypes(nreq) = sendtype
 
-       call mpi_type_free(sendtype,ierror)
-       call mpi_type_free(recvtype,ierror)
+       nreq = nreq + 1
+       call mpi_irecv(vec,1,recvtype,prev,tag,mgrid%comm_cart,reqs(nreq),ierror)
+       postedtypes(nreq) = recvtype
 
       endif
 
@@ -2687,6 +2699,13 @@ contains
 
     end do
 
+    if(nreq>0) then
+      call mpi_waitall(nreq,reqs(1:nreq),MPI_STATUSES_IGNORE,ierror)
+      do ireq=1,nreq
+       call mpi_type_free(postedtypes(ireq),ierror)
+      end do
+    end if
+    
  end subroutine communicate_array
 
  subroutine communicate_ndarray(mgrid,nv,lx1,ux1,lx2,ux2,lx3,ux3,gst,vec,communicate_corners)
@@ -2705,15 +2724,35 @@ contains
 
     integer, dimension(4) :: sizes,subsizes,rstarts,sstarts
     integer :: ghost,is,prev_mpi,next_mpi,prev,next,ierror,itmp
-    integer :: edge,iv,i,j,k
+    integer :: edge,iv,i,j,k,tag,lb1,lb2,lb3
     integer, dimension(3) :: i1,i2,ri1,ri2,si1,si2
     integer :: sendtype,recvtype
+
+    integer :: nreq,ireq
+    integer, dimension(4*sdims) :: reqs
+    integer, dimension(4*sdims) :: postedtypes
 
     if(communicate_corners) then
       ghost = gst
     else
       ghost = 0
     endif
+
+    i1(1) = lx1
+    i1(2) = lx2
+    i1(3) = lx3
+
+    i2(1) = ux1
+    i2(2) = ux2
+    i2(3) = ux3
+
+    lb1 = lbound(vec,2)
+    lb2 = lbound(vec,3)
+    lb3 = lbound(vec,4)
+
+    sizes(:) = ubound(vec)-lbound(vec)+1
+
+    nreq = 0
 
     do is=1,sdims
 
@@ -2727,14 +2766,6 @@ contains
        next = MPI_PROC_NULL
      if ((.not.mgrid%periodic(is)).and.(mgrid%coords_dd(is)==0)) &
        prev = MPI_PROC_NULL
-
-     i1(1) = lx1
-     i1(2) = lx2
-     i1(3) = lx3
-
-     i2(1) = ux1
-     i2(2) = ux2
-     i2(3) = ux3
 
      do iv=1,3
       si1(iv) = i1(iv)
@@ -2758,6 +2789,8 @@ contains
      ri2(is) = i1(is)-1
 
      do edge=1,2
+
+      tag = (is-1)*2 + edge
 
       if ((mgrid%periodic(is)).and.(mgrid%bricks(is)==1)) then
 
@@ -2778,8 +2811,6 @@ contains
 
       else
 
-       sizes(:) = ubound(vec)-lbound(vec)+1
-
        do iv=1,4
         subsizes(iv) = sizes(iv)
        end do
@@ -2788,14 +2819,14 @@ contains
        subsizes(is+1) = gst
 
        sstarts(1) = 0
-       sstarts(2) = si1(1)-lbound(vec,2)
-       sstarts(3) = si1(2)-lbound(vec,3)
-       sstarts(4) = si1(3)-lbound(vec,4)
+       sstarts(2) = si1(1)-lb1
+       sstarts(3) = si1(2)-lb2
+       sstarts(4) = si1(3)-lb3
 
        rstarts(1) = 0
-       rstarts(2) = ri1(1)-lbound(vec,2)
-       rstarts(3) = ri1(2)-lbound(vec,3)
-       rstarts(4) = ri1(3)-lbound(vec,4)
+       rstarts(2) = ri1(1)-lb1
+       rstarts(3) = ri1(2)-lb2
+       rstarts(4) = ri1(3)-lb3
 
        call mpi_type_create_subarray(4,sizes,subsizes,sstarts,&
        MPI_ORDER_FORTRAN,MPI_RP,sendtype,ierror)
@@ -2805,13 +2836,13 @@ contains
        call mpi_type_commit(sendtype,ierror)
        call mpi_type_commit(recvtype,ierror)
 
-       call mpi_sendrecv( &
-       vec,1,sendtype,next,0, &
-       vec,1,recvtype,prev,0, &
-       mgrid%comm_cart,MPI_STATUS_IGNORE,ierror)
+       nreq = nreq + 1
+       call mpi_isend(vec,1,sendtype,next,tag,mgrid%comm_cart,reqs(nreq),ierror)
+       postedtypes(nreq) = sendtype
 
-       call mpi_type_free(sendtype,ierror)
-       call mpi_type_free(recvtype,ierror)
+       nreq = nreq + 1
+       call mpi_irecv(vec,1,recvtype,prev,tag,mgrid%comm_cart,reqs(nreq),ierror)
+       postedtypes(nreq) = recvtype
 
       endif
 
@@ -2828,6 +2859,13 @@ contains
      end do
 
     end do
+
+    if(nreq>0) then
+      call mpi_waitall(nreq,reqs(1:nreq),MPI_STATUSES_IGNORE,ierror)
+      do ireq=1,nreq
+       call mpi_type_free(postedtypes(ireq),ierror)
+      end do
+    end if
 
  end subroutine communicate_ndarray
  
