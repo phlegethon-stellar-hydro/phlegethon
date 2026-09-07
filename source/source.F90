@@ -3417,7 +3417,7 @@ contains
       call hdf5_write_ndarray(h5,id,"coords",mgrid,sdims, &
       mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%coords,0)
 
-#ifdef USE_TIMMES_KAPPA
+#if defined(USE_TIMMES_KAPPA) || defined(USERDEF_KAPPA)
       call hdf5_annotate_string(id,"update_kappa","true")
 #else
       call hdf5_annotate_string(id,"update_kappa","false")
@@ -3425,8 +3425,10 @@ contains
 
 #if defined(THERMAL_DIFFUSION_STS) || defined(THERMAL_DIFFUSION_EXPLICIT)
 #ifndef USE_TIMMES_KAPPA
+#ifndef USERDEF_KAPPA
       call hdf5_write_array(h5,id,"kappa",mgrid, &
       mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%kappa,0)
+#endif
 #endif
 #endif
 
@@ -3453,9 +3455,11 @@ contains
 #endif
 #endif
 
+#ifndef USERDEF_EDOT
 #ifdef USE_EDOT
       call hdf5_write_array(h5,id,"edot",mgrid, &
       mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%edot,0)
+#endif
 #endif
 
 #ifdef COROTATING_FRAME
@@ -3505,7 +3509,7 @@ contains
     mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%grav,0)
 #endif
 
-#ifdef USE_TIMMES_KAPPA
+#if defined(USE_TIMMES_KAPPA) || defined(USERDEF_KAPPA)
     call hdf5_write_array(h5,id,"kappa",mgrid, &
     mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%kappa,0)
 #endif
@@ -3522,6 +3526,11 @@ contains
     call hdf5_write_ndarray(h5,id,"X_species_dot",mgrid,nspecies, &
     mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),0,lgrid%ivol,lgrid%X_species_dot,0)
 
+#endif
+
+#ifdef USERDEF_EDOT
+      call hdf5_write_array(h5,id,"edot",mgrid, &
+      mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%edot,0)
 #endif
 
     call h5gclose_f(id,error)
@@ -7172,6 +7181,14 @@ contains
     call compute_timmes_kappa(lgrid)
 #endif
 
+#ifdef USERDEF_KAPPA
+    call compute_userdef_kappa(mgrid,lgrid,lgrid%time)
+#endif
+
+#ifdef USERDEF_EDOT
+    call compute_userdef_edot(mgrid,lgrid,lgrid%time)
+#endif
+
 #ifdef THERMAL_DIFFUSION_STS
 #ifndef EVALUATE_PARABOLIC_TIMESTEP
     if(lgrid%step==0) then
@@ -7373,6 +7390,9 @@ contains
 #endif
 
 #ifdef THERMAL_DIFFUSION_STS
+#ifdef USERDEF_KAPPA
+       call compute_userdef_kappa(mgrid,lgrid,lgrid%time)
+#endif
 #ifdef EVALUATE_PARABOLIC_TIMESTEP
 #ifdef ENFORCE_BARRIERS
        call mpi_barrier(mgrid%comm_cart,ierr)
@@ -7387,6 +7407,9 @@ contains
 #endif
 
 #ifdef THERMAL_DIFFUSION_STS
+#ifdef USERDEF_KAPPA
+       call compute_userdef_kappa(mgrid,lgrid,lgrid%time+rph*lgrid%dt)
+#endif
        call thermal_diffusion_step(mgrid,lgrid,2)
 #endif
 
@@ -7587,9 +7610,11 @@ contains
 
 #ifdef RK2_STEPPER
     real(kind=rp), dimension(1:2,1:3) :: rk_coeff
+    real(kind=rp), dimension(1:2) :: tau_rk
 #endif
 #ifdef RK3_STEPPER
     real(kind=rp), dimension(1:3,1:3) :: rk_coeff
+    real(kind=rp), dimension(1:3) :: tau_rk
 #endif
 
     real(kind=rp) :: a1rk,a2rk,a3rk
@@ -7760,6 +7785,9 @@ contains
     rk_coeff(2,2) =  rph
     rk_coeff(2,3) = -rph
 
+    tau_rk(1) = lgrid%time
+    tau_rk(2) = tau_rk(1) + lgrid%dt
+
 #endif
 
 #ifdef RK3_STEPPER
@@ -7777,6 +7805,10 @@ contains
     rk_coeff(3,1) =  othird
     rk_coeff(3,2) =  tthirds
     rk_coeff(3,3) = -tthirds
+
+    tau_rk(1) = lgrid%time
+    tau_rk(2) = tau_rk(1) + lgrid%dt
+    tau_rk(3) = rph*(tau_rk(1)+tau_rk(2))
 
 #endif
 
@@ -12687,6 +12719,10 @@ contains
      ! ENERGY SOURCE
      !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
+#ifdef USERDEF_EDOT
+     call compute_userdef_edot(mgrid,lgrid,tau_rk(irk))
+#endif
+
 #ifdef USE_EDOT
 #ifndef VARIABLE_EDOT
 
@@ -12718,7 +12754,7 @@ contains
 
 #endif
 #endif
-     
+
      a1rk = rk_coeff(irk,1)
      a2rk = rk_coeff(irk,2)
      a3rk = rk_coeff(irk,3)*lgrid%dt
@@ -13866,6 +13902,10 @@ contains
 
 #ifdef USE_TIMMES_KAPPA
      call compute_timmes_kappa(lgrid)
+#endif
+
+#ifdef USERDEF_KAPPA
+     call compute_userdef_kappa(mgrid,lgrid,tau_rk(irk))
 #endif
 
 #ifndef USE_INTERNAL_BOUNDARIES
