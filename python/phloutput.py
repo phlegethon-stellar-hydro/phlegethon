@@ -2498,7 +2498,10 @@ class h5grid:
         return self.full[id_gam3]
 
     def edot(self,ix=-1,iy=-1,iz=-1):
-        return self.vec3d(self.grid0['edot'],ix=ix,iy=iy,iz=iz)
+        try:
+         return self.vec3d(self.grid['edot'],ix=ix,iy=iy,iz=iz)
+        except:
+         return self.vec3d(self.grid0['edot'],ix=ix,iy=iy,iz=iz)
 
     def nabla(self,ix=-1,iy=-1,iz=-1):
         dlnT = self.grad_r(np.log(self.T()),ix=ix,iy=iy,iz=iz)
