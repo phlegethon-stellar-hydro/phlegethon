@@ -72,7 +72,6 @@ For `GEOMETRY_CUBED_SPHERE`, the following parameters must be defined at compile
 | `USE_CONSTANT_ACCELERATION` | Applies a constant-acceleration body force to the system. In `app.F90`, the grid components of the acceleration vector must be defined in `lgrid%acc(1:sdims_make)`. |
 | `USE_MHD` | Enables ideal magnetohydrodynamics (solved with the CT-contact algorithm of [Gardiner+05](https://ui.adsabs.harvard.edu/abs/2005JCoPh.205..509G/abstract)). In `app.F90`, the face-centered magnetic field components must be filled, e.g., `lgrid%b_x1(i,j,k)` etc. |
 | `Mach_ct_make=1e-6_rp` | Minimum local Mach number to enable the (upwind) contact version of constrained transport. |
-| `USE_RESISTIVITY` | Adds magnetic resistivity to the induction equation (note: not to the energy equation and only for Cartesian grids). For this option, the cell-centered value of the magnetic diffusion coefficient `lgrid%eta(i,j,k)` must be provided in `app.F90`. |
 | `ADVECT_YE_IABAR` | Advects `ye` and the inverse of `abar` as active scalars. In the code, the mean molecular weight is then computed from these two quantities assuming a fully ionized medium. If this option is chosen , `nas` must be at least `2` to accomodate the two additional variables in `lgrid%prim`. In `app.F90`, they can be accessed with the indixes `i_ye` and `i_iabar`. Other active scalars can be defined starting from the index `i_iabar+1`. |
 |`ADVECT_SPECIES` | If declared, advects `nspecies` chemical species as active scalars. In the code, the mean molecular weight is then computed from the mass fractional abundances of the species assuming a fully ionized mixture. If this option is chosen , `nas_make` must be at least `nspecies_make` to accomodate the species in `lgrid%prim`. The species index goes from `i_as1` to `i_as1+nspecies`. In `app.F90`, before calling the `initialize_simulation` subroutine, `lgrid%A(:)` and `lgrid%Z(1:nspecies_make)` must be filled for each element (starting from index `1` to index `nspecies_make`) by providing the mass number and the charge number of the element, respectively. Make sure that the sum of the mass fractional abundances of the species is 1, otherwise the mean molecular weight of the gas will be wrong. Do not use this option in combination with `ADVECT_YE_IABAR`. |
 | `USE_GRAVITY` | Enables space dependent gravity (Newtonian gravity only). The cell-centered components of gravity must be filled in `app.F90` in `lgrid%grav(:,i,j,k)`. |
@@ -85,6 +84,8 @@ For `GEOMETRY_CUBED_SPHERE`, the following parameters must be defined at compile
 | `VARIABLE_EDOT` | Makes `USE_EDOT` time-dependent by applying `lgrid%edot` only for `t >= t_start_edot_make`. |
 | `t_start_edot_make=1.0_rp` | Time after which the heating source is activated. |
 | `USE_NEULOSS` | Enables nonnuclear neutrino cooling, computed according to [Itoh+1996](https://ui.adsabs.harvard.edu/abs/1996ApJS..102..411I/abstract) (adapted from Frank Timmes' [cococubed](https://cococubed.com/code_pages/nuloss.shtml)). |
+| `DNS_EXPLICIT` | Enables explicit viscosity and, when `USE_MHD` is enabled, resistivity. The corresponding terms in the governing equations are integrated fully explicitly without time splitting. The viscous coefficient array `lgrid%nus(:,:,:)` (and, for MHD, the resistive coefficient array `lgrid%eta(:,:,:)`) must be filled in `app.F90`. This option is supported only on Cartesian grids, both uniform and nonuniform, and is not compatible with inscribed boundaries. |
+| `DNS_STS` | Enables explicit viscosity and, when `USE_MHD` is enabled, resistivity. The parabolic terms are coupled to the gas-dynamics/MHD equations using Strang splitting and integrated with the RKL2 super-time-stepping scheme. The viscous coefficient array `lgrid%nus(:,:,:)` (and, for MHD, the resistive coefficient array `lgrid%eta(:,:,:)`) must be filled in `app.F90`. This option is supported only on Cartesian grids, both uniform and nonuniform, and is not compatible with inscribed boundaries. | 
 
 ### 4. Boundary conditions (see Table 1)
 
@@ -260,14 +261,19 @@ For `LHLL-type` solvers, if both low-Mach and supersonic flows need to be captur
 | `gs_tol_make=1e-4_rp` | Minimum tolerance for the iterative gravity solver, measured in L2 mean error norm (see Eq. 104). |
 | `USE_MONOPOLE_GRAVITY` | Employs a monopole gravity solver. This option only works for internal boundaries (both 2D and 3D). |
 
-### 10. Thermal diffusion options
+### 10a. Thermal diffusion options
 
 | Option | Meaning |
 | --- | --- |
 | `STS_EVOLVE_TEMP` | Solves the temperature equation rather than the internal energy equation during the radiative diffusion step (see Sect. 2.10). To increase performance, the heat capacity $c_v$ is held fixed during the time step, so that the EoS does not have to be evaluated in every substep of the super time stepper. |
-| `EVALUATE_PARABOLIC_TIMESTEP` | Adaptively changes the number of substeps in the super time stepper. |
+| `EVALUATE_PARABOLIC_TIMESTEP` | Adaptively changes the number of substeps in the super time stepper when `THERMAL_DIFFUSION_STS` is used. |
 | `BALANCE_THERMAL_DIFFUSION` | Balances the thermal diffusion operator using the equilibrium states from the well-balancing method (needs `USE_WB`). |
 | `USE_TIMMES_KAPPA` | Enables the computation of radiative+conductive opacities as a function of density, composition and temperature according to [Timmes+2000](https://ui.adsabs.harvard.edu/abs/2000ApJ...528..913T/abstract) (implementation basde on [cococubed](https://cococubed.com/code_pages/kap.shtml)) |
+
+#### 10b. DNS options
+
+| Option | Meaning |
+| `EVALUATE_DNS_TIMESTEP` | Adaptively changes the number of substeps in the super time stepper when `DNS_STS` is used. |
 
 ### 11. Nuclear network options
 

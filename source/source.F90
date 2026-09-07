@@ -1181,6 +1181,10 @@ module source
     real(kind=rp), dimension(1:sdims) :: acc
 #endif 
 
+#ifdef DNS_STS
+    real(kind=rp) :: dt_dns
+#endif
+
 #if defined(THERMAL_DIFFUSION_STS) || defined(THERMAL_DIFFUSION_EXPLICIT)
 
     real(kind=rp), allocatable, dimension(:,:,:) :: kappa
@@ -1196,7 +1200,7 @@ module source
 
     real(kind=rp) :: dt_par
     real(kind=rp), allocatable, dimension(:,:,:) :: &
-    e_0,e_1,e_jm2,e_jm1,Me_0,Me_jm1
+    e_0,e_jm2,e_jm1,Me_0,Me_jm1
 
 #ifdef STS_EVOLVE_TEMP
     real(kind=rp), allocatable, dimension(:,:,:) :: icv
@@ -1204,6 +1208,14 @@ module source
 
     real(kind=rp), dimension(1:sdims) :: Tl,Tu
 
+#endif
+
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
+    real(kind=rp), allocatable, dimension(:,:,:) :: nus
+    real(kind=rp), allocatable, dimension(:,:,:,:) :: Mv_jm1
+#ifdef DNS_STS
+    real(kind=rp), allocatable, dimension(:,:,:,:) :: vis_0,vis_jm2,vis_jm1,Mv_0
+#endif
 #endif
 
 #ifdef USE_MHD
@@ -1241,12 +1253,29 @@ module source
 #endif
     b0_x1,b0_x2
 
-#ifdef USE_RESISTIVITY
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
     real(kind=rp), allocatable, dimension(:,:,:) :: &
 #if sdims_make==3
     eta_cor_x1,eta_cor_x2, &
 #endif 
     eta_cor_x3,eta
+
+    real(kind=rp), allocatable, dimension(:,:,:) :: &
+#if sdims_make==3
+    Jeta_cor_x1, Jeta_cor_x2, &
+#endif
+    Jeta_cor_x3
+
+#ifdef DNS_STS
+
+    real(kind=rp), allocatable, dimension(:,:,:) :: bx1_jm2,bx1_jm1,Mbx1_0,Mbx1_jm1
+    real(kind=rp), allocatable, dimension(:,:,:) :: bx2_jm2,bx2_jm1,Mbx2_0,Mbx2_jm1
+#if sdims_make==3
+    real(kind=rp), allocatable, dimension(:,:,:) :: bx3_jm2,bx3_jm1,Mbx3_0,Mbx3_jm1
+#endif
+
+#endif
+
 #endif
 
 #ifdef USE_INTERNAL_BOUNDARIES
@@ -1819,8 +1848,6 @@ contains
 
     allocate(lgrid%e_0(lx1:ux1,lx2:ux2,lx3:ux3))
 
-    allocate(lgrid%e_1(lx1:ux1,lx2:ux2,lx3:ux3))
-
     allocate(lgrid%e_jm2(lx1:ux1,lx2:ux2,lx3:ux3))
 
     allocate(lgrid%e_jm1(lx1:ux1,lx2:ux2,lx3:ux3))
@@ -1833,6 +1860,23 @@ contains
     allocate(lgrid%icv(lx1:ux1,lx2:ux2,lx3:ux3))
 #endif
 
+#endif
+
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
+    allocate(lgrid%nus(lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc, &
+#if sdims_make==2
+    lx3:ux3))
+#endif
+#if sdims_make==3
+    lx3-ngc:ux3+ngc))
+#endif
+    allocate(lgrid%Mv_jm1(i_rhovx1:i_rhoe,lx1:ux1,lx2:ux2,lx3:ux3))
+#ifdef DNS_STS
+    allocate(lgrid%vis_0(i_rhovx1:i_rhoe,lx1:ux1,lx2:ux2,lx3:ux3))
+    allocate(lgrid%vis_jm2(i_rhovx1:i_rhoe,lx1:ux1,lx2:ux2,lx3:ux3))
+    allocate(lgrid%vis_jm1(i_rhovx1:i_rhoe,lx1:ux1,lx2:ux2,lx3:ux3))
+    allocate(lgrid%Mv_0(i_rhovx1:i_rhoe,lx1:ux1,lx2:ux2,lx3:ux3))
+#endif
 #endif
 
 #ifdef USE_MHD
@@ -1929,13 +1973,13 @@ contains
     allocate(lgrid%b0_x3(lx1:ux1,lx2:ux2,lx3:ux3+1))
 #endif
 
-#ifdef USE_RESISTIVITY
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
 #if sdims_make==3
-    allocate(lgrid%eta_cor_x1(lx1:ux1,lx2:ux2+1,lx3:ux3+1)) 
-    allocate(lgrid%eta_cor_x2(lx1:ux1+1,lx2:ux2,lx3:ux3+1)) 
+    allocate(lgrid%eta_cor_x1(lx1:ux1,lx2:ux2+1,lx3:ux3+1))
+    allocate(lgrid%eta_cor_x2(lx1:ux1+1,lx2:ux2,lx3:ux3+1))
 #endif
     allocate(lgrid%eta_cor_x3(lx1:ux1+1,lx2:ux2+1,lx3:ux3))
-
+    
     allocate(lgrid%eta(lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc, &
 #if sdims_make==2
     lx3:ux3))
@@ -1943,6 +1987,31 @@ contains
 #if sdims_make==3
     lx3-ngc:ux3+ngc))
 #endif
+#if sdims_make==3
+    allocate(lgrid%Jeta_cor_x1(lx1:ux1,lx2:ux2+1,lx3:ux3+1))
+    allocate(lgrid%Jeta_cor_x2(lx1:ux1+1,lx2:ux2,lx3:ux3+1))
+#endif
+    allocate(lgrid%Jeta_cor_x3(lx1:ux1+1,lx2:ux2+1,lx3:ux3))
+
+#ifdef DNS_STS
+    allocate(lgrid%bx1_jm2(lx1:ux1+1,lx2:ux2,lx3:ux3))
+    allocate(lgrid%bx1_jm1(lx1:ux1+1,lx2:ux2,lx3:ux3))
+    allocate(lgrid%Mbx1_0(lx1:ux1+1,lx2:ux2,lx3:ux3))
+    allocate(lgrid%Mbx1_jm1(lx1:ux1+1,lx2:ux2,lx3:ux3))
+
+    allocate(lgrid%bx2_jm2(lx1:ux1,lx2:ux2+1,lx3:ux3))
+    allocate(lgrid%bx2_jm1(lx1:ux1,lx2:ux2+1,lx3:ux3))
+    allocate(lgrid%Mbx2_0(lx1:ux1,lx2:ux2+1,lx3:ux3))
+    allocate(lgrid%Mbx2_jm1(lx1:ux1,lx2:ux2+1,lx3:ux3))
+
+#if sdims_make==3
+    allocate(lgrid%bx2_jm2(lx1:ux1,lx2:ux2,lx3:ux3+1))
+    allocate(lgrid%bx2_jm1(lx1:ux1,lx2:ux2,lx3:ux3+1))
+    allocate(lgrid%Mbx2_0(lx1:ux1,lx2:ux2,lx3:ux3+1))
+    allocate(lgrid%Mbx2_jm1(lx1:ux1,lx2:ux2,lx3:ux3+1))
+#endif
+#endif
+
 #endif
 
 #ifdef USE_INTERNAL_BOUNDARIES
@@ -2373,7 +2442,6 @@ contains
 
 #ifdef THERMAL_DIFFUSION_STS
     deallocate(lgrid%e_0)
-    deallocate(lgrid%e_1)
     deallocate(lgrid%e_jm2)
     deallocate(lgrid%e_jm1)
     deallocate(lgrid%Me_0)
@@ -2383,6 +2451,17 @@ contains
     deallocate(lgrid%icv)
 #endif
 
+#endif
+
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
+    deallocate(lgrid%nus)
+    deallocate(lgrid%Mv_jm1)
+#ifdef DNS_STS
+    deallocate(lgrid%vis_0)
+    deallocate(lgrid%vis_jm2)
+    deallocate(lgrid%vis_jm1)
+    deallocate(lgrid%Mv_0)
+#endif
 #endif
 
 #ifdef USE_MHD
@@ -2430,14 +2509,42 @@ contains
     deallocate(lgrid%b0_x3)
 #endif 
 
-#ifdef USE_RESISTIVITY
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
 
+    deallocate(lgrid%eta)
 #if sdims_make==3
-    deallocate(lgrid%eta_cor_x1) 
-    deallocate(lgrid%eta_cor_x2) 
+    deallocate(lgrid%eta_cor_x1)
+    deallocate(lgrid%eta_cor_x2)
     deallocate(lgrid%eta_cor_x3)
 #else
     deallocate(lgrid%eta_cor_x3)
+#endif
+
+#if sdims_make==3
+    deallocate(lgrid%Jeta_cor_x1)
+    deallocate(lgrid%Jeta_cor_x2)
+    deallocate(lgrid%Jeta_cor_x3)
+#else
+    deallocate(lgrid%Jeta_cor_x3)
+#endif
+
+#ifdef DNS_STS
+    deallocate(lgrid%bx1_jm2)
+    deallocate(lgrid%bx1_jm1)
+    deallocate(lgrid%Mbx1_0)
+    deallocate(lgrid%Mbx1_jm1)
+
+    deallocate(lgrid%bx2_jm2)
+    deallocate(lgrid%bx2_jm1)
+    deallocate(lgrid%Mbx2_0)
+    deallocate(lgrid%Mbx2_jm1)
+
+#if sdims_make==3
+    deallocate(lgrid%bx3_jm2)
+    deallocate(lgrid%bx3_jm1)
+    deallocate(lgrid%Mbx3_0)
+    deallocate(lgrid%Mbx3_jm1)
+#endif
 #endif
 
 #endif
@@ -2885,6 +2992,10 @@ contains
     call hdf5_annotate_rp(h5,id,"smax",lgrid%smax)
     call hdf5_annotate_ip(h5,id,"step",lgrid%step)
 
+#ifdef DNS_STS
+    call hdf5_annotate_rp(h5,id,"dt_dns",lgrid%dt_dns)
+#endif
+
 #ifdef THERMAL_DIFFUSION_STS
     call hdf5_annotate_rp(h5,id,"dt_par",lgrid%dt_par)
 #endif
@@ -3209,6 +3320,10 @@ contains
 
     call read_rp(h5,group_id,"smax",lgrid%smax)
 
+#ifdef DNS_STS
+    call read_rp(h5,group_id,"dt_dns",lgrid%dt_dns)
+#endif
+
 #ifdef THERMAL_DIFFUSION_STS
     call read_rp(h5,group_id,"dt_par",lgrid%dt_par)
 #endif
@@ -3427,6 +3542,15 @@ contains
 #ifndef USE_TIMMES_KAPPA
       call hdf5_write_array(h5,id,"kappa",mgrid, &
       mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%kappa,0)
+#endif
+#endif
+
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
+      call hdf5_write_array(h5,id,"nus",mgrid, &
+      mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%nus,0)
+#ifdef USE_MHD
+      call hdf5_write_array(h5,id,"eta",mgrid, &
+      mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%eta,0)
 #endif
 #endif
 
@@ -4963,6 +5087,8 @@ contains
         end do
 
 #endif
+       
+        off = off + 32 + nreacs*nspecies
 
        endif
 
@@ -6874,8 +7000,9 @@ contains
 
 #endif
     
-#ifdef USE_RESISTIVITY
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
 
+#ifdef USE_MHD
     do k=lx3,ux3
      do j=lx2,ux2+1
       do i=lx1,ux1+1
@@ -6906,9 +7033,7 @@ contains
     end do   
 
 #endif
-
-    deallocate(lgrid%eta)
-
+#endif
 #endif
 
     if(lgrid%step==0) then 
@@ -7168,6 +7293,17 @@ contains
 
     endif
 
+#ifdef DNS_STS
+#ifndef EVALUATE_DNS_TIMESTEP
+    if(lgrid%step==0) then
+#ifdef ENFORCE_BARRIERS
+     call mpi_barrier(mgrid%comm_cart,ierr)
+#endif   
+     call compute_dns_dt(mgrid,lgrid)
+    endif
+#endif
+#endif
+
 #ifdef USE_TIMMES_KAPPA
     call compute_timmes_kappa(lgrid)
 #endif
@@ -7290,13 +7426,23 @@ contains
 #ifdef SAVE_RPROFS
        if(lgrid%step==lgrid%rprofs_inextoutput) then
         call mpi_barrier(mgrid%comm_cart,ierr)
+
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
+        call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_vx1:i_vx3,:,:,:),.true.)
+#ifdef USE_MHD
+        call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%b_cc,.true.)
+#endif
+#else
         call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_vx1:i_vx3,:,:,:),.false.)
+#ifdef USE_MHD
+        call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%b_cc,.false.)
+#endif
+#endif
+
 #if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(THERMAL_DIFFUSION_STS)
         call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.false.)
 #endif
-#ifdef USE_MHD
-        call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%b_cc,.false.)
-#endif   
+
         call write_rprofs(mgrid,lgrid)
         lgrid%rprofs_inextoutput = lgrid%rprofs_inextoutput + lgrid%rprofs_dstep_dump
        end if
@@ -7382,8 +7528,22 @@ contains
        call thermal_diffusion_step(mgrid,lgrid,1)
 #endif
 
+#ifdef DNS_STS
+#ifdef EVALUATE_DNS_TIMESTEP
+#ifdef ENFORCE_BARRIERS
+       call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
+       call compute_dns_dt(mgrid,lgrid)
+#endif 
+       call dns_step(mgrid,lgrid,1)
+#endif
+
 #ifndef SKIP_HYDRO
        call hydro_step(mgrid,lgrid)
+#endif
+
+#ifdef DNS_STS
+       call dns_step(mgrid,lgrid,2)
 #endif
 
 #ifdef THERMAL_DIFFUSION_STS
@@ -7461,12 +7621,22 @@ contains
 
 #ifdef SAVE_RPROFS
     if((lgrid%step==lgrid%rprofs_inextoutput) .or. (lgrid%time>=tmax) .or. (lgrid%step==stepmax)) then
-      call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_vx1:i_vx3,:,:,:),.false.)
-#if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(THERMAL_DIFFUSION_STS)
-      call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.false.)
+
+
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
+      call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_vx1:i_vx3,:,:,:),.true.)
+#ifdef USE_MHD
+      call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%b_cc,.true.)
 #endif
+#else
+      call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_vx1:i_vx3,:,:,:),.false.)
 #ifdef USE_MHD
       call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%b_cc,.false.)
+#endif
+#endif
+
+#if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(THERMAL_DIFFUSION_STS)
+      call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.false.)
 #endif
       call write_rprofs(mgrid,lgrid) 
       lgrid%rprofs_inextoutput = lgrid%rprofs_inextoutput + lgrid%rprofs_dstep_dump
@@ -7909,6 +8079,9 @@ contains
      communicate_corners = .true. 
 #endif
 #endif
+#ifdef DNS_EXPLICIT
+     communicate_corners = .true.
+#endif
 
 #ifdef ENFORCE_BARRIERS
      call mpi_barrier(mgrid%comm_cart,ierr)
@@ -7924,6 +8097,16 @@ contains
 
 #ifdef USE_FASTEOS
      call communicate_ndarray(mgrid,2,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%gammaf,communicate_corners)
+#endif
+
+#ifdef DNS_EXPLICIT
+#ifdef USE_MHD
+     call communicate_array(mgrid,lx1,ux1+1,lx2,ux2,lx3,ux3,1,lgrid%b_x1,.false.)
+     call communicate_array(mgrid,lx1,ux1,lx2,ux2+1,lx3,ux3,1,lgrid%b_x2,.false.)
+#if sdims_make==3
+     call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3+1,1,lgrid%b_x3,.false.)
+#endif
+#endif
 #endif
 
 #ifndef USE_INTERNAL_BOUNDARIES
@@ -12718,7 +12901,47 @@ contains
 
 #endif
 #endif
-     
+    
+#if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(DNS_EXPLICIT)
+
+#ifdef USE_WB
+
+     do k=lbound(lgrid%prim,4),ubound(lgrid%prim,4)
+      do j=lbound(lgrid%prim,3),ubound(lgrid%prim,3)
+       do i=lbound(lgrid%prim,2),ubound(lgrid%prim,2)
+
+        lgrid%prim(i_rho,i,j,k) = lgrid%prim(i_rho,i,j,k) + lgrid%eq_prim_cc(ieq_rho,i,j,k)
+
+       end do
+      end do
+     end do
+
+#endif
+
+#endif
+
+     !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+     ! EXPLICIT VISCOUS/RESISTIVE DISSIPATION
+     !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+#ifdef DNS_EXPLICIT
+
+     call visres_rhs(mgrid,lgrid)
+
+     do k=lx3,ux3
+      do j=lx2,ux2
+       do i=lx1,ux1
+
+        do iv=i_rhovx1,i_rhoe
+         lgrid%res(iv,i,j,k) = lgrid%res(iv,i,j,k) - lgrid%Mv_jm1(iv,i,j,k)
+        end do
+
+       end do
+      end do
+     end do
+
+#endif
+
      a1rk = rk_coeff(irk,1)
      a2rk = rk_coeff(irk,2)
      a3rk = rk_coeff(irk,3)*lgrid%dt
@@ -12743,16 +12966,6 @@ contains
      call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3+1,1,lgrid%sign_frho_x3,.false.)
 #endif
  
-#ifdef USE_RESISTIVITY
-
-     call communicate_array(mgrid,lx1,ux1+1,lx2,ux2,lx3,ux3,1,lgrid%b_x1,.false.)
-     call communicate_array(mgrid,lx1,ux1,lx2,ux2+1,lx3,ux3,1,lgrid%b_x2,.false.)
-#if sdims_make==3
-     call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3+1,1,lgrid%b_x3,.false.)
-#endif
- 
-#endif
-      
 #ifndef USE_INTERNAL_BOUNDARIES
  
 #if defined(X1L_REFLECTIVE) || defined(X1L_OUTFLOW) || defined(X1L_DIODE)
@@ -13380,18 +13593,14 @@ contains
       end do
      end do
 
-#ifdef USE_RESISTIVITY
+#ifdef DNS_EXPLICIT
 
      do k=lx3,ux3
       do j=lx2,ux2+1
        do i=lx1,ux1+1
 
-         tmp = &
-         (lgrid%b_x2(i,j,k)-lgrid%b_x2(i-1,j,k))*lgrid%inv_dx1 - &
-         (lgrid%b_x1(i,j,k)-lgrid%b_x1(i,j-1,k))*lgrid%inv_dx2
-
          lgrid%emfx3_cor(i,j,k) = lgrid%emfx3_cor(i,j,k) + & 
-         tmp*lgrid%eta_cor_x3(i,j,k)
+         lgrid%Jeta_cor_x3(i,j,k)
 
        end do
       end do
@@ -13460,18 +13669,14 @@ contains
       end do
      end do
 
-#ifdef USE_RESISTIVITY
+#ifdef DNS_EXPLICIT
 
      do k=lx3,ux3+1
       do j=lx2,ux2+1
        do i=lx1,ux1
 
-         tmp = &
-         (lgrid%b_x3(i,j,k)-lgrid%b_x3(i,j-1,k))*lgrid%inv_dx2 - &
-         (lgrid%b_x2(i,j,k)-lgrid%b_x2(i,j,k-1))*lgrid%inv_dx3
-
          lgrid%emfx1_cor(i,j,k) = lgrid%emfx1_cor(i,j,k) + & 
-         tmp*lgrid%eta_cor_x1(i,j,k)
+         lgrid%Jeta_cor_x1(i,j,k)
 
        end do
       end do
@@ -13538,18 +13743,14 @@ contains
       end do
      end do
 
-#ifdef USE_RESISTIVITY
+#ifdef DNS_EXPLICIT
 
      do k=lx3,ux3+1
       do j=lx2,ux2
        do i=lx1,ux1+1
 
-         tmp = &
-         (lgrid%b_x1(i,j,k)-lgrid%b_x1(i,j,k-1))*lgrid%inv_dx3 - &
-         (lgrid%b_x3(i,j,k)-lgrid%b_x3(i-1,j,k))*lgrid%inv_dx1
-
          lgrid%emfx2_cor(i,j,k) = lgrid%emfx2_cor(i,j,k) + & 
-         tmp*lgrid%eta_cor_x2(i,j,k)
+         lgrid%Jeta_cor_x2(i,j,k)
 
        end do
       end do
@@ -13841,7 +14042,7 @@ contains
 #endif
 
 #endif
-          
+
      !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
      ! EXPLICIT THERMAL DIFFUSION
      !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -13849,20 +14050,6 @@ contains
 #ifdef THERMAL_DIFFUSION_EXPLICIT
 
      inv_dl = lgrid%inv_dx1
-
-#ifdef USE_WB
-
-     do k=lbound(lgrid%prim,4),ubound(lgrid%prim,4) 
-      do j=lbound(lgrid%prim,3),ubound(lgrid%prim,3) 
-       do i=lbound(lgrid%prim,2),ubound(lgrid%prim,2) 
-    
-        lgrid%prim(i_rho,i,j,k) = lgrid%prim(i_rho,i,j,k) + lgrid%eq_prim_cc(ieq_rho,i,j,k)
-  
-       end do
-      end do
-     end do
-
-#endif
 
 #ifdef USE_TIMMES_KAPPA
      call compute_timmes_kappa(lgrid)
@@ -20861,8 +21048,2376 @@ subroutine gmg_bcs(mgrid,lgrid,level)
 #endif
 #endif
 
+!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+! VISCOSITY/RESISTIVITY 
+!>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
+subroutine visres_rhs(mgrid,lgrid)
+  type(mpigrid), intent(in) :: mgrid
+  type(locgrid), intent(inout) :: lgrid
+
+  real(kind=rp) :: rhoL,rhoR,nusL,nusR,muL,muR,mu
+  real(kind=rp) :: vx1L,vx1R,vx2L,vx2R,vx1f,vx2f
+  real(kind=rp) :: dvx1_dx1,dvx2_dx1,dvx1_dx2,dvx2_dx2,dvx3_dx3,divv
+  real(kind=rp) :: tau11,tau12,tau21,tau22
+#if sdims_make==3
+  real(kind=rp) :: vx3L,vx3R,vx3f
+  real(kind=rp) :: dvx3_dx1,dvx1_dx3,dvx3_dx2,dvx2_dx3
+  real(kind=rp) :: tau13,tau23,tau31,tau32,tau33
+#endif
+  real(kind=rp) :: inv_dx1,inv_dx2
+#if sdims_make==3
+  real(kind=rp) :: inv_dx3
+#endif
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+  real(kind=rp) :: inv_dx1L,inv_dx1R,inv_dx2L,inv_dx2R
+#if sdims_make==3
+  real(kind=rp) :: inv_dx3L,inv_dx3R
+#endif
+#endif
+  integer :: lx1,lx2,lx3,ux1,ux2,ux3
+  integer :: i,j,k,iv
+
+#ifdef USE_MHD
+  real(kind=rp) :: bx1L,bx1R,bx2L,bx2R,bx1f,bx2f
+  real(kind=rp) :: jetax3,eflux_res
+#if sdims_make==3
+  real(kind=rp) :: bx3L,bx3R,bx3f
+  real(kind=rp) :: jetax1,jetax2
+#endif
+#endif
+
+  dvx3_dx3 = rp0
+
+  lx1 = mgrid%i1(1)
+  lx2 = mgrid%i1(2)
+  lx3 = mgrid%i1(3)
+  ux1 = mgrid%i2(1)
+  ux2 = mgrid%i2(2)
+  ux3 = mgrid%i2(3)
+
+  inv_dx1 = lgrid%inv_dx1
+  inv_dx2 = lgrid%inv_dx2
+#if sdims_make==3
+  inv_dx3 = lgrid%inv_dx3
+#endif
+
+#ifdef USE_MHD
+
+  do k=lx3,ux3
+   do j=lx2,ux2+1
+    do i=lx1,ux1+1
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+     inv_dx1 = rp1/(lgrid%coords_x2(1,i,j,k)-lgrid%coords_x2(1,i-1,j,k))
+     inv_dx2 = rp1/(lgrid%coords_x1(2,i,j,k)-lgrid%coords_x1(2,i,j-1,k))
+#endif
+
+     lgrid%Jeta_cor_x3(i,j,k) = &
+     ((lgrid%b_x2(i,j,k)-lgrid%b_x2(i-1,j,k))*inv_dx1 - &
+     (lgrid%b_x1(i,j,k)-lgrid%b_x1(i,j-1,k))*inv_dx2)*lgrid%eta_cor_x3(i,j,k)
+
+    end do
+   end do
+  end do
+
+#if sdims_make==3
+
+  do k=lx3,ux3+1
+   do j=lx2,ux2+1
+    do i=lx1,ux1
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+     inv_dx2 = rp1/(lgrid%coords_x3(2,i,j,k)-lgrid%coords_x3(2,i,j-1,k))
+     inv_dx3 = rp1/(lgrid%coords_x2(3,i,j,k)-lgrid%coords_x2(3,i,j,k-1))
+#endif
+
+     lgrid%Jeta_cor_x1(i,j,k) = &
+     ((lgrid%b_x3(i,j,k)-lgrid%b_x3(i,j-1,k))*inv_dx2 - &
+     (lgrid%b_x2(i,j,k)-lgrid%b_x2(i,j,k-1))*inv_dx3)*lgrid%eta_cor_x1(i,j,k)
+
+    end do
+   end do
+  end do
+
+  do k=lx3,ux3+1
+   do j=lx2,ux2
+    do i=lx1,ux1+1
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+     inv_dx3 = rp1/(lgrid%coords_x1(3,i,j,k)-lgrid%coords_x1(3,i,j,k-1))
+     inv_dx1 = rp1/(lgrid%coords_x3(1,i,j,k)-lgrid%coords_x3(1,i-1,j,k))
+#endif
+
+     lgrid%Jeta_cor_x2(i,j,k) = &
+     ((lgrid%b_x1(i,j,k)-lgrid%b_x1(i,j,k-1))*inv_dx3 - &
+     (lgrid%b_x3(i,j,k)-lgrid%b_x3(i-1,j,k))*inv_dx1)*lgrid%eta_cor_x2(i,j,k)
+
+    end do
+   end do
+  end do
+
+#endif
+
+  inv_dx1 = lgrid%inv_dx1
+  inv_dx2 = lgrid%inv_dx2
+#if sdims_make==3
+  inv_dx3 = lgrid%inv_dx3
+#endif
+#endif
+
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1+1
+
+     rhoL = lgrid%prim(i_rho,i-1,j,k)
+     nusL = lgrid%nus(i-1,j,k)
+     rhoR = lgrid%prim(i_rho,i,j,k)
+     nusR = lgrid%nus(i,j,k)
+     muL  = rhoL*nusL
+     muR  = rhoR*nusR
+     mu   = rp2*muL*muR/(muL+muR+em11)
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+     inv_dx1 = rp1/(lgrid%coords(1,i,j,k)-lgrid%coords(1,i-1,j,k))
+     inv_dx2L = rp1/(lgrid%coords(2,i-1,j+1,k)-lgrid%coords(2,i-1,j-1,k))
+     inv_dx2R = rp1/(lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k))
+#if sdims_make==3
+     inv_dx3L = rp1/(lgrid%coords(3,i-1,j,k+1)-lgrid%coords(3,i-1,j,k-1))
+     inv_dx3R = rp1/(lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1))
+#endif
+#endif
+
+     dvx1_dx1 = (lgrid%prim(i_vx1,i,j,k)-lgrid%prim(i_vx1,i-1,j,k))*inv_dx1
+     dvx2_dx1 = (lgrid%prim(i_vx2,i,j,k)-lgrid%prim(i_vx2,i-1,j,k))*inv_dx1
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+
+     dvx1_dx2 = rph*( (lgrid%prim(i_vx1,i-1,j+1,k)-lgrid%prim(i_vx1,i-1,j-1,k))*inv_dx2L &
+              + (lgrid%prim(i_vx1,i,j+1,k)-lgrid%prim(i_vx1,i,j-1,k))*inv_dx2R )
+
+     dvx2_dx2 = rph*( (lgrid%prim(i_vx2,i-1,j+1,k)-lgrid%prim(i_vx2,i-1,j-1,k))*inv_dx2L &
+              + (lgrid%prim(i_vx2,i,j+1,k)-lgrid%prim(i_vx2,i,j-1,k))*inv_dx2R )
+
+#else
+
+     dvx1_dx2 = oquart*inv_dx2* &
+              ( (lgrid%prim(i_vx1,i-1,j+1,k)-lgrid%prim(i_vx1,i-1,j-1,k)) &
+              + (lgrid%prim(i_vx1,i,j+1,k)-lgrid%prim(i_vx1,i,j-1,k)) )
+     dvx2_dx2 = oquart*inv_dx2* &
+              ( (lgrid%prim(i_vx2,i-1,j+1,k)-lgrid%prim(i_vx2,i-1,j-1,k)) &
+              + (lgrid%prim(i_vx2,i,j+1,k)-lgrid%prim(i_vx2,i,j-1,k)) )
+
+#endif
+
+#if sdims_make==3
+
+     dvx3_dx1 = (lgrid%prim(i_vx3,i,j,k)-lgrid%prim(i_vx3,i-1,j,k))*inv_dx1
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+
+     dvx1_dx3 = rph*( (lgrid%prim(i_vx1,i-1,j,k+1)-lgrid%prim(i_vx1,i-1,j,k-1))*inv_dx3L &
+              + (lgrid%prim(i_vx1,i,j,k+1)-lgrid%prim(i_vx1,i,j,k-1))*inv_dx3R )
+     dvx3_dx3 = rph*( (lgrid%prim(i_vx3,i-1,j,k+1)-lgrid%prim(i_vx3,i-1,j,k-1))*inv_dx3L &
+              + (lgrid%prim(i_vx3,i-1,j,k+1)-lgrid%prim(i_vx3,i-1,j,k-1))*inv_dx3L &
+              + (lgrid%prim(i_vx3,i,j,k+1)-lgrid%prim(i_vx3,i,j,k-1))*inv_dx3R )
+
+#else
+
+     dvx1_dx3 = oquart*inv_dx3* &
+              ( (lgrid%prim(i_vx1,i-1,j,k+1)-lgrid%prim(i_vx1,i-1,j,k-1)) &
+              + (lgrid%prim(i_vx1,i,j,k+1)-lgrid%prim(i_vx1,i,j,k-1)) )
+     dvx3_dx3 = oquart*inv_dx3* &
+              ( (lgrid%prim(i_vx3,i-1,j,k+1)-lgrid%prim(i_vx3,i-1,j,k-1)) &
+              + (lgrid%prim(i_vx3,i,j,k+1)-lgrid%prim(i_vx3,i,j,k-1)) )
+
+#endif
+
+#endif
+
+     divv = dvx1_dx1 + dvx2_dx2 + dvx3_dx3
+
+     tau11 = mu*(rp2*dvx1_dx1-tthirds*divv)
+     tau12 = mu*(dvx1_dx2+dvx2_dx1)
+#if sdims_make==3
+     tau13 = mu*(dvx1_dx3+dvx3_dx1)
+#endif
+
+     lgrid%fx1(i_rhovx1,i) = tau11
+     lgrid%fx1(i_rhovx2,i) = tau12
+#if sdims_make==3
+     lgrid%fx1(i_rhovx3,i) = tau13
+#endif
+
+#ifdef USE_MHD
+
+     bx2L = lgrid%b_cc(2,i-1,j,k)
+     bx2R = lgrid%b_cc(2,i,j,k)
+     bx2f = rph*(bx2L+bx2R)
+     jetax3 = rph*(lgrid%Jeta_cor_x3(i,j+1,k)+lgrid%Jeta_cor_x3(i,j,k))
+
+#if sdims_make==3
+     bx3L = lgrid%b_cc(3,i-1,j,k)
+     bx3R = lgrid%b_cc(3,i,j,k)
+     bx3f = rph*(bx3L+bx3R)
+     jetax1 = rph*(lgrid%Jeta_cor_x1(i,j,k+1)+lgrid%Jeta_cor_x1(i,j,k))
+     jetax2 = rph*(lgrid%Jeta_cor_x2(i+1,j,k)+lgrid%Jeta_cor_x2(i,j,k))
+     eflux_res = jetax2*bx3f - jetax3*bx2f
+#else
+     eflux_res = -jetax3*bx2f
+#endif
+#endif
+
+     vx1L = lgrid%prim(i_vx1,i-1,j,k)
+     vx1R = lgrid%prim(i_vx1,i,j,k)
+     vx2L = lgrid%prim(i_vx2,i-1,j,k)
+     vx2R = lgrid%prim(i_vx2,i,j,k)
+     vx1f = rph*(vx1L+vx1R)
+     vx2f = rph*(vx2L+vx2R)
+
+#if sdims_make==3
+     vx3L = lgrid%prim(i_vx3,i-1,j,k)
+     vx3R = lgrid%prim(i_vx3,i,j,k)
+     vx3f = rph*(vx3L+vx3R)
+#ifdef USE_MHD
+     lgrid%fx1(i_rhoe,i) = vx1f*tau11 + vx2f*tau12 + vx3f*tau13 - eflux_res
+#else
+     lgrid%fx1(i_rhoe,i) = vx1f*tau11 + vx2f*tau12 + vx3f*tau13
+#endif
+#else
+#ifdef USE_MHD
+     lgrid%fx1(i_rhoe,i) = vx1f*tau11 + vx2f*tau12 - eflux_res
+#else
+     lgrid%fx1(i_rhoe,i) = vx1f*tau11 + vx2f*tau12
+#endif
+#endif
+
+    end do
+
+    do i=lx1,ux1
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+     inv_dx1 = rp1/(lgrid%coords_x1(1,i+1,j,k)-lgrid%coords_x1(1,i,j,k))
+#endif
+
+     do iv=i_rhovx1,i_rhoe
+      lgrid%Mv_jm1(iv,i,j,k) = &
+      (lgrid%fx1(iv,i+1)-lgrid%fx1(iv,i))*inv_dx1
+     end do
+
+    end do
+
+   end do
+  end do
+
+  do k=lx3,ux3
+   do i=lx1,ux1
+    do j=lx2,ux2+1
+
+     rhoL = lgrid%prim(i_rho,i,j-1,k)
+     nusL = lgrid%nus(i,j-1,k)
+     rhoR = lgrid%prim(i_rho,i,j,k)
+     nusR = lgrid%nus(i,j,k)
+     muL  = rhoL*nusL
+     muR  = rhoR*nusR
+     mu   = rp2*muL*muR/(muL+muR+em11)
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+     inv_dx2 = rp1/(lgrid%coords(2,i,j,k)-lgrid%coords(2,i,j-1,k))
+     inv_dx1L = rp1/(lgrid%coords(1,i+1,j-1,k)-lgrid%coords(1,i-1,j-1,k))
+     inv_dx1R = rp1/(lgrid%coords(1,i+1,j,k)-lgrid%coords(1,i-1,j,k))
+#if sdims_make==3
+     inv_dx3L = rp1/(lgrid%coords(3,i,j-1,k+1)-lgrid%coords(3,i,j-1,k-1))
+     inv_dx3R = rp1/(lgrid%coords(3,i,j,k+1)-lgrid%coords(3,i,j,k-1))
+#endif
+#endif
+
+     dvx2_dx2 = (lgrid%prim(i_vx2,i,j,k)-lgrid%prim(i_vx2,i,j-1,k))*inv_dx2
+     dvx1_dx2 = (lgrid%prim(i_vx1,i,j,k)-lgrid%prim(i_vx1,i,j-1,k))*inv_dx2
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+
+     dvx2_dx1 = rph*( (lgrid%prim(i_vx2,i+1,j-1,k)-lgrid%prim(i_vx2,i-1,j-1,k))*inv_dx1L &
+              + (lgrid%prim(i_vx2,i+1,j,k)-lgrid%prim(i_vx2,i-1,j,k))*inv_dx1R )
+     dvx1_dx1 = rph*( (lgrid%prim(i_vx1,i+1,j-1,k)-lgrid%prim(i_vx1,i-1,j-1,k))*inv_dx1L &
+              + (lgrid%prim(i_vx1,i+1,j,k)-lgrid%prim(i_vx1,i-1,j,k))*inv_dx1R )
+
+#else
+
+     dvx2_dx1 = oquart*inv_dx1* &
+              ( (lgrid%prim(i_vx2,i+1,j-1,k)-lgrid%prim(i_vx2,i-1,j-1,k)) &
+              + (lgrid%prim(i_vx2,i+1,j,k)-lgrid%prim(i_vx2,i-1,j,k)) )
+     dvx1_dx1 = oquart*inv_dx1* &
+              ( (lgrid%prim(i_vx1,i+1,j-1,k)-lgrid%prim(i_vx1,i-1,j-1,k)) &
+              + (lgrid%prim(i_vx1,i+1,j,k)-lgrid%prim(i_vx1,i-1,j,k)) )
+
+#endif
+
+#if sdims_make==3
+
+     dvx3_dx2 = (lgrid%prim(i_vx3,i,j,k)-lgrid%prim(i_vx3,i,j-1,k))*inv_dx2
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+
+     dvx2_dx3 = rph*( (lgrid%prim(i_vx2,i,j-1,k+1)-lgrid%prim(i_vx2,i,j-1,k-1))*inv_dx3L &
+              + (lgrid%prim(i_vx2,i,j,k+1)-lgrid%prim(i_vx2,i,j,k-1))*inv_dx3R )
+     dvx3_dx3 = rph*( (lgrid%prim(i_vx3,i,j-1,k+1)-lgrid%prim(i_vx3,i,j-1,k-1))*inv_dx3L &
+              + (lgrid%prim(i_vx3,i,j,k+1)-lgrid%prim(i_vx3,i,j,k-1))*inv_dx3R )
+
+#else
+
+     dvx2_dx3 = oquart*inv_dx3* &
+              ( (lgrid%prim(i_vx2,i,j-1,k+1)-lgrid%prim(i_vx2,i,j-1,k-1)) &
+              + (lgrid%prim(i_vx2,i,j,k+1)-lgrid%prim(i_vx2,i,j,k-1)) )
+     dvx3_dx3 = oquart*inv_dx3* &
+              ( (lgrid%prim(i_vx3,i,j-1,k+1)-lgrid%prim(i_vx3,i,j-1,k-1)) &
+              + (lgrid%prim(i_vx3,i,j,k+1)-lgrid%prim(i_vx3,i,j,k-1)) )
+
+#endif
+
+#endif
+
+     divv = dvx1_dx1 + dvx2_dx2 + dvx3_dx3
+
+     tau21 = mu*(dvx2_dx1+dvx1_dx2)
+     tau22 = mu*(rp2*dvx2_dx2-tthirds*divv)
+#if sdims_make==3
+     tau23 = mu*(dvx2_dx3+dvx3_dx2)
+#endif
+
+     lgrid%fx2(i_rhovx1,j) = tau21
+     lgrid%fx2(i_rhovx2,j) = tau22
+#if sdims_make==3
+     lgrid%fx2(i_rhovx3,j) = tau23
+#endif
+
+#ifdef USE_MHD
+     bx1L = lgrid%b_cc(1,i,j-1,k)
+     bx1R = lgrid%b_cc(1,i,j,k)
+     bx1f = rph*(bx1L+bx1R)
+     jetax3 = rph*(lgrid%Jeta_cor_x3(i+1,j,k)+lgrid%Jeta_cor_x3(i,j,k))
+
+#if sdims_make==3
+     bx3L = lgrid%b_cc(3,i,j-1,k)
+     bx3R = lgrid%b_cc(3,i,j,k)
+     bx3f = rph*(bx3L+bx3R)
+     jetax1 = rph*(lgrid%Jeta_cor_x1(i,j,k+1)+lgrid%Jeta_cor_x1(i,j,k))
+
+     eflux_res = jetax3*bx1f - jetax1*bx3f
+#else
+     eflux_res = jetax3*bx1f
+#endif
+#endif
+
+     vx1L = lgrid%prim(i_vx1,i,j-1,k)
+     vx1R = lgrid%prim(i_vx1,i,j,k)
+     vx2L = lgrid%prim(i_vx2,i,j-1,k)
+     vx2R = lgrid%prim(i_vx2,i,j,k)
+     vx1f = rph*(vx1L+vx1R)
+     vx2f = rph*(vx2L+vx2R)
+
+#if sdims_make==3
+     vx3L = lgrid%prim(i_vx3,i,j-1,k)
+     vx3R = lgrid%prim(i_vx3,i,j,k)
+     vx3f = rph*(vx3L+vx3R)
+#ifdef USE_MHD
+     lgrid%fx2(i_rhoe,j) = vx1f*tau21 + vx2f*tau22 + vx3f*tau23 - eflux_res
+#else
+     lgrid%fx2(i_rhoe,j) = vx1f*tau21 + vx2f*tau22 + vx3f*tau23
+#endif
+#else
+#ifdef USE_MHD
+     lgrid%fx2(i_rhoe,j) = vx1f*tau21 + vx2f*tau22 - eflux_res
+#else
+     lgrid%fx2(i_rhoe,j) = vx1f*tau21 + vx2f*tau22
+#endif
+#endif
+
+    end do
+
+    do j=lx2,ux2
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+     inv_dx2 = rp1/(lgrid%coords_x2(2,i,j+1,k)-lgrid%coords_x2(2,i,j,k))
+#endif
+
+     do iv=i_rhovx1,i_rhoe
+      lgrid%Mv_jm1(iv,i,j,k) = lgrid%Mv_jm1(iv,i,j,k) &
+      + (lgrid%fx2(iv,j+1)-lgrid%fx2(iv,j))*inv_dx2
+     end do
+
+    end do
+
+   end do
+  end do
+
+#if sdims_make==3
+
+  do j=lx2,ux2
+   do i=lx1,ux1
+    do k=lx3,ux3+1
+
+     rhoL = lgrid%prim(i_rho,i,j,k-1)
+     nusL = lgrid%nus(i,j,k-1)
+     rhoR = lgrid%prim(i_rho,i,j,k)
+     nusR = lgrid%nus(i,j,k)
+     muL  = rhoL*nusL
+     muR  = rhoR*nusR
+     mu   = rp2*muL*muR/(muL+muR+em11)
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+     inv_dx3 = rp1/(lgrid%coords(3,i,j,k)-lgrid%coords(3,i,j,k-1))
+     inv_dx1L = rp1/(lgrid%coords(1,i+1,j,k-1)-lgrid%coords(1,i-1,j,k-1))
+     inv_dx1R = rp1/(lgrid%coords(1,i+1,j,k)-lgrid%coords(1,i-1,j,k))
+     inv_dx2L = rp1/(lgrid%coords(2,i,j+1,k-1)-lgrid%coords(2,i,j-1,k-1))
+     inv_dx2R = rp1/(lgrid%coords(2,i,j+1,k)-lgrid%coords(2,i,j-1,k))
+#endif
+
+     dvx3_dx3 = (lgrid%prim(i_vx3,i,j,k)-lgrid%prim(i_vx3,i,j,k-1))*inv_dx3
+     dvx1_dx3 = (lgrid%prim(i_vx1,i,j,k)-lgrid%prim(i_vx1,i,j,k-1))*inv_dx3
+     dvx2_dx3 = (lgrid%prim(i_vx2,i,j,k)-lgrid%prim(i_vx2,i,j,k-1))*inv_dx3
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+
+     dvx3_dx1 = rph*( (lgrid%prim(i_vx3,i+1,j,k-1)-lgrid%prim(i_vx3,i-1,j,k-1))*inv_dx1L &
+              + (lgrid%prim(i_vx3,i+1,j,k)-lgrid%prim(i_vx3,i-1,j,k))*inv_dx1R )
+     dvx1_dx1 = rph*( (lgrid%prim(i_vx1,i+1,j,k-1)-lgrid%prim(i_vx1,i-1,j,k-1))*inv_dx1L &
+              + (lgrid%prim(i_vx1,i+1,j,k)-lgrid%prim(i_vx1,i-1,j,k))*inv_dx1R )
+
+     dvx3_dx2 = rph*( (lgrid%prim(i_vx3,i,j+1,k-1)-lgrid%prim(i_vx3,i,j-1,k-1))*inv_dx2L &
+              + (lgrid%prim(i_vx3,i,j+1,k)-lgrid%prim(i_vx3,i,j-1,k))*inv_dx2R )
+     dvx2_dx2 = rph*( (lgrid%prim(i_vx2,i,j+1,k-1)-lgrid%prim(i_vx2,i,j-1,k-1))*inv_dx2L &
+              + (lgrid%prim(i_vx2,i,j+1,k)-lgrid%prim(i_vx2,i,j-1,k))*inv_dx2R )
+
+#else
+
+     dvx3_dx1 = oquart*inv_dx1* &
+              ( (lgrid%prim(i_vx3,i+1,j,k-1)-lgrid%prim(i_vx3,i-1,j,k-1)) &
+              + (lgrid%prim(i_vx3,i+1,j,k)-lgrid%prim(i_vx3,i-1,j,k)) )
+     dvx1_dx1 = oquart*inv_dx1* &
+              ( (lgrid%prim(i_vx1,i+1,j,k-1)-lgrid%prim(i_vx1,i-1,j,k-1)) &
+              + (lgrid%prim(i_vx1,i+1,j,k)-lgrid%prim(i_vx1,i-1,j,k)) )
+     dvx3_dx2 = oquart*inv_dx2* &
+              ( (lgrid%prim(i_vx3,i,j+1,k-1)-lgrid%prim(i_vx3,i,j-1,k-1)) &
+              + (lgrid%prim(i_vx3,i,j+1,k)-lgrid%prim(i_vx3,i,j-1,k)) )
+     dvx2_dx2 = oquart*inv_dx2* &
+              ( (lgrid%prim(i_vx2,i,j+1,k-1)-lgrid%prim(i_vx2,i,j-1,k-1)) &
+              + (lgrid%prim(i_vx2,i,j+1,k)-lgrid%prim(i_vx2,i,j-1,k)) )
+
+#endif
+
+     divv = dvx1_dx1 + dvx2_dx2 + dvx3_dx3
+
+     tau31 = mu*(dvx3_dx1+dvx1_dx3)
+     tau32 = mu*(dvx3_dx2+dvx2_dx3)
+     tau33 = mu*(rp2*dvx3_dx3-tthirds*divv)
+
+     lgrid%fx3(i_rhovx1,k) = tau31
+     lgrid%fx3(i_rhovx2,k) = tau32
+     lgrid%fx3(i_rhovx3,k) = tau33
+
+#ifdef USE_MHD
+     bx1L = lgrid%b_cc(1,i,j,k-1)
+     bx1R = lgrid%b_cc(1,i,j,k)
+     bx2L = lgrid%b_cc(2,i,j,k-1)
+     bx2R = lgrid%b_cc(2,i,j,k)
+     bx1f = rph*(bx1L+bx1R)
+     bx2f = rph*(bx2L+bx2R)
+
+     jetax1 = rph*(lgrid%Jeta_cor_x1(i,j,k)+lgrid%Jeta_cor_x1(i,j+1,k))
+     jetax2 = rph*(lgrid%Jeta_cor_x2(i,j,k)+lgrid%Jeta_cor_x2(i+1,j,k))
+
+     eflux_res = jetax1*bx2f - jetax2*bx1f
+#endif
+
+     vx1L = lgrid%prim(i_vx1,i,j,k-1)
+     vx1R = lgrid%prim(i_vx1,i,j,k)
+     vx2L = lgrid%prim(i_vx2,i,j,k-1)
+     vx2R = lgrid%prim(i_vx2,i,j,k)
+     vx3L = lgrid%prim(i_vx3,i,j,k-1)
+     vx3R = lgrid%prim(i_vx3,i,j,k)
+     vx1f = rph*(vx1L+vx1R)
+     vx2f = rph*(vx2L+vx2R)
+     vx3f = rph*(vx3L+vx3R)
+
+#ifdef USE_MHD
+     lgrid%fx3(i_rhoe,k) = vx1f*tau31 + vx2f*tau32 + vx3f*tau33 - eflux_res
+#else
+     lgrid%fx3(i_rhoe,k) = vx1f*tau31 + vx2f*tau32 + vx3f*tau33
+#endif
+
+    end do
+
+    do k=lx3,ux3
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+     inv_dx3 = rp1/(lgrid%coords_x3(3,i,j,k+1)-lgrid%coords_x3(3,i,j,k))
+#endif
+
+     do iv=i_rhovx1,i_rhoe
+      lgrid%Mv_jm1(iv,i,j,k) = lgrid%Mv_jm1(iv,i,j,k) &
+      + (lgrid%fx3(iv,k+1)-lgrid%fx3(iv,k))*inv_dx3
+     end do
+
+    end do
+   end do
+
+  end do
+#endif
+
+end subroutine visres_rhs
+#endif
+
+#ifdef DNS_STS
+
+subroutine bcs_dns(mgrid,lgrid)
+ type(mpigrid), intent(in) :: mgrid
+ type(locgrid), intent(inout) :: lgrid
+ 
+ integer :: i,j,k,iv,ir,nv
+ real(kind=rp) :: vn, rho       
+ real(kind=rp) :: bc_fac(sdims+1)
+#ifdef USE_MHD
+ real(kind=rp) :: bc_facb(sdims)
+#endif 
+ integer :: lx1,lx2,lx3,ux1,ux2,ux3 
+ 
+ nv = sdims + 1
+
+ lx1 = mgrid%i1(1)
+ ux1 = mgrid%i2(1)
+ lx2 = mgrid%i1(2)
+ ux2 = mgrid%i2(2)
+ lx3 = mgrid%i1(3)
+ ux3 = mgrid%i2(3)
+
+ i = 0
+ j = 0
+ k = 0
+ vn = rp0
+ rho = rp0
+ ir = 0
+
+ do iv=1,sdims+1
+  bc_fac(iv) = rp1
+ end do
+
+#ifdef USE_MHD
+ do iv=1,sdims
+  bc_facb(iv) = rp1
+ end do
+#endif
+
+#ifdef ENFORCE_BARRIERS
+  call mpi_barrier(mgrid%comm_cart,ierr) 
+#endif
+  call communicate_ndarray(mgrid,sdims+1,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_rho:i_vx3,:,:,:),.true.)
+#ifdef USE_MHD
+  call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%b_cc,.true.)
+  call communicate_array(mgrid,lx1,ux1+1,lx2,ux2,lx3,ux3,1,lgrid%b_x1,.false.)
+  call communicate_array(mgrid,lx1,ux1,lx2,ux2+1,lx3,ux3,1,lgrid%b_x2,.false.)
+#if sdims_make==3
+  call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3+1,1,lgrid%b_x3,.false.)
+#endif
+#endif
+ 
+#ifndef USE_INTERNAL_BOUNDARIES
+
+#if defined(X1L_REFLECTIVE) || defined(X1L_OUTFLOW) || defined(X1L_DIODE)
+
+     if(mgrid%coords_dd(1)==0) then
+
+      do iv=1,nv
+       bc_fac(iv) = rp1
+      end do
+#ifdef USE_MHD
+      do iv=1,sdims
+       bc_facb(iv) = rp1
+      end do
+#endif
+
+#ifdef X1L_REFLECTIVE
+      bc_fac(i_vx1) = -rp1
+#ifdef USE_MHD
+      bc_facb(1) = -rp1
+#ifdef X1L_BFIELD_PMC
+      bc_facb(1) = rp1
+      bc_facb(2) = -rp1
+      bc_facb(3) = -rp1
+#endif
+#endif
+#endif
+
+      do k=lbound(lgrid%prim,4),ubound(lgrid%prim,4)
+       do j=lbound(lgrid%prim,3),ubound(lgrid%prim,3)
+
+#ifdef X1L_DIODE
+        vn = -lgrid%prim(i_vx1,1,j,k)
+        if (vn<rp0) then
+         bc_fac(i_vx1) = -rp1
+#ifdef USE_MHD
+         bc_facb(1) = -rp1
+#endif
+        else
+         bc_fac(i_vx1) = rp1
+#ifdef USE_MHD
+         bc_facb(1) = rp1
+#endif
+        endif
+#endif
+
+        do i=1-ngc,0
+
+         ir = 1-i
+         do iv=1,nv
+          lgrid%prim(iv,i,j,k) = bc_fac(iv)*lgrid%prim(iv,ir,j,k)
+         end do
+#ifdef USE_MHD
+         do iv=1,sdims
+          lgrid%b_cc(iv,i,j,k) = bc_facb(iv)*lgrid%b_cc(iv,ir,j,k)
+         end do
+#endif
+
+        end do
+       end do
+      end do
+
+     endif
+
+#endif
+
+#if defined(X1U_REFLECTIVE) || defined(X1U_OUTFLOW) || defined(X1U_DIODE)
+
+     if(mgrid%coords_dd(1)==mgrid%bricks(1)-1) then
+
+      do iv=1,nv
+       bc_fac(iv) = rp1
+      end do
+#ifdef USE_MHD
+      do iv=1,sdims
+       bc_facb(iv) = rp1
+      end do
+#endif
+
+#ifdef X1U_REFLECTIVE
+      bc_fac(i_vx1) = -rp1
+#ifdef USE_MHD
+      bc_facb(1) = -rp1
+#ifdef X1U_BFIELD_PMC
+      bc_facb(1) = rp1
+      bc_facb(2) = -rp1
+      bc_facb(3) = -rp1
+#endif
+#endif
+#endif
+
+      do k=lbound(lgrid%prim,4),ubound(lgrid%prim,4)
+       do j=lbound(lgrid%prim,3),ubound(lgrid%prim,3)
+
+#ifdef X1U_DIODE
+        vn = lgrid%prim(i_vx1,ux1,j,k)
+        if (vn<rp0) then
+         bc_fac(i_vx1) = -rp1
+#ifdef USE_MHD
+         bc_facb(1) = -rp1
+#endif
+        else
+         bc_fac(i_vx1) = rp1
+#ifdef USE_MHD
+         bc_facb(1) = rp1
+#endif        
+        endif
+#endif
+
+        do i=ux1+1,ux1+ngc
+
+         ir = ux1 - (i-ux1-1)
+         do iv=1,nv
+           lgrid%prim(iv,i,j,k) = bc_fac(iv)*lgrid%prim(iv,ir,j,k)
+         end do
+#ifdef USE_MHD
+         do iv=1,sdims
+           lgrid%b_cc(iv,i,j,k) = bc_facb(iv)*lgrid%b_cc(iv,ir,j,k)
+         end do
+#endif
+
+        end do
+       end do
+      end do
+
+     endif
+
+#endif
+
+#if defined(X2L_REFLECTIVE) || defined(X2L_OUTFLOW) || defined(X2L_DIODE)
+
+     if(mgrid%coords_dd(2)==0) then
+
+      do iv=1,nv
+       bc_fac(iv) = rp1
+      end do
+#ifdef USE_MHD
+      do iv=1,sdims
+       bc_facb(iv) = rp1
+      end do
+#endif
+
+#ifdef X2L_REFLECTIVE
+      bc_fac(i_vx2) = -rp1
+#ifdef USE_MHD
+      bc_facb(2) = -rp1
+#ifdef X2L_BFIELD_PMC
+      bc_facb(1) = -rp1
+      bc_facb(2) = rp1
+      bc_facb(3) = -rp1
+#endif
+#endif
+#endif
+
+      do k=lbound(lgrid%prim,4),ubound(lgrid%prim,4) 
+       do i=lbound(lgrid%prim,2),ubound(lgrid%prim,2) 
+
+#ifdef X2L_DIODE
+        vn = -lgrid%prim(i_vx2,i,1,k)
+        if (vn<rp0) then
+         bc_fac(i_vx2) = -rp1
+#ifdef USE_MHD
+         bc_facb(2) = -rp1
+#endif
+        else
+         bc_fac(i_vx2) = rp1
+#ifdef USE_MHD
+         bc_facb(2) = rp1
+#endif        
+        endif
+#endif
+
+        do j=1-ngc,0 
+
+         ir = 1-j
+         do iv=1,nv
+          lgrid%prim(iv,i,j,k) = bc_fac(iv)*lgrid%prim(iv,i,ir,k)
+         end do
+#ifdef USE_MHD
+         do iv=1,sdims
+          lgrid%b_cc(iv,i,j,k) = bc_facb(iv)*lgrid%b_cc(iv,i,ir,k)
+         end do
+#endif
+
+        end do
+       end do
+      end do
+
+     endif
+
+#endif
+
+#if defined(X2U_REFLECTIVE) || defined(X2U_OUTFLOW) || defined(X2U_DIODE)
+
+     if(mgrid%coords_dd(2)==mgrid%bricks(2)-1) then
+
+      do iv=1,nv
+       bc_fac(iv) = rp1
+      end do
+#ifdef USE_MHD
+      do iv=1,sdims
+       bc_facb(iv) = rp1
+      end do
+#endif
+
+#ifdef X2U_REFLECTIVE
+      bc_fac(i_vx2) = -rp1
+#ifdef USE_MHD
+      bc_facb(2) = -rp1
+#ifdef X2U_BFIELD_PMC
+      bc_facb(1) = -rp1
+      bc_facb(2) = rp1
+      bc_facb(3) = -rp1
+#endif
+#endif
+#endif
+
+      do k=lbound(lgrid%prim,4),ubound(lgrid%prim,4) 
+       do i=lbound(lgrid%prim,2),ubound(lgrid%prim,2) 
+
+#ifdef X2U_DIODE
+        vn = lgrid%prim(i_vx2,i,ux2,k)
+        if (vn<rp0) then
+         bc_fac(i_vx2) = -rp1
+#ifdef USE_MHD
+         bc_facb(2) = -rp1
+#endif
+        else
+         bc_fac(i_vx2) = rp1
+#ifdef USE_MHD
+         bc_facb(2) = rp1
+#endif        
+        endif
+#endif
+
+        do j=ux2+1,ux2+ngc 
+
+         ir = ux2 - (j-ux2-1)
+         do iv=1,nv
+           lgrid%prim(iv,i,j,k) = bc_fac(iv)*lgrid%prim(iv,i,ir,k)
+         end do
+#ifdef USE_MHD
+         do iv=1,sdims
+           lgrid%b_cc(iv,i,j,k) = bc_facb(iv)*lgrid%b_cc(iv,i,ir,k)
+         end do
+#endif
+
+        end do
+       end do
+      end do
+
+     endif
+
+#endif
+
+#if sdims_make==3
+
+#if defined(X3L_REFLECTIVE) || defined(X3L_OUTFLOW) || defined(X3L_DIODE)
+
+     if(mgrid%coords_dd(3)==0) then
+
+      do iv=1,nv
+       bc_fac(iv) = rp1
+      end do
+#ifdef USE_MHD
+      do iv=1,sdims
+       bc_facb(iv) = rp1
+      end do
+#endif
+
+#ifdef X3L_REFLECTIVE
+      bc_fac(i_vx3) = -rp1
+#ifdef USE_MHD
+      bc_facb(3) = -rp1
+#ifdef X3L_BFIELD_PMC
+      bc_facb(1) = -rp1
+      bc_facb(2) = -rp1
+      bc_facb(3) = rp1
+#endif
+#endif
+#endif
+
+      do j=lbound(lgrid%prim,3),ubound(lgrid%prim,3)
+       do i=lbound(lgrid%prim,2),ubound(lgrid%prim,2)
+
+#ifdef X3L_DIODE
+        vn = -lgrid%prim(i_vx3,i,j,1)
+        if (vn<rp0) then
+         bc_fac(i_vx3) = -rp1
+#ifdef USE_MHD
+         bc_facb(3) = -rp1
+#endif
+        else
+         bc_fac(i_vx3) = rp1
+#ifdef USE_MHD
+         bc_facb(3) = rp1
+#endif        
+        endif
+#endif
+
+        do k=1-ngc,0
+
+         ir = 1-k
+         do iv=1,nv
+          lgrid%prim(iv,i,j,k) = bc_fac(iv)*lgrid%prim(iv,i,j,ir)
+         end do
+#ifdef USE_MHD
+         do iv=1,sdims
+          lgrid%b_cc(iv,i,j,k) = bc_facb(iv)*lgrid%b_cc(iv,i,j,ir)
+         end do
+#endif
+
+        end do
+       end do
+      end do
+
+     endif
+
+#endif
+
+#if defined(X3U_REFLECTIVE) || defined(X3U_OUTFLOW) || defined(X3U_DIODE)
+
+     if(mgrid%coords_dd(3)==mgrid%bricks(3)-1) then
+
+      do iv=1,nv
+       bc_fac(iv) = rp1
+      end do
+#ifdef USE_MHD
+      do iv=1,sdims
+       bc_facb(iv) = rp1
+      end do
+#endif
+
+#ifdef X3U_REFLECTIVE
+      bc_fac(i_vx3) = -rp1
+#ifdef USE_MHD
+      bc_facb(3) = -rp1
+#ifdef X3U_BFIELD_PMC
+      bc_facb(1) = -rp1
+      bc_facb(2) = -rp1
+      bc_facb(3) = rp1
+#endif
+#endif
+#endif
+
+      do j=lbound(lgrid%prim,3),ubound(lgrid%prim,3)
+       do i=lbound(lgrid%prim,2),ubound(lgrid%prim,2)
+
+#ifdef X3U_DIODE
+        vn = lgrid%prim(i_vx3,i,j,ux3)
+        if (vn<rp0) then
+         bc_fac(i_vx3) = -rp1
+#ifdef USE_MHD
+         bc_facb(3) = -rp1
+#endif
+        else
+         bc_fac(i_vx3) = rp1
+#ifdef USE_MHD
+         bc_facb(3) = rp1
+#endif        
+        endif
+#endif
+
+        do k=ux3+1,ux3+ngc
+
+         ir = ux3 - (k-ux3-1)
+         do iv=1,nv
+           lgrid%prim(iv,i,j,k) = bc_fac(iv)*lgrid%prim(iv,i,j,ir)
+         end do
+#ifdef USE_MHD
+         do iv=1,sdims
+           lgrid%b_cc(iv,i,j,k) = bc_facb(iv)*lgrid%b_cc(iv,i,j,ir)
+         end do
+#endif
+
+        end do
+       end do
+      end do
+
+     endif
+
+#endif
+
+#endif
+
+#else
+
+     do iv=1,nv
+      bc_fac(iv) = rp1
+     end do
+#ifdef USE_MHD
+     do iv=1,sdims
+      bc_facb(iv) = rp1
+     end do
+#endif
+
+     bc_fac(i_vx1) = -rp1
+#ifdef USE_MHD
+     bc_facb(1) = -rp1
+#endif
+
+     do k=lx3,ux3
+      do j=lx2,ux2
+       do i=lx1-1,ux1+1
+
+        if(lgrid%is_solid(i,j,k)==0) then
+
+         if(lgrid%is_solid(i-1,j,k)==1) then
+
+          do iv=1,nv
+           lgrid%prim(iv,i-1,j,k)=bc_fac(iv)*lgrid%prim(iv,i,j,k)
+          end do
+#ifdef USE_MHD
+          do iv=1,sdims
+           lgrid%b_cc(iv,i-1,j,k) = bc_facb(iv)*lgrid%b_cc(iv,i,j,k)
+          end do
+#endif
+
+          rho = lgrid%prim(i_rho,i,j,k)
+          lgrid%prim(i_rho,i-1,j,k) = rp2*rho-lgrid%prim(i_rho,i+1,j,k)
+
+          if((lgrid%is_solid(i+1,j,k)==0) .and. (i>=lx1)) then
+
+           do iv=1,nv
+            lgrid%prim(iv,i-2,j,k)=bc_fac(iv)*lgrid%prim(iv,i+1,j,k)
+           end do
+#ifdef USE_MHD
+           do iv=1,sdims
+            lgrid%b_cc(iv,i-2,j,k) = bc_facb(iv)*lgrid%b_cc(iv,i+1,j,k)
+           end do
+#endif
+
+           rho = lgrid%prim(i_rho,i,j,k)
+           lgrid%prim(i_rho,i-2,j,k) = rp3*rho-rp2*lgrid%prim(i_rho,i+1,j,k)
+
+          endif
+
+         endif
+
+         if(lgrid%is_solid(i+1,j,k)==1) then
+
+          do iv=1,nv
+           lgrid%prim(iv,i+1,j,k)=bc_fac(iv)*lgrid%prim(iv,i,j,k)
+          end do
+#ifdef USE_MHD
+          do iv=1,sdims
+           lgrid%b_cc(iv,i+1,j,k) = bc_facb(iv)*lgrid%b_cc(iv,i,j,k)
+          end do
+#endif
+
+          rho = lgrid%prim(i_rho,i,j,k)
+          lgrid%prim(i_rho,i+1,j,k) = rp2*rho-lgrid%prim(i_rho,i-1,j,k)
+
+          if((lgrid%is_solid(i-1,j,k)==0) .and. (i<=ux1)) then
+
+           do iv=1,nv
+            lgrid%prim(iv,i+2,j,k)=bc_fac(iv)*lgrid%prim(iv,i-1,j,k)
+           end do
+#ifdef USE_MHD
+           do iv=1,sdims
+            lgrid%b_cc(iv,i+2,j,k) = bc_facb(iv)*lgrid%b_cc(iv,i-1,j,k)
+           end do
+#endif
+
+           rho = lgrid%prim(i_rho,i,j,k)
+           lgrid%prim(i_rho,i+2,j,k) = rp3*rho-rp2*lgrid%prim(i_rho,i-1,j,k)
+
+          endif
+
+         endif
+
+        endif
+
+       end do
+      end do
+     end do
+
+     do iv=1,nv
+      bc_fac(iv) = rp1
+     end do
+#ifdef USE_MHD
+     do iv=1,sdims
+      bc_facb(iv) = rp1
+     end do
+#endif
+
+     bc_fac(i_vx2) = -rp1
+#ifdef USE_MHD
+     bc_facb(2) = -rp1
+#endif
+
+     do k=lx3,ux3
+      do j=lx2-1,ux2+1
+       do i=lx1,ux1
+
+        if(lgrid%is_solid(i,j,k)==0) then
+
+         if(lgrid%is_solid(i,j-1,k)==1) then
+
+          do iv=1,nv
+           lgrid%prim(iv,i,j-1,k)=bc_fac(iv)*lgrid%prim(iv,i,j,k)
+          end do
+#ifdef USE_MHD
+          do iv=1,sdims
+           lgrid%b_cc(iv,i,j-1,k) = bc_facb(iv)*lgrid%b_cc(iv,i,j,k)
+          end do
+#endif
+
+          rho = lgrid%prim(i_rho,i,j,k)
+          lgrid%prim(i_rho,i,j-1,k) = rp2*rho-lgrid%prim(i_rho,i,j+1,k)
+
+          if((lgrid%is_solid(i,j+1,k)==0) .and. (j>=lx2)) then
+
+           do iv=1,nv
+            lgrid%prim(iv,i,j-2,k)=bc_fac(iv)*lgrid%prim(iv,i,j+1,k)
+           end do
+#ifdef USE_MHD
+           do iv=1,sdims
+            lgrid%b_cc(iv,i,j-2,k) = bc_facb(iv)*lgrid%b_cc(iv,i,j+1,k)
+           end do
+#endif
+
+           rho = lgrid%prim(i_rho,i,j,k)
+           lgrid%prim(i_rho,i,j-2,k) = rp3*rho-rp2*lgrid%prim(i_rho,i,j+1,k)
+
+          endif
+
+         endif
+
+         if(lgrid%is_solid(i,j+1,k)==1) then
+
+          do iv=1,nv
+           lgrid%prim(iv,i,j+1,k)=bc_fac(iv)*lgrid%prim(iv,i,j,k)
+          end do
+#ifdef USE_MHD
+          do iv=1,sdims
+           lgrid%b_cc(iv,i,j+1,k) = bc_facb(iv)*lgrid%b_cc(iv,i,j,k)
+          end do
+#endif
+
+          rho = lgrid%prim(i_rho,i,j,k)
+          lgrid%prim(i_rho,i,j+1,k) = rp2*rho-lgrid%prim(i_rho,i,j-1,k)
+
+          if((lgrid%is_solid(i,j-1,k)==0) .and. (j<=ux2)) then
+
+           do iv=1,nv
+            lgrid%prim(iv,i,j+2,k)=bc_fac(iv)*lgrid%prim(iv,i,j-1,k)
+           end do
+#ifdef USE_MHD
+           do iv=1,sdims
+            lgrid%b_cc(iv,i,j+2,k) = bc_facb(iv)*lgrid%b_cc(iv,i,j-1,k)
+           end do
+#endif
+
+           rho = lgrid%prim(i_rho,i,j,k)
+           lgrid%prim(i_rho,i,j+2,k) = rp3*rho-rp2*lgrid%prim(i_rho,i,j-1,k)
+
+          endif
+
+         endif
+
+        endif
+
+       end do
+      end do
+     end do
+
+#if sdims_make==3
+
+     do iv=1,nv
+      bc_fac(iv) = rp1
+     end do
+#ifdef USE_MHD
+     do iv=1,sdims
+      bc_facb(iv) = rp1
+     end do
+#endif
+
+     bc_fac(i_vx3) = -rp1
+#ifdef USE_MHD
+     bc_facb(3) = -rp1
+#endif
+
+     do k=lx3-1,ux3+1
+      do j=lx2,ux2
+       do i=lx1,ux1
+
+        if(lgrid%is_solid(i,j,k)==0) then
+
+         if(lgrid%is_solid(i,j,k-1)==1) then
+
+          do iv=1,nv
+           lgrid%prim(iv,i,j,k-1)=bc_fac(iv)*lgrid%prim(iv,i,j,k)
+          end do
+#ifdef USE_MHD
+          do iv=1,sdims
+           lgrid%b_cc(iv,i,j,k-1) = bc_facb(iv)*lgrid%b_cc(iv,i,j,k)
+          end do
+#endif
+
+          rho = lgrid%prim(i_rho,i,j,k)
+          lgrid%prim(i_rho,i,j,k-1) = rp2*rho-lgrid%prim(i_rho,i,j,k+1)
+
+          if((lgrid%is_solid(i,j,k+1)==0) .and. (k>=lx3)) then
+
+           do iv=1,nv
+            lgrid%prim(iv,i,j,k-2)=bc_fac(iv)*lgrid%prim(iv,i,j,k+1)
+           end do
+#ifdef USE_MHD
+           do iv=1,sdims
+            lgrid%b_cc(iv,i,j,k-2) = bc_facb(iv)*lgrid%b_cc(iv,i,j,k+1)
+           end do
+#endif
+
+           rho = lgrid%prim(i_rho,i,j,k)
+           lgrid%prim(i_rho,i,j,k-2) = rp3*rho-rp2*lgrid%prim(i_rho,i,j,k+1)
+
+          endif
+
+         endif
+
+         if(lgrid%is_solid(i,j,k+1)==1) then
+
+          do iv=1,nv
+           lgrid%prim(iv,i,j,k+1)=bc_fac(iv)*lgrid%prim(iv,i,j,k)
+          end do
+#ifdef USE_MHD
+          do iv=1,sdims
+           lgrid%b_cc(iv,i,j,k+1) = bc_facb(iv)*lgrid%b_cc(iv,i,j,k)
+          end do
+#endif
+
+          rho = lgrid%prim(i_rho,i,j,k)
+          lgrid%prim(i_rho,i,j,k+1) = rp2*rho-lgrid%prim(i_rho,i,j,k-1)
+
+          if((lgrid%is_solid(i,j,k-1)==0) .and. (k<=ux3)) then
+
+           do iv=1,nv
+            lgrid%prim(iv,i,j,k+2)=bc_fac(iv)*lgrid%prim(iv,i,j,k-1)
+           end do
+#ifdef USE_MHD
+           do iv=1,sdims
+            lgrid%b_cc(iv,i,j,k+2) = bc_facb(iv)*lgrid%b_cc(iv,i,j,k-1)
+           end do
+#endif
+
+           rho = lgrid%prim(i_rho,i,j,k)
+           lgrid%prim(i_rho,i,j,k+2) = rp3*rho-rp2*lgrid%prim(i_rho,i,j,k-1)
+
+          endif
+
+         endif
+
+        endif
+
+       end do
+      end do
+     end do
+
+#endif
+
+#endif
+
+end subroutine bcs_dns
+
+#ifdef USE_MHD
+subroutine compute_ct_res(mgrid,lgrid)
+   type(mpigrid), intent(inout) :: mgrid
+   type(locgrid), intent(inout) :: lgrid
+
+   integer :: i,j,k
+   integer :: lx1,ux1,lx2,ux2,lx3,ux3
+
+   real(kind=rp) :: tmp
+   real(kind=rp) :: r,x
+   real(kind=rp) :: sin_theta_m,sin_theta_p,sin_theta
+   real(kind=rp) :: inv_r_sin_theta
+   real(kind=rp) :: rmi,rpl,inv_dl
+   
+   r = rp0
+   x = rp0
+   sin_theta_m = rp0
+   sin_theta_p = rp0
+   sin_theta = rp0
+   inv_r_sin_theta = rp0
+   rmi = rp0
+   rpl = rp0
+   inv_dl = rp0
+
+   lx1 = mgrid%i1(1)
+   ux1 = mgrid%i2(1)
+   lx2 = mgrid%i1(2)
+   ux2 = mgrid%i2(2)
+   lx3 = mgrid%i1(3)
+   ux3 = mgrid%i2(3)
+
+   do k=lx3,ux3
+    do j=lx2,ux2+1
+     do i=lx1,ux1+1
+
+       lgrid%emfx3_cor(i,j,k) = & 
+       lgrid%Jeta_cor_x3(i,j,k)
+
+     end do
+    end do
+   end do
+
+#if sdims_make==3
+
+   do k=lx3,ux3+1
+    do j=lx2,ux2+1
+     do i=lx1,ux1
+
+       lgrid%emfx1_cor(i,j,k) = & 
+       lgrid%Jeta_cor_x1(i,j,k)
+
+     end do
+    end do
+   end do
+
+   do k=lx3,ux3+1
+    do j=lx2,ux2
+     do i=lx1,ux1+1
+
+       lgrid%emfx2_cor(i,j,k) = & 
+       lgrid%Jeta_cor_x2(i,j,k)
+
+     end do
+    end do
+   end do
+
+#endif
+    
+   do k=lx3,ux3
+    do j=lx2,ux2
+     do i=lx1,ux1+1
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+
+        tmp = &
+#if sdims_make==3
+        -(lgrid%emfx2_cor(i,j,k+1)-lgrid%emfx2_cor(i,j,k))/(lgrid%nodes(3,i,j,k+1)-lgrid%nodes(3,i,j,k)) + &
+#endif
+        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))/(lgrid%nodes(2,i,j+1,k)-lgrid%nodes(2,i,j,k))
+
+#elif defined(GEOMETRY_2D_POLAR)
+
+        tmp = &
+        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2
+
+        r = lgrid%r_x1(i,j,k)
+        tmp = tmp/r
+
+#elif defined(GEOMETRY_2D_CYLINDRICAL)
+
+#ifdef NONUNIFORM_RADIAL_NODES 
+        tmp = &
+        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))/(lgrid%nodes(2,i,j+1,k)-lgrid%nodes(2,i,j,k))
+#else
+        tmp = &
+        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2
+#endif
+
+#elif defined(GEOMETRY_2D_SPHERICAL) 
+
+        sin_theta_m = lgrid%sin_theta_cor(i,j,k)
+        sin_theta_p = lgrid%sin_theta_cor(i,j+1,k)
+
+        x = lgrid%coords_x1(1,i,j,k)
+
+        tmp = &
+        (sin_theta_p*lgrid%emfx3_cor(i,j+1,k)-sin_theta_m*lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2/x
+
+#elif defined(GEOMETRY_3D_SPHERICAL) 
+
+        sin_theta_m = lgrid%sin_theta_cor(i,j,k)
+        sin_theta_p = lgrid%sin_theta_cor(i,j+1,k)
+
+        inv_r_sin_theta = lgrid%inv_r_sin_theta_x1(i,j,k)
+
+        tmp = &
+        -(lgrid%emfx2_cor(i,j,k+1)-lgrid%emfx2_cor(i,j,k))*lgrid%inv_dx3*inv_r_sin_theta + &               
+        (sin_theta_p*lgrid%emfx3_cor(i,j+1,k)-sin_theta_m*lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2*inv_r_sin_theta
+
+#else
+
+        tmp = &
+#if sdims_make==3
+        -(lgrid%emfx2_cor(i,j,k+1)-lgrid%emfx2_cor(i,j,k))*lgrid%inv_dx3 + &
+#endif
+        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2
+
+#endif
+
+#ifdef USE_INTERNAL_BOUNDARIES
+        lgrid%Mbx1_jm1(i,j,k) = &
+        -tmp*lgrid%fac_x1(i,j,k)
+#else
+        lgrid%Mbx1_jm1(i,j,k) = &
+        -tmp
+#endif
+
+     end do
+    end do
+   end do
+     
+   do k=lx3,ux3
+    do j=lx2,ux2+1
+     do i=lx1,ux1
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+
+        tmp = &
+#if sdims_make==3
+        (lgrid%emfx1_cor(i,j,k+1)-lgrid%emfx1_cor(i,j,k))/(lgrid%nodes(3,i,j,k+1)-lgrid%nodes(3,i,j,k)) &
+#endif
+        -(lgrid%emfx3_cor(i+1,j,k)-lgrid%emfx3_cor(i,j,k))/(lgrid%nodes(1,i+1,j,k)-lgrid%nodes(1,i,j,k))
+
+#elif defined(GEOMETRY_2D_POLAR)
+
+#ifdef NONUNIFORM_RADIAL_NODES
+        rmi = lgrid%r_cor(i,j,k)
+        rpl = lgrid%r_cor(i+1,j,k)
+        inv_dl = rp1/(rpl-rmi)
+#else
+        inv_dl = lgrid%inv_dx1
+#endif
+
+        tmp = &
+        (lgrid%emfx3_cor(i,j,k)-lgrid%emfx3_cor(i+1,j,k))*inv_dl
+
+#elif defined(GEOMETRY_2D_CYLINDRICAL)
+
+        rmi = lgrid%nodes(1,i,j,k)
+        rpl = lgrid%nodes(1,i+1,j,k) 
+#ifdef NONUNIFORM_RADIAL_NODES
+        inv_dl = rp1/(rpl-rmi)
+#else
+        inv_dl = lgrid%inv_dx1
+#endif
+
+        tmp = &
+        (rmi*lgrid%emfx3_cor(i,j,k)-rpl*lgrid%emfx3_cor(i+1,j,k))*inv_dl/lgrid%coords_x2(1,i,j,k)
+
+#elif defined(GEOMETRY_2D_SPHERICAL)
+
+        rmi = lgrid%r_cor(i,j,k)
+        rpl = lgrid%r_cor(i+1,j,k)
+
+        r = lgrid%r_x2(i,j,k)
+
+#ifdef NONUNIFORM_RADIAL_NODES
+        inv_dl = rp1/(rpl-rmi)
+#else
+        inv_dl = lgrid%inv_dx1
+#endif
+
+        tmp = &
+        (rmi*lgrid%emfx3_cor(i,j,k)-rpl*lgrid%emfx3_cor(i+1,j,k))*inv_dl/r
+
+#elif defined(GEOMETRY_3D_SPHERICAL)
+
+        rmi = lgrid%r_cor(i,j,k)
+        rpl = lgrid%r_cor(i+1,j,k)
+
+        r = lgrid%r_x2(i,j,k)
+        sin_theta = lgrid%sin_theta_x2(i,j,k)
+        inv_r_sin_theta = rp1/(r*sin_theta)
+
+#ifdef NONUNIFORM_RADIAL_NODES
+        inv_dl = rp1/(rpl-rmi)
+#else
+        inv_dl = lgrid%inv_dx1
+#endif
+
+        tmp = &
+        (lgrid%emfx1_cor(i,j,k+1)-lgrid%emfx1_cor(i,j,k))*lgrid%inv_dx3*inv_r_sin_theta + &
+        (rmi*lgrid%emfx3_cor(i,j,k)-rpl*lgrid%emfx3_cor(i+1,j,k))*inv_dl/r
+
+#else
+
+        tmp = &
+#if sdims_make==3
+        (lgrid%emfx1_cor(i,j,k+1)-lgrid%emfx1_cor(i,j,k))*lgrid%inv_dx3 + &
+#endif
+        (lgrid%emfx3_cor(i,j,k)-lgrid%emfx3_cor(i+1,j,k))*lgrid%inv_dx1
+
+#endif
+
+#ifdef USE_INTERNAL_BOUNDARIES
+        lgrid%Mbx2_jm1(i,j,k) = &
+        -tmp*lgrid%fac_x2(i,j,k)
+#else
+        lgrid%Mbx2_jm1(i,j,k) = &
+        -tmp
+#endif
+
+     end do
+    end do
+   end do
+
+#if sdims_make==3
+     
+   do k=lx3,ux3+1
+    do j=lx2,ux2
+     do i=lx1,ux1
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+
+        tmp = &
+        (lgrid%emfx2_cor(i+1,j,k)-lgrid%emfx2_cor(i,j,k))/(lgrid%nodes(1,i+1,j,k)-lgrid%nodes(1,i,j,k)) - &
+        (lgrid%emfx1_cor(i,j+1,k)-lgrid%emfx1_cor(i,j,k))/(lgrid%nodes(2,i,j+1,k)-lgrid%nodes(2,i,j,k))
+
+#elif defined(GEOMETRY_3D_SPHERICAL)
+
+        rmi = lgrid%r_cor(i,j,k)
+        rpl = lgrid%r_cor(i+1,j,k)
+
+        r = lgrid%r_x3(i,j,k)
+
+#ifdef NONUNIFORM_RADIAL_NODES
+        inv_dl = rp1/(rpl-rmi)
+#else
+        inv_dl = lgrid%inv_dx1
+#endif
+ 
+        tmp = &
+        (rpl*lgrid%emfx2_cor(i+1,j,k)-rmi*lgrid%emfx2_cor(i,j,k))*inv_dl/r - &
+        (lgrid%emfx1_cor(i,j+1,k)-lgrid%emfx1_cor(i,j,k))*lgrid%inv_dx2/r
+       
+#else
+
+        tmp = &
+        (lgrid%emfx2_cor(i+1,j,k)-lgrid%emfx2_cor(i,j,k))*lgrid%inv_dx1 - &
+        (lgrid%emfx1_cor(i,j+1,k)-lgrid%emfx1_cor(i,j,k))*lgrid%inv_dx2
+
+#endif
+
+#ifdef USE_INTERNAL_BOUNDARIES
+        lgrid%Mbx3_jm1(i,j,k) = &
+        -tmp*lgrid%fac_x3(i,j,k)
+#else
+        lgrid%Mbx3_jm1(i,j,k) = &
+        -tmp
+#endif
+
+     end do
+    end do
+   end do
+
+#endif
+
+ end subroutine compute_ct_res
+
+#endif
+
+ subroutine dns_step(mgrid,lgrid,strang)
+  type(mpigrid), intent(inout) :: mgrid
+  type(locgrid), intent(inout) :: lgrid
+  integer, intent(in) :: strang
+
+  integer :: i,j,k
+  integer :: lx1,ux1,lx2,ux2,lx3,ux3
+  integer :: i_sts,nstages 
+
+  real(kind=rp) :: b0,b1,w1,mut1,bjm2,bjm1,bj,muj,mutj,nuj,ajm1,gammatj,fac,tmp1,tmp2
+  real(kind=rp) :: igmm1,eint,p,rho,T,inv_mu,gm,mu,half_dt,pgas,beta,gmm1,sound,cv
+  real(kind=rp) :: dp_drho,dp_deps,sound2
+  real(kind=rp) :: ye,inv_abar,abar,zbar,inv_rho,vx1,vx2,vx3,rhoe
+  integer :: iv
+
+  real(kind=rp) :: T2,T3,T4
+  integer :: ierr
+
+#ifdef USE_MHD
+
+  real(kind=rp) :: bx1,bx2,bx3
+
+  bx1 = rp0
+  bx2 = rp0
+  bx3 = rp0
+
+#endif
+
+  ierr = 0
+
+  gm = lgrid%gm
+  gmm1 = gm-rp1
+  mu = lgrid%mu
+  inv_mu = rp1/mu
+  T = rp0
+  T2 = rp0
+  T3 = rp0
+  T4 = rp0
+  p = rp0
+  pgas = rp0
+  beta = rp0
+  sound = rp0
+  abar = rp0
+  cv = rp0
+  zbar = rp0
+
+  dp_drho = rp0
+  dp_deps = rp0
+  sound2 = rp0
+
+  ye = rp0
+  inv_abar = rp0
+ 
+  iv = 0
+
+  b0 = othird
+  b1 = othird
+
+  lx1 = mgrid%i1(1)
+  ux1 = mgrid%i2(1)
+  lx2 = mgrid%i1(2)
+  ux2 = mgrid%i2(2)
+  lx3 = mgrid%i1(3)
+  ux3 = mgrid%i2(3)
+
+  fac = lgrid%dt/lgrid%dt_dns
+  tmp1 = rp0
+  tmp2 = rp0
+
+  half_dt = rph*lgrid%dt
+
+  nstages = 1 + floor(rph*(sqrt(rp9+rp16*fac)-rp1))
+
+  if(nstages<3) then
+    nstages = 3
+  endif
+
+  igmm1 = rp1/gmm1
+
+  if((mgrid%rankl==master_rank).and.(strang==1)) then
+   if(mod(lgrid%step,info_terminal_rate)==0) & 
+    write(*,'(" >> dns: dt_h/dt_dns=",E9.3," | nstages=",I8.8)') fac,nstages
+  end if
+
+  w1 = rp4/(nstages*nstages+nstages-rp2)
+  mut1 = b1*w1
+  
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+
+      rho = lgrid%prim(i_rho,i,j,k)
+      vx1 = lgrid%prim(i_vx1,i,j,k)
+      vx2 = lgrid%prim(i_vx2,i,j,k)
+#if sdims_make==3
+      vx3 = lgrid%prim(i_vx3,i,j,k)
+#else
+      vx3 = rp0
+#endif
+
+      lgrid%vis_0(i_vx1,i,j,k) = vx1
+      lgrid%vis_0(i_vx2,i,j,k) = vx2
+#if sdims_make==3
+      lgrid%vis_0(i_vx3,i,j,k) = vx3
+#endif
+
+
+#ifdef USE_MHD
+      bx1 = lgrid%b_cc(1,i,j,k)
+      bx2 = lgrid%b_cc(2,i,j,k)
+#if sdims_make==3
+      bx3 = lgrid%b_cc(3,i,j,k)
+#endif
+#endif
+
+      eint = lgrid%eint(i,j,k)
+
+      rhoe = eint + rph*rho*(vx1*vx1+vx2*vx2+vx3*vx3)
+
+#ifdef USE_MHD
+      rhoe = rhoe + rph*(bx1*bx1+bx2*bx2+bx3*bx3)
+#endif
+
+      lgrid%vis_0(i_rhoe,i,j,k) = rhoe
+
+    end do
+   end do
+  end do
+
+#ifdef USE_MHD
+
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1+1
+
+     lgrid%b0_x1(i,j,k) = lgrid%b_x1(i,j,k)
+
+    end do
+   end do
+  end do
+
+  do k=lx3,ux3
+   do j=lx2,ux2+1
+    do i=lx1,ux1
+
+     lgrid%b0_x2(i,j,k) = lgrid%b_x2(i,j,k)
+
+    end do
+   end do
+  end do
+
+#if sdims_make==3
+
+  do k=lx3,ux3+1
+   do j=lx2,ux2
+    do i=lx1,ux1
+
+     lgrid%b0_x3(i,j,k) = lgrid%b_x3(i,j,k)
+
+    end do
+   end do
+  end do
+
+#endif
+
+#endif
+
+  call bcs_dns(mgrid,lgrid)
+
+  call visres_rhs(mgrid,lgrid)
+#ifdef USE_MHD
+  call compute_ct_res(mgrid,lgrid)
+#endif
+
+  bjm2 = b0
+  bjm1 = b1
+
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+
+      inv_rho = rp1/lgrid%prim(i_rho,i,j,k)
+
+      do iv=i_rhovx1,i_rhovx3
+       lgrid%Mv_jm1(iv,i,j,k) = lgrid%Mv_jm1(iv,i,j,k)*inv_rho
+      end do
+
+      do iv=i_rhovx1,i_rhoe
+
+       lgrid%Mv_0(iv,i,j,k) = lgrid%Mv_jm1(iv,i,j,k)
+
+       lgrid%vis_jm1(iv,i,j,k) = lgrid%vis_0(iv,i,j,k) + half_dt*mut1*lgrid%Mv_0(iv,i,j,k)
+
+       lgrid%vis_jm2(iv,i,j,k) = lgrid%vis_0(iv,i,j,k) 
+
+       lgrid%prim(iv,i,j,k) = lgrid%vis_jm1(iv,i,j,k)
+
+      end do
+
+    end do
+   end do
+  end do
+
+#ifdef USE_MHD
+
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1+1
+
+       lgrid%Mbx1_0(i,j,k) = lgrid%Mbx1_jm1(i,j,k)
+
+       lgrid%bx1_jm1(i,j,k) = lgrid%b0_x1(i,j,k) + half_dt*mut1*lgrid%Mbx1_0(i,j,k)
+
+       lgrid%bx1_jm2(i,j,k) = lgrid%b0_x1(i,j,k) 
+
+       lgrid%b_x1(i,j,k) = lgrid%bx1_jm1(i,j,k)
+
+    end do
+   end do
+  end do
+
+  do k=lx3,ux3
+   do j=lx2,ux2+1
+    do i=lx1,ux1
+
+       lgrid%Mbx2_0(i,j,k) = lgrid%Mbx2_jm1(i,j,k)
+
+       lgrid%bx2_jm1(i,j,k) = lgrid%b0_x2(i,j,k) + half_dt*mut1*lgrid%Mbx2_0(i,j,k)
+
+       lgrid%bx2_jm2(i,j,k) = lgrid%b0_x2(i,j,k) 
+
+       lgrid%b_x2(i,j,k) = lgrid%bx2_jm1(i,j,k)
+
+    end do
+   end do
+  end do
+
+#if sdims_make==3
+  do k=lx3,ux3+1
+   do j=lx2,ux2
+    do i=lx1,ux1
+
+       lgrid%Mbx3_0(i,j,k) = lgrid%Mbx3_jm1(i,j,k)
+
+       lgrid%bx3_jm1(i,j,k) = lgrid%b0_x3(i,j,k) + half_dt*mut1*lgrid%Mbx3_0(i,j,k)
+
+       lgrid%bx3_jm2(i,j,k) = lgrid%b0_x3(i,j,k) 
+
+       lgrid%b_x3(i,j,k) = lgrid%bx3_jm1(i,j,k)
+
+    end do
+   end do
+  end do
+#endif
+
+#if defined(GEOMETRY_2D_POLAR) || defined(GEOMETRY_2D_SPHERICAL) || defined(GEOMETRY_3D_SPHERICAL) || defined(GEOMETRY_2D_CYLINDRICAL)
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+     tmp = lgrid%cm(i,j,k)
+     tmp1 = rp1-tmp
+     lgrid%b_cc(1,i,j,k) = tmp1*lgrid%b_x1(i+1,j,k)+tmp*lgrid%b_x1(i,j,k)
+    end do
+   end do
+  end do
+#else
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+     lgrid%b_cc(1,i,j,k) = rph*(lgrid%b_x1(i+1,j,k)+lgrid%b_x1(i,j,k))
+    end do
+   end do
+  end do
+#endif
+
+#if defined(GEOMETRY_2D_SPHERICAL) || defined(GEOMETRY_3D_SPHERICAL)
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+     tmp = lgrid%dm(i,j,k)
+     tmp1 = rp1-tmp
+     lgrid%b_cc(2,i,j,k) = tmp1*lgrid%b_x2(i,j+1,k)+tmp*lgrid%b_x2(i,j,k)
+    end do
+   end do
+  end do
+#else
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+     lgrid%b_cc(2,i,j,k) = rph*(lgrid%b_x2(i,j+1,k)+lgrid%b_x2(i,j,k))
+    end do
+   end do
+  end do
+#endif
+
+#if sdims_make==3
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+     lgrid%b_cc(3,i,j,k) = rph*(lgrid%b_x3(i,j,k+1)+lgrid%b_x3(i,j,k))
+    end do
+   end do
+  end do
+#endif
+
+#endif
+ 
+  do i_sts=2,nstages
+   
+     bj = (i_sts*i_sts+i_sts-rp2)/(rp2*i_sts*(i_sts+rp1))
+     muj  = ((rp2*i_sts-rp1)/i_sts)*bj/bjm1
+     mutj = muj*w1
+     nuj = -((i_sts-rp1)/i_sts)*bj/bjm2
+     ajm1 = rp1-bjm1
+     gammatj = -ajm1*mutj
+
+     call bcs_dns(mgrid,lgrid)
+
+     call visres_rhs(mgrid,lgrid)
+#ifdef USE_MHD
+     call compute_ct_res(mgrid,lgrid)
+#endif
+ 
+     do k=lx3,ux3
+      do j=lx2,ux2
+       do i=lx1,ux1
+
+        inv_rho = rp1/lgrid%prim(i_rho,i,j,k)
+
+        do iv=i_rhovx1,i_rhovx3
+         lgrid%Mv_jm1(iv,i,j,k) = lgrid%Mv_jm1(iv,i,j,k)*inv_rho
+        end do
+
+        do iv=i_rhovx1,i_rhoe
+
+         lgrid%vis_jm1(iv,i,j,k) = lgrid%prim(iv,i,j,k)
+
+         lgrid%prim(iv,i,j,k) = muj*lgrid%vis_jm1(iv,i,j,k) + nuj*lgrid%vis_jm2(iv,i,j,k) + (rp1-muj-nuj)*lgrid%vis_0(iv,i,j,k) + &
+         half_dt*mutj*lgrid%Mv_jm1(iv,i,j,k) + half_dt*gammatj*lgrid%Mv_0(iv,i,j,k)
+    
+         lgrid%vis_jm2(iv,i,j,k) = lgrid%vis_jm1(iv,i,j,k)
+
+        end do
+
+       end do
+      end do
+     end do
+
+#ifdef USE_MHD
+
+     do k=lx3,ux3
+      do j=lx2,ux2
+       do i=lx1,ux1+1
+
+        lgrid%bx1_jm1(i,j,k) = lgrid%b_x1(i,j,k)
+
+        lgrid%b_x1(i,j,k) = muj*lgrid%bx1_jm1(i,j,k) + nuj*lgrid%bx1_jm2(i,j,k) + (rp1-muj-nuj)*lgrid%b0_x1(i,j,k) + &
+        half_dt*mutj*lgrid%Mbx1_jm1(i,j,k) + half_dt*gammatj*lgrid%Mbx1_0(i,j,k)
+
+        lgrid%bx1_jm2(i,j,k) = lgrid%bx1_jm1(i,j,k)
+
+       end do
+      end do
+     end do
+
+     do k=lx3,ux3
+      do j=lx2,ux2+1
+       do i=lx1,ux1
+
+        lgrid%bx2_jm1(i,j,k) = lgrid%b_x2(i,j,k)
+
+        lgrid%b_x2(i,j,k) = muj*lgrid%bx2_jm1(i,j,k) + nuj*lgrid%bx2_jm2(i,j,k) + (rp1-muj-nuj)*lgrid%b0_x2(i,j,k) + &
+        half_dt*mutj*lgrid%Mbx2_jm1(i,j,k) + half_dt*gammatj*lgrid%Mbx2_0(i,j,k)
+
+        lgrid%bx2_jm2(i,j,k) = lgrid%bx2_jm1(i,j,k)
+
+       end do
+      end do
+     end do
+
+#if sdims_make==3
+
+     do k=lx3,ux3+1
+      do j=lx2,ux2
+       do i=lx1,ux1
+
+        lgrid%bx3_jm1(i,j,k) = lgrid%b_x3(i,j,k)
+
+        lgrid%b_x3(i,j,k) = muj*lgrid%bx3_jm1(i,j,k) + nuj*lgrid%bx3_jm2(i,j,k) + (rp1-muj-nuj)*lgrid%b0_x3(i,j,k) + &
+        half_dt*mutj*lgrid%Mbx3_jm1(i,j,k) + half_dt*gammatj*lgrid%Mbx3_0(i,j,k)
+
+        lgrid%bx3_jm2(i,j,k) = lgrid%bx3_jm1(i,j,k)
+
+       end do
+      end do
+     end do
+
+#endif
+
+#endif
+       
+     bjm2 = bjm1
+     bjm1 = bj
+  
+#ifdef USE_MHD
+
+#if defined(GEOMETRY_2D_POLAR) || defined(GEOMETRY_2D_SPHERICAL) || defined(GEOMETRY_3D_SPHERICAL) || defined(GEOMETRY_2D_CYLINDRICAL)
+    do k=lx3,ux3
+     do j=lx2,ux2
+      do i=lx1,ux1
+       tmp = lgrid%cm(i,j,k)
+       tmp1 = rp1-tmp
+       lgrid%b_cc(1,i,j,k) = tmp1*lgrid%b_x1(i+1,j,k)+tmp*lgrid%b_x1(i,j,k)
+      end do
+     end do
+    end do
+#else
+    do k=lx3,ux3
+     do j=lx2,ux2
+      do i=lx1,ux1
+       lgrid%b_cc(1,i,j,k) = rph*(lgrid%b_x1(i+1,j,k)+lgrid%b_x1(i,j,k))
+      end do
+     end do
+    end do
+#endif
+  
+#if defined(GEOMETRY_2D_SPHERICAL) || defined(GEOMETRY_3D_SPHERICAL)
+    do k=lx3,ux3
+     do j=lx2,ux2
+      do i=lx1,ux1
+       tmp = lgrid%dm(i,j,k)
+       tmp1 = rp1-tmp
+       lgrid%b_cc(2,i,j,k) = tmp1*lgrid%b_x2(i,j+1,k)+tmp*lgrid%b_x2(i,j,k)
+      end do
+     end do
+    end do
+#else
+    do k=lx3,ux3
+     do j=lx2,ux2
+      do i=lx1,ux1
+       lgrid%b_cc(2,i,j,k) = rph*(lgrid%b_x2(i,j+1,k)+lgrid%b_x2(i,j,k))
+      end do
+     end do
+    end do
+#endif
+  
+#if sdims_make==3
+    do k=lx3,ux3
+     do j=lx2,ux2
+      do i=lx1,ux1
+       lgrid%b_cc(3,i,j,k) = rph*(lgrid%b_x3(i,j,k+1)+lgrid%b_x3(i,j,k))
+      end do
+     end do
+    end do
+#endif
+
+#endif
+ 
+  end do
+ 
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+
+      rho = lgrid%prim(i_rho,i,j,k)
+      vx1 = lgrid%prim(i_vx1,i,j,k)
+      vx2 = lgrid%prim(i_vx2,i,j,k)
+#if sdims_make==3
+      vx3 = lgrid%prim(i_vx3,i,j,k)
+#else
+      vx3 = rp0
+#endif
+
+#ifdef USE_MHD
+      bx1 = lgrid%b_cc(1,i,j,k)
+      bx2 = lgrid%b_cc(2,i,j,k)
+#if sdims_make==3
+      bx3 = lgrid%b_cc(3,i,j,k)
+#endif
+#endif
+
+      lgrid%eint(i,j,k) = lgrid%prim(i_rhoe,i,j,k) - &
+#ifdef USE_MHD 
+      rph*(bx1*bx1+bx2*bx2+bx3*bx3) - &
+#endif             
+      rph*rho*(vx1*vx1+vx2*vx2+vx3*vx3)
+
+    end do
+   end do
+  end do
+
+  call eint_to_temp(mgrid,lgrid) 
+
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+
+      rho = lgrid%prim(i_rho,i,j,k)
+      T = lgrid%temp(i,j,k)
+
+#ifdef HELMHOLTZ_EOS
+#ifdef ADVECT_YE_IABAR
+      ye = lgrid%prim(i_ye,i,j,k)
+      abar = rp1/lgrid%prim(i_iabar,i,j,k)
+#endif
+#ifdef ADVECT_SPECIES
+      inv_abar = rp0
+      ye = rp0
+      do iv=1,nspecies
+       tmp1 = lgrid%prim(i_as1+iv-1,i,j,k)/lgrid%A(iv)
+       inv_abar = inv_abar + tmp1
+       ye = ye + tmp1*lgrid%Z(iv)
+      end do
+      abar = rp1/inv_abar
+#endif
+      zbar = abar*ye
+#else
+#ifdef ADVECT_YE_IABAR
+      ye = lgrid%prim(i_ye,i,j,k)
+      abar = rp1/lgrid%prim(i_iabar,i,j,k)
+      inv_mu =  (ye*abar+rp1)/abar
+#endif
+#ifdef ADVECT_SPECIES
+      inv_mu = rp0
+      do iv=1,nspecies
+       inv_mu = inv_mu + lgrid%prim(i_as1+iv-1,i,j,k)*(lgrid%Z(iv)+rp1)/lgrid%A(iv)
+      end do
+#endif
+#endif
+
+#ifdef USE_PRAD
+      T2 = T*T
+      T3 = T2*T
+      T4 = T3*T
+      p = CONST_RAD*T4*othird + &
+      CONST_RGAS*rho*T*inv_mu
+ 
+      eint = lgrid%eint(i,j,k)
+
+      lgrid%prim(i_p,i,j,k) = p
+
+#ifdef USE_FASTEOS
+      mu = rp1/inv_mu
+
+      tmp1 = CONST_RAD*mu*T3
+      tmp2 = CONST_RGAS*rho
+
+      dp_drho = fthirds * &
+      CONST_RAD*CONST_RGAS*T4*(rp3*gm-rp4) / &
+      (rp4*tmp1*gmm1+tmp2)
+      dp_deps = gmm1 * &
+      (rp4*tmp1+rp3*tmp2) / &
+      (rp12*tmp1*gmm1+rp3*tmp2)
+
+      sound2 = dp_drho+dp_deps*(p+eint)/rho
+
+      lgrid%gammaf(i_gammae,i,j,k) = p/eint+rp1
+      lgrid%gammaf(i_gammac,i,j,k) = sound2*rho/p
+#endif
+#elif defined(HELMHOLTZ_EOS)
+      call  helm_rhoT_given_full(rho,T,abar,zbar,p,eint,sound,cv)
+      eint = rho*eint
+      lgrid%prim(i_p,i,j,k) = p
+      lgrid%eint(i,j,k) = eint
+#ifdef USE_FASTEOS
+      lgrid%gammaf(i_gammae,i,j,k) = p/eint+rp1
+      lgrid%gammaf(i_gammac,i,j,k) = sound*sound*rho/p
+#endif
+#elif defined(PIG_EOS)
+      call  pig_rhoT_given_full(rho,T,p,eint,sound,cv)
+      eint = rho*eint
+      lgrid%prim(i_p,i,j,k) = p
+      lgrid%eint(i,j,k) = eint
+#ifdef USE_FASTEOS
+      lgrid%gammaf(i_gammae,i,j,k) = p/eint+rp1
+      lgrid%gammaf(i_gammac,i,j,k) = sound*sound*rho/p
+#endif
+#elif defined(PIG_XVAR_EOS)
+      tmp1 = lgrid%prim(i_as1,i,j,k)
+      call  pig_xvar_rhoT_given_full(rho,T,tmp,p,eint,sound,cv)
+      eint = rho*eint
+      lgrid%prim(i_p,i,j,k) = p
+      lgrid%eint(i,j,k) = eint
+#ifdef USE_FASTEOS
+      lgrid%gammaf(i_gammae,i,j,k) = p/eint+rp1
+      lgrid%gammaf(i_gammac,i,j,k) = sound*sound*rho/p
+#endif
+#else
+
+      lgrid%prim(i_p,i,j,k) = &
+      CONST_RGAS*rho*T*inv_mu
+
+#endif
+
+    end do
+   end do
+  end do
+
+ end subroutine dns_step
+
+ subroutine compute_dns_dt(mgrid,lgrid)
+  type(mpigrid), intent(inout) :: mgrid
+  type(locgrid), intent(inout) :: lgrid
+
+  integer :: i,j,k
+  integer :: lx1,ux1,lx2,ux2,lx3,ux3,ierr
+
+  real(kind=rp) :: Ddns,inv_dt_dns(1),inv_dt_dns_comm(1),inv_dx1,inv_dx2,&
+  inv_dx3,inv_dl2,rmi,rpl,rho,nus,eta
+
+  real(kind=rp) :: x,y,z,r,tmp
+
+  x = rp0
+  y = rp0
+  z = rp0
+  r = rp0
+  tmp = rp0
+  rmi = rp0
+  rpl = rp0
+
+  inv_dt_dns(1) = rp0
+
+  eta = rp0
+
+  lx1 = mgrid%i1(1)
+  ux1 = mgrid%i2(1)
+  lx2 = mgrid%i1(2)
+  ux2 = mgrid%i2(2)
+  lx3 = mgrid%i1(3)
+  ux3 = mgrid%i2(3)
+
+  inv_dx1 = lgrid%inv_dx1
+  inv_dx2 = lgrid%inv_dx2
+#if sdims_make==3
+  inv_dx3 = lgrid%inv_dx3
+#else
+  inv_dx3 = rp0
+#endif
+
+  inv_dl2 = inv_dx1*inv_dx1+inv_dx2*inv_dx2+inv_dx3*inv_dx3
+
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+
+#ifdef USE_INTERNAL_BOUNDARIES
+     if(lgrid%is_solid(i,j,k)==0) then
+#endif
+
+      rho = lgrid%prim(i_rho,i,j,k)
+      nus = lgrid%nus(i,j,k)+em11
+      Ddns = rho*nus
+     
+#ifdef USE_MHD
+      eta = lgrid%eta(i,j,k)
+#endif
+       
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+      inv_dx1 = rp1/(lgrid%coords_x1(1,i+1,j,k)-lgrid%coords_x1(1,i,j,k))
+      inv_dx2 = rp1/(lgrid%coords_x2(2,i,j+1,k)-lgrid%coords_x2(2,i,j,k))
+#if sdims_make==3
+      inv_dx3 = rp1/(lgrid%coords_x3(3,i,j,k+1)-lgrid%coords_x3(3,i,j,k))
+#endif
+      inv_dl2 = inv_dx1*inv_dx1+inv_dx2*inv_dx2+inv_dx3*inv_dx3
+#endif
+
+#ifdef NONUNIFORM_RADIAL_NODES
+      rmi = lgrid%r_x1(i,j,k)
+      rpl = lgrid%r_x1(i+1,j,k)
+      inv_dx1 = rp1/(rpl-rmi)
+#endif
+
+#if defined(GEOMETRY_2D_POLAR) || defined(GEOMETRY_2D_SPHERICAL)
+      r = lgrid%r(i,j,k)
+      inv_dx2 = rp1/r*inv_dx2
+      inv_dl2 = inv_dx1*inv_dx1+inv_dx2*inv_dx2
+#endif
+
+#ifdef GEOMETRY_2D_CYLINDRICAL
+#ifdef NONUNIFORM_RADIAL_NODES
+      inv_dx2 = rp1/(lgrid%coords_x2(2,i,j+1,k)-lgrid%coords_x2(2,i,j,k))
+#endif
+      inv_dl2 = inv_dx1*inv_dx1+inv_dx2*inv_dx2
+#endif
+
+#ifdef GEOMETRY_3D_SPHERICAL
+      r = lgrid%r(i,j,k)
+      inv_dx2 = rp1/r*inv_dx2
+      inv_dx3 = lgrid%inv_r_sin_theta(i,j,k)*inv_dx3
+      inv_dl2 = inv_dx1*inv_dx1+inv_dx2*inv_dx2+inv_dx3*inv_dx3
+#endif
+
+      inv_dt_dns(1) = max(inv_dt_dns(1),rp2*(Ddns+eta)*inv_dl2)
+
+#ifdef USE_INTERNAL_BOUNDARIES
+     end if
+#endif
+
+    end do
+   end do
+  end do
+
+  call mpi_allreduce(inv_dt_dns, inv_dt_dns_comm, 1, MPI_RP , MPI_MAX, mgrid%comm_cart, ierr)
+
+  lgrid%dt_dns = rp1/inv_dt_dns_comm(1)
+
+ end subroutine compute_dns_dt
+
+#endif
+
+#if defined(THERMAL_DIFFUSION_STS) || defined(DNS_STS)
+ subroutine eint_to_temp(mgrid,lgrid) 
+  type(mpigrid), intent(inout) :: mgrid
+  type(locgrid), intent(inout) :: lgrid
+ 
+  integer :: lx1,ux1,lx2,ux2,lx3,ux3
+  integer :: i,j,k
+
+  real(kind=rp) :: gmm1,igmm1,mu,inv_mu,rho,eint,T,p,sound
+
+  real(kind=rp) :: ye,abar,inv_abar,zbar
+  integer :: iv
+  real(kind=rp) :: tmp,Res_prad,Res0,dRes_dT,T2,T3,T4
+  integer :: iter
+
+  lx1 = mgrid%i1(1)
+  ux1 = mgrid%i2(1)
+  lx2 = mgrid%i1(2)
+  ux2 = mgrid%i2(2)
+  lx3 = mgrid%i1(3)
+  ux3 = mgrid%i2(3)
+
+  T = rp0
+  mu = lgrid%mu
+  inv_mu = rp1/mu
+  gmm1 = lgrid%gm-rp1
+  igmm1 = rp1/gmm1
+
+  ye = rp0
+  abar = rp0
+  tmp = rp0
+  Res_prad = rp0
+  Res0 = rp0
+  dRes_dT = rp0
+
+  inv_abar = rp0
+  zbar = rp0
+  p = rp0 
+  sound = rp0
+
+  T2 = rp0
+  T3 = rp0
+  T4 = rp0
+
+  iter = 0
+  iv = 0
+
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+
+#ifdef HELMHOLTZ_EOS
+
+#ifdef ADVECT_YE_IABAR
+        ye = lgrid%prim(i_ye,i,j,k)
+        abar = rp1/lgrid%prim(i_iabar,i,j,k)
+#endif 
+#ifdef ADVECT_SPECIES
+       inv_abar = rp0
+       ye = rp0
+       do iv=1,nspecies
+         tmp = lgrid%prim(i_as1+iv-1,i,j,k)/lgrid%A(iv)
+         inv_abar = inv_abar + tmp
+         ye = ye + tmp*lgrid%Z(iv)
+       end do
+       abar = rp1/inv_abar
+#endif
+       zbar = ye*abar
+
+#else
+
+#ifdef ADVECT_YE_IABAR
+        ye = lgrid%prim(i_ye,i,j,k)
+        abar = rp1/lgrid%prim(i_iabar,i,j,k)
+        inv_mu = (ye*abar + rp1)/abar
+#endif
+#ifdef ADVECT_SPECIES
+        inv_mu = rp0
+        do iv=1,nspecies
+          inv_mu = inv_mu + lgrid%prim(i_as1+iv-1,i,j,k)*(lgrid%Z(iv)+rp1)/lgrid%A(iv)
+        end do
+#endif
+
+#endif
+
+        rho = lgrid%prim(i_rho,i,j,k)
+        eint = lgrid%eint(i,j,k)
+
+#ifdef USE_PRAD
+        tmp = rho*CONST_RGAS*inv_mu*igmm1
+        T = lgrid%temp(i,j,k)
+        Res_prad = -rp1
+        do iter=1,250
+         T2 = T*T
+         T3 = T2*T
+         T4 = T3*T
+         Res0 = Res_prad
+         Res_prad = CONST_RAD*T4 + tmp*T - eint
+         if (abs(Res_prad/eint) < em14) exit
+         if ((abs(Res0 - Res_prad)/abs(Res0) < em15) .and. iter>1) then
+           write(*,*) 'eint->temp, EoS gas+radiation, RN stalled, ','cell:(',i,j,k,')'
+           exit
+         end if
+         dRes_dT = rp4*CONST_RAD*T3 + tmp
+         T = T - Res_prad/dRes_dT
+        end do
+#elif defined(HELMHOLTZ_EOS)
+        T = lgrid%temp(i,j,k)
+        call helm_rhoe_given(rho,eint/rho,abar,zbar,T,p,sound,.false.)
+#elif defined(PIG_EOS)
+        T = lgrid%temp(i,j,k)
+        call pig_rhoe_given(rho,eint/rho,T,p,sound,.false.)
+#elif defined(PIG_XVAR_EOS)
+        T = lgrid%temp(i,j,k)
+        tmp = lgrid%prim(i_as1,i,j,k)
+        call pig_xvar_rhoe_given(rho,eint/rho,T,tmp,p,sound,.false.)
+#else
+        T = gmm1*eint/(inv_mu*rho*CONST_RGAS)
+#endif
+
+        lgrid%temp(i,j,k) = T
+
+    end do
+   end do
+  end do
+
+ end subroutine eint_to_temp
+#endif
+
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
- ! RADIATIVE DIFFUSION (SUPER TIME STEPPER)
+ ! THERMAL DIFFUSION (SUPER TIME STEPPER)
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 #ifdef USE_TIMMES_KAPPA
@@ -21563,7 +24118,7 @@ subroutine gmg_bcs(mgrid,lgrid,level)
 #ifdef ENFORCE_BARRIERS
   call mpi_barrier(mgrid%comm_cart,ierr) 
 #endif
-  call communicate_ndarray(mgrid,nvars,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim,.false.)
+  call communicate_ndarray(mgrid,1,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_rho:i_rho,:,:,:),.false.)
   call bcs_thermal_diffusion(mgrid,lgrid)
   call residuals_thermal_diffusion(mgrid,lgrid)
 
@@ -21576,11 +24131,11 @@ subroutine gmg_bcs(mgrid,lgrid,level)
 
       lgrid%Me_0(i,j,k) = lgrid%Me_jm1(i,j,k)
 
-      lgrid%e_1(i,j,k) = lgrid%e_0(i,j,k) + half_dt*mut1*lgrid%Me_0(i,j,k)
+      lgrid%e_jm1(i,j,k) = lgrid%e_0(i,j,k) + half_dt*mut1*lgrid%Me_0(i,j,k)
 
       lgrid%e_jm2(i,j,k) = lgrid%e_0(i,j,k) 
 
-      lgrid%eint(i,j,k) = lgrid%e_1(i,j,k)
+      lgrid%eint(i,j,k) = lgrid%e_jm1(i,j,k)
 
     end do
    end do
@@ -21758,133 +24313,6 @@ subroutine gmg_bcs(mgrid,lgrid,level)
   end do
 
  end subroutine thermal_diffusion_step
-
- subroutine eint_to_temp(mgrid,lgrid) 
-  type(mpigrid), intent(inout) :: mgrid
-  type(locgrid), intent(inout) :: lgrid
- 
-  integer :: lx1,ux1,lx2,ux2,lx3,ux3
-  integer :: i,j,k
-
-  real(kind=rp) :: gmm1,igmm1,mu,inv_mu,rho,eint,T,p,sound
-
-  real(kind=rp) :: ye,abar,inv_abar,zbar
-  integer :: iv
-  real(kind=rp) :: tmp,Res_prad,Res0,dRes_dT,T2,T3,T4
-  integer :: iter
-
-  lx1 = mgrid%i1(1)
-  ux1 = mgrid%i2(1)
-  lx2 = mgrid%i1(2)
-  ux2 = mgrid%i2(2)
-  lx3 = mgrid%i1(3)
-  ux3 = mgrid%i2(3)
-
-  T = rp0
-  mu = lgrid%mu
-  inv_mu = rp1/mu
-  gmm1 = lgrid%gm-rp1
-  igmm1 = rp1/gmm1
-
-  ye = rp0
-  abar = rp0
-  tmp = rp0
-  Res_prad = rp0
-  Res0 = rp0
-  dRes_dT = rp0
-
-  inv_abar = rp0
-  zbar = rp0
-  p = rp0 
-  sound = rp0
-
-  T2 = rp0
-  T3 = rp0
-  T4 = rp0
-
-  iter = 0
-  iv = 0
-
-  do k=lx3,ux3
-   do j=lx2,ux2
-    do i=lx1,ux1
-
-#ifdef HELMHOLTZ_EOS
-
-#ifdef ADVECT_YE_IABAR
-        ye = lgrid%prim(i_ye,i,j,k)
-        abar = rp1/lgrid%prim(i_iabar,i,j,k)
-#endif 
-#ifdef ADVECT_SPECIES
-       inv_abar = rp0
-       ye = rp0
-       do iv=1,nspecies
-         tmp = lgrid%prim(i_as1+iv-1,i,j,k)/lgrid%A(iv)
-         inv_abar = inv_abar + tmp
-         ye = ye + tmp*lgrid%Z(iv)
-       end do
-       abar = rp1/inv_abar
-#endif
-       zbar = ye*abar
-
-#else
-
-#ifdef ADVECT_YE_IABAR
-        ye = lgrid%prim(i_ye,i,j,k)
-        abar = rp1/lgrid%prim(i_iabar,i,j,k)
-        inv_mu = (ye*abar + rp1)/abar
-#endif
-#ifdef ADVECT_SPECIES
-        inv_mu = rp0
-        do iv=1,nspecies
-          inv_mu = inv_mu + lgrid%prim(i_as1+iv-1,i,j,k)*(lgrid%Z(iv)+rp1)/lgrid%A(iv)
-        end do
-#endif
-
-#endif
-
-        rho = lgrid%prim(i_rho,i,j,k)
-        eint = lgrid%eint(i,j,k)
-
-#ifdef USE_PRAD
-        tmp = rho*CONST_RGAS*inv_mu*igmm1
-        T = lgrid%temp(i,j,k)
-        Res_prad = -rp1
-        do iter=1,250
-         T2 = T*T
-         T3 = T2*T
-         T4 = T3*T
-         Res0 = Res_prad
-         Res_prad = CONST_RAD*T4 + tmp*T - eint
-         if (abs(Res_prad/eint) < em14) exit
-         if ((abs(Res0 - Res_prad)/abs(Res0) < em15) .and. iter>1) then
-           write(*,*) 'eint->temp, EoS gas+radiation, RN stalled, ','cell:(',i,j,k,')'
-           exit
-         end if
-         dRes_dT = rp4*CONST_RAD*T3 + tmp
-         T = T - Res_prad/dRes_dT
-        end do
-#elif defined(HELMHOLTZ_EOS)
-        T = lgrid%temp(i,j,k)
-        call helm_rhoe_given(rho,eint/rho,abar,zbar,T,p,sound,.false.)
-#elif defined(PIG_EOS)
-        T = lgrid%temp(i,j,k)
-        call pig_rhoe_given(rho,eint/rho,T,p,sound,.false.)
-#elif defined(PIG_XVAR_EOS)
-        T = lgrid%temp(i,j,k)
-        tmp = lgrid%prim(i_as1,i,j,k)
-        call pig_xvar_rhoe_given(rho,eint/rho,T,tmp,p,sound,.false.)
-#else
-        T = gmm1*eint/(inv_mu*rho*CONST_RGAS)
-#endif
-
-        lgrid%temp(i,j,k) = T
-
-    end do
-   end do
-  end do
-
- end subroutine eint_to_temp
 
  subroutine residuals_thermal_diffusion(mgrid,lgrid)
   type(mpigrid), intent(inout) :: mgrid
