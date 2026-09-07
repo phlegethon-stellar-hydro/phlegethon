@@ -2005,10 +2005,10 @@ contains
     allocate(lgrid%Mbx2_jm1(lx1:ux1,lx2:ux2+1,lx3:ux3))
 
 #if sdims_make==3
-    allocate(lgrid%bx2_jm2(lx1:ux1,lx2:ux2,lx3:ux3+1))
-    allocate(lgrid%bx2_jm1(lx1:ux1,lx2:ux2,lx3:ux3+1))
-    allocate(lgrid%Mbx2_0(lx1:ux1,lx2:ux2,lx3:ux3+1))
-    allocate(lgrid%Mbx2_jm1(lx1:ux1,lx2:ux2,lx3:ux3+1))
+    allocate(lgrid%bx3_jm2(lx1:ux1,lx2:ux2,lx3:ux3+1))
+    allocate(lgrid%bx3_jm1(lx1:ux1,lx2:ux2,lx3:ux3+1))
+    allocate(lgrid%Mbx3_0(lx1:ux1,lx2:ux2,lx3:ux3+1))
+    allocate(lgrid%Mbx3_jm1(lx1:ux1,lx2:ux2,lx3:ux3+1))
 #endif
 #endif
 
@@ -21564,6 +21564,22 @@ subroutine visres_rhs(mgrid,lgrid)
    end do
 
   end do
+#endif
+
+#ifdef USE_INTERNAL_BOUNDARIES
+
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+     if(lgrid%is_solid(i,j,k)==1) then
+      do iv=i_rhovx1,i_rhoe
+       lgrid%Mv_jm1(iv,i,j,k) = rp0
+      end do
+     end if
+    end do
+   end do
+  end do
+  
 #endif
 
 end subroutine visres_rhs
