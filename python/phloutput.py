@@ -790,9 +790,15 @@ class h5rprof:
         self.dd['emag_div_vel'] = havg[:,off+30]
         self.dd['b_dot_b_dot_nabla_vel'] = havg[:,off+31]
         self.dd['WL'] = havg[:,off+32]
+        self.dd['nus'] = havg[:,off+33]
+        self.dd['eta'] = havg[:,off+34]
+        self.dd['vel_div_tau'] = havg[:,off+35]
+        self.dd['div_tau_vel'] = havg[:,off+36]
+        self.dd['eta_J2'] = havg[:,off+37]
+        self.dd['b_rot_eta_J'] = -havg[:,off+38]
         
         try:
-         self.dd['dXdt_reacs'] = (havg[:,off+33:]).reshape(self.nr,self.nreacs,self.nspecies).transpose(0,2,1)
+         self.dd['dXdt_reacs'] = (havg[:,off+39:]).reshape(self.nr,self.nreacs,self.nspecies).transpose(0,2,1)
         except:
          self.dd['dXdt_reacs'] = 0.0
 
@@ -834,7 +840,7 @@ class h5rprof:
          self.dd['dsdrho'] = self.full[id_dsdrho]
          self.dd['dsdT'] = self.full[id_dsdT]
          self.dd['delta'] = self.full[id_delta]
-         self.dd['eta'] = self.full[id_eta]
+         self.dd['etaele'] = self.full[id_eta]
          self.dd['nep'] = self.full[id_nep]
          self.dd['phi'] = self.full[id_phi]
          self.dd['dPdA'] = self.full[id_dPdA]
@@ -2219,6 +2225,12 @@ class h5grid:
          zbar = self.zbar(ix=ix,iy=iy,iz=iz)
          mu = abar / (zbar+1.0)
         return mu
+
+    def nus(self,ix=-1,iy=-1,iz=-1):
+        return self.vec3d(self.grid0['nus'],ix=ix,iy=iy,iz=iz)
+
+    def eta(self,ix=-1,iy=-1,iz=-1):
+        return self.vec3d(self.grid0['eta'],ix=ix,iy=iy,iz=iz)
  
     def bfield(self,ix=-1,iy=-1,iz=-1):
         return self.vec4d(self.grid['bfield'],ix=ix,iy=iy,iz=iz)
