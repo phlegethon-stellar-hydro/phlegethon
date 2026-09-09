@@ -1262,16 +1262,16 @@ module source
 
     real(kind=rp), allocatable, dimension(:,:,:) :: &
 #if sdims_make==3
-    Jeta_cor_x1, Jeta_cor_x2, &
+    Jeta_cor_x1, Jeta_cor_x2, Mbx3_jm1, &
 #endif
-    Jeta_cor_x3
+    Jeta_cor_x3, Mbx1_jm1, Mbx2_jm1
 
 #ifdef DNS_STS
 
-    real(kind=rp), allocatable, dimension(:,:,:) :: bx1_jm2,bx1_jm1,Mbx1_0,Mbx1_jm1
-    real(kind=rp), allocatable, dimension(:,:,:) :: bx2_jm2,bx2_jm1,Mbx2_0,Mbx2_jm1
+    real(kind=rp), allocatable, dimension(:,:,:) :: bx1_jm2,bx1_jm1,Mbx1_0
+    real(kind=rp), allocatable, dimension(:,:,:) :: bx2_jm2,bx2_jm1,Mbx2_0
 #if sdims_make==3
-    real(kind=rp), allocatable, dimension(:,:,:) :: bx3_jm2,bx3_jm1,Mbx3_0,Mbx3_jm1
+    real(kind=rp), allocatable, dimension(:,:,:) :: bx3_jm2,bx3_jm1,Mbx3_0
 #endif
 
 #endif
@@ -1993,22 +1993,25 @@ contains
 #endif
     allocate(lgrid%Jeta_cor_x3(lx1:ux1+1,lx2:ux2+1,lx3:ux3))
 
+    allocate(lgrid%Mbx1_jm1(lx1:ux1+1,lx2:ux2,lx3:ux3))
+    allocate(lgrid%Mbx2_jm1(lx1:ux1,lx2:ux2+1,lx3:ux3))
+#if sdims_make==3
+    allocate(lgrid%Mbx3_jm1(lx1:ux1,lx2:ux2,lx3:ux3+1))
+#endif
+
 #ifdef DNS_STS
     allocate(lgrid%bx1_jm2(lx1:ux1+1,lx2:ux2,lx3:ux3))
     allocate(lgrid%bx1_jm1(lx1:ux1+1,lx2:ux2,lx3:ux3))
     allocate(lgrid%Mbx1_0(lx1:ux1+1,lx2:ux2,lx3:ux3))
-    allocate(lgrid%Mbx1_jm1(lx1:ux1+1,lx2:ux2,lx3:ux3))
 
     allocate(lgrid%bx2_jm2(lx1:ux1,lx2:ux2+1,lx3:ux3))
     allocate(lgrid%bx2_jm1(lx1:ux1,lx2:ux2+1,lx3:ux3))
     allocate(lgrid%Mbx2_0(lx1:ux1,lx2:ux2+1,lx3:ux3))
-    allocate(lgrid%Mbx2_jm1(lx1:ux1,lx2:ux2+1,lx3:ux3))
 
 #if sdims_make==3
     allocate(lgrid%bx3_jm2(lx1:ux1,lx2:ux2,lx3:ux3+1))
     allocate(lgrid%bx3_jm1(lx1:ux1,lx2:ux2,lx3:ux3+1))
     allocate(lgrid%Mbx3_0(lx1:ux1,lx2:ux2,lx3:ux3+1))
-    allocate(lgrid%Mbx3_jm1(lx1:ux1,lx2:ux2,lx3:ux3+1))
 #endif
 #endif
 
@@ -2528,22 +2531,25 @@ contains
     deallocate(lgrid%Jeta_cor_x3)
 #endif
 
+    deallocate(lgrid%Mbx1_jm1)
+    deallocate(lgrid%Mbx2_jm1)
+#if sdims_make==3
+    deallocate(lgrid%Mbx3_jm1)
+#endif
+
 #ifdef DNS_STS
     deallocate(lgrid%bx1_jm2)
     deallocate(lgrid%bx1_jm1)
     deallocate(lgrid%Mbx1_0)
-    deallocate(lgrid%Mbx1_jm1)
 
     deallocate(lgrid%bx2_jm2)
     deallocate(lgrid%bx2_jm1)
     deallocate(lgrid%Mbx2_0)
-    deallocate(lgrid%Mbx2_jm1)
 
 #if sdims_make==3
     deallocate(lgrid%bx3_jm2)
     deallocate(lgrid%bx3_jm1)
     deallocate(lgrid%Mbx3_0)
-    deallocate(lgrid%Mbx3_jm1)
 #endif
 #endif
 
@@ -4419,7 +4425,7 @@ contains
     isp = 0
     irc = 0
 
-    rprofs_nv = 78+nreacs+nas+nas+nas+nspecies+nspecies
+    rprofs_nv = 84+nreacs+nas+nas+nas+nspecies+nspecies
 #ifdef SAVE_SPECIES_FLUXES
     rprofs_nv = rprofs_nv + nspecies*nreacs
 #endif
@@ -4471,6 +4477,13 @@ contains
     do ir=1,rnv_tot
      lbuff(ir) = rp0
     end do
+
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
+    call visres_rhs(mgrid,lgrid)
+#ifdef USE_MHD
+    call compute_ct_res(mgrid,lgrid)
+#endif
+#endif
 
     do k=mgrid%i1(3),mgrid%i2(3)
      do j=mgrid%i1(2),mgrid%i2(2)
@@ -5056,6 +5069,33 @@ contains
         lbuff((off+31)*rprofs_nr+ir) = lbuff((off+31)*rprofs_nr+ir) + b_dot_b_dot_nabla_vel
         lbuff((off+32)*rprofs_nr+ir) = lbuff((off+32)*rprofs_nr+ir) + WL
 
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
+
+        lbuff((off+33)*rprofs_nr+ir) = lbuff((off+33)*rprofs_nr+ir) + lgrid%nus(i,j,k)
+#ifdef USE_MHD       
+        tmp = lgrid%eta(i,j,k)
+        lbuff((off+34)*rprofs_nr+ir) = lbuff((off+34)*rprofs_nr+ir) + tmp
+#endif
+        lbuff((off+35)*rprofs_nr+ir) = lbuff((off+35)*rprofs_nr+ir) + &
+#if sdims_make==3
+        vx3*lgrid%Mv_jm1(i_rhovx3,i,j,k) + &
+#endif                
+        vx1*lgrid%Mv_jm1(i_rhovx1,i,j,k) + vx2*lgrid%Mv_jm1(i_rhovx2,i,j,k)
+
+        lbuff((off+36)*rprofs_nr+ir) = lbuff((off+36)*rprofs_nr+ir) + lgrid%Mv_jm1(i_rhoe,i,j,k)
+
+#ifdef USE_MHD
+        lbuff((off+37)*rprofs_nr+ir) = lbuff((off+37)*rprofs_nr+ir) + tmp*(Jx1*Jx1+Jx2*Jx2+Jx3*Jx3)
+
+        lbuff((off+38)*rprofs_nr+ir) = lbuff((off+38)*rprofs_nr+ir) + &
+#if sdims_make==3
+        bx3*rph*(lgrid%Mbx3_jm1(i,j,k+1)+lgrid%Mbx3_jm1(i,j,k)) + &
+#endif
+        bx1*rph*(lgrid%Mbx1_jm1(i+1,j,k)+lgrid%Mbx1_jm1(i,j,k)) + bx2*rph*(lgrid%Mbx2_jm1(i,j+1,k)+lgrid%Mbx2_jm1(i,j,k)) 
+#endif
+
+#endif
+
 #ifdef SAVE_SPECIES_FLUXES
 
         T9 = T*em9
@@ -5090,14 +5130,12 @@ contains
         error = 1
         do irc=1,nreacs
          do isp=1,nspecies
-          lbuff((off+32+error)*rprofs_nr+ir) = lbuff((off+32+error)*rprofs_nr+ir) + lgrid%X_species_dot_reacs(isp,irc)
+          lbuff((off+39+error)*rprofs_nr+ir) = lbuff((off+39+error)*rprofs_nr+ir) + lgrid%X_species_dot_reacs(isp,irc)
           error = error + 1
          end do
         end do
 
 #endif
-       
-        off = off + 32 + nreacs*nspecies
 
        endif
 
@@ -8129,16 +8167,6 @@ contains
 
 #ifdef USE_FASTEOS
      call communicate_ndarray(mgrid,2,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%gammaf,communicate_corners)
-#endif
-
-#ifdef DNS_EXPLICIT
-#ifdef USE_MHD
-     call communicate_array(mgrid,lx1,ux1+1,lx2,ux2,lx3,ux3,1,lgrid%b_x1,.false.)
-     call communicate_array(mgrid,lx1,ux1,lx2,ux2+1,lx3,ux3,1,lgrid%b_x2,.false.)
-#if sdims_make==3
-     call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3+1,1,lgrid%b_x3,.false.)
-#endif
-#endif
 #endif
 
 #ifndef USE_INTERNAL_BOUNDARIES
@@ -12961,6 +12989,10 @@ contains
      !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 #ifdef DNS_EXPLICIT
+
+#ifdef USE_MHD
+     call bcs_staggered_bfield(mgrid,lgrid)
+#endif
 
      call visres_rhs(mgrid,lgrid)
 
@@ -21093,6 +21125,297 @@ subroutine gmg_bcs(mgrid,lgrid,level)
 !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 #if defined(DNS_EXPLICIT) || defined(DNS_STS)
+
+#ifdef USE_MHD
+subroutine compute_ct_res(mgrid,lgrid)
+   type(mpigrid), intent(in) :: mgrid
+   type(locgrid), intent(inout) :: lgrid
+
+   integer :: i,j,k
+   integer :: lx1,ux1,lx2,ux2,lx3,ux3
+
+   real(kind=rp) :: tmp
+   real(kind=rp) :: r,x
+   real(kind=rp) :: sin_theta_m,sin_theta_p,sin_theta
+   real(kind=rp) :: inv_r_sin_theta
+   real(kind=rp) :: rmi,rpl,inv_dl
+   
+   r = rp0
+   x = rp0
+   sin_theta_m = rp0
+   sin_theta_p = rp0
+   sin_theta = rp0
+   inv_r_sin_theta = rp0
+   rmi = rp0
+   rpl = rp0
+   inv_dl = rp0
+
+   lx1 = mgrid%i1(1)
+   ux1 = mgrid%i2(1)
+   lx2 = mgrid%i1(2)
+   ux2 = mgrid%i2(2)
+   lx3 = mgrid%i1(3)
+   ux3 = mgrid%i2(3)
+
+   do k=lx3,ux3
+    do j=lx2,ux2+1
+     do i=lx1,ux1+1
+
+       lgrid%emfx3_cor(i,j,k) = & 
+       lgrid%Jeta_cor_x3(i,j,k)
+
+     end do
+    end do
+   end do
+
+#if sdims_make==3
+
+   do k=lx3,ux3+1
+    do j=lx2,ux2+1
+     do i=lx1,ux1
+
+       lgrid%emfx1_cor(i,j,k) = & 
+       lgrid%Jeta_cor_x1(i,j,k)
+
+     end do
+    end do
+   end do
+
+   do k=lx3,ux3+1
+    do j=lx2,ux2
+     do i=lx1,ux1+1
+
+       lgrid%emfx2_cor(i,j,k) = & 
+       lgrid%Jeta_cor_x2(i,j,k)
+
+     end do
+    end do
+   end do
+
+#endif
+    
+   do k=lx3,ux3
+    do j=lx2,ux2
+     do i=lx1,ux1+1
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+
+        tmp = &
+#if sdims_make==3
+        -(lgrid%emfx2_cor(i,j,k+1)-lgrid%emfx2_cor(i,j,k))/(lgrid%nodes(3,i,j,k+1)-lgrid%nodes(3,i,j,k)) + &
+#endif
+        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))/(lgrid%nodes(2,i,j+1,k)-lgrid%nodes(2,i,j,k))
+
+#elif defined(GEOMETRY_2D_POLAR)
+
+        tmp = &
+        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2
+
+        r = lgrid%r_x1(i,j,k)
+        tmp = tmp/r
+
+#elif defined(GEOMETRY_2D_CYLINDRICAL)
+
+#ifdef NONUNIFORM_RADIAL_NODES 
+        tmp = &
+        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))/(lgrid%nodes(2,i,j+1,k)-lgrid%nodes(2,i,j,k))
+#else
+        tmp = &
+        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2
+#endif
+
+#elif defined(GEOMETRY_2D_SPHERICAL) 
+
+        sin_theta_m = lgrid%sin_theta_cor(i,j,k)
+        sin_theta_p = lgrid%sin_theta_cor(i,j+1,k)
+
+        x = lgrid%coords_x1(1,i,j,k)
+
+        tmp = &
+        (sin_theta_p*lgrid%emfx3_cor(i,j+1,k)-sin_theta_m*lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2/x
+
+#elif defined(GEOMETRY_3D_SPHERICAL) 
+
+        sin_theta_m = lgrid%sin_theta_cor(i,j,k)
+        sin_theta_p = lgrid%sin_theta_cor(i,j+1,k)
+
+        inv_r_sin_theta = lgrid%inv_r_sin_theta_x1(i,j,k)
+
+        tmp = &
+        -(lgrid%emfx2_cor(i,j,k+1)-lgrid%emfx2_cor(i,j,k))*lgrid%inv_dx3*inv_r_sin_theta + &               
+        (sin_theta_p*lgrid%emfx3_cor(i,j+1,k)-sin_theta_m*lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2*inv_r_sin_theta
+
+#else
+
+        tmp = &
+#if sdims_make==3
+        -(lgrid%emfx2_cor(i,j,k+1)-lgrid%emfx2_cor(i,j,k))*lgrid%inv_dx3 + &
+#endif
+        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2
+
+#endif
+
+#ifdef USE_INTERNAL_BOUNDARIES
+        lgrid%Mbx1_jm1(i,j,k) = &
+        -tmp*lgrid%fac_x1(i,j,k)
+#else
+        lgrid%Mbx1_jm1(i,j,k) = &
+        -tmp
+#endif
+
+     end do
+    end do
+   end do
+     
+   do k=lx3,ux3
+    do j=lx2,ux2+1
+     do i=lx1,ux1
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+
+        tmp = &
+#if sdims_make==3
+        (lgrid%emfx1_cor(i,j,k+1)-lgrid%emfx1_cor(i,j,k))/(lgrid%nodes(3,i,j,k+1)-lgrid%nodes(3,i,j,k)) &
+#endif
+        -(lgrid%emfx3_cor(i+1,j,k)-lgrid%emfx3_cor(i,j,k))/(lgrid%nodes(1,i+1,j,k)-lgrid%nodes(1,i,j,k))
+
+#elif defined(GEOMETRY_2D_POLAR)
+
+#ifdef NONUNIFORM_RADIAL_NODES
+        rmi = lgrid%r_cor(i,j,k)
+        rpl = lgrid%r_cor(i+1,j,k)
+        inv_dl = rp1/(rpl-rmi)
+#else
+        inv_dl = lgrid%inv_dx1
+#endif
+
+        tmp = &
+        (lgrid%emfx3_cor(i,j,k)-lgrid%emfx3_cor(i+1,j,k))*inv_dl
+
+#elif defined(GEOMETRY_2D_CYLINDRICAL)
+
+        rmi = lgrid%nodes(1,i,j,k)
+        rpl = lgrid%nodes(1,i+1,j,k) 
+#ifdef NONUNIFORM_RADIAL_NODES
+        inv_dl = rp1/(rpl-rmi)
+#else
+        inv_dl = lgrid%inv_dx1
+#endif
+
+        tmp = &
+        (rmi*lgrid%emfx3_cor(i,j,k)-rpl*lgrid%emfx3_cor(i+1,j,k))*inv_dl/lgrid%coords_x2(1,i,j,k)
+
+#elif defined(GEOMETRY_2D_SPHERICAL)
+
+        rmi = lgrid%r_cor(i,j,k)
+        rpl = lgrid%r_cor(i+1,j,k)
+
+        r = lgrid%r_x2(i,j,k)
+
+#ifdef NONUNIFORM_RADIAL_NODES
+        inv_dl = rp1/(rpl-rmi)
+#else
+        inv_dl = lgrid%inv_dx1
+#endif
+
+        tmp = &
+        (rmi*lgrid%emfx3_cor(i,j,k)-rpl*lgrid%emfx3_cor(i+1,j,k))*inv_dl/r
+
+#elif defined(GEOMETRY_3D_SPHERICAL)
+
+        rmi = lgrid%r_cor(i,j,k)
+        rpl = lgrid%r_cor(i+1,j,k)
+
+        r = lgrid%r_x2(i,j,k)
+        sin_theta = lgrid%sin_theta_x2(i,j,k)
+        inv_r_sin_theta = rp1/(r*sin_theta)
+
+#ifdef NONUNIFORM_RADIAL_NODES
+        inv_dl = rp1/(rpl-rmi)
+#else
+        inv_dl = lgrid%inv_dx1
+#endif
+
+        tmp = &
+        (lgrid%emfx1_cor(i,j,k+1)-lgrid%emfx1_cor(i,j,k))*lgrid%inv_dx3*inv_r_sin_theta + &
+        (rmi*lgrid%emfx3_cor(i,j,k)-rpl*lgrid%emfx3_cor(i+1,j,k))*inv_dl/r
+
+#else
+
+        tmp = &
+#if sdims_make==3
+        (lgrid%emfx1_cor(i,j,k+1)-lgrid%emfx1_cor(i,j,k))*lgrid%inv_dx3 + &
+#endif
+        (lgrid%emfx3_cor(i,j,k)-lgrid%emfx3_cor(i+1,j,k))*lgrid%inv_dx1
+
+#endif
+
+#ifdef USE_INTERNAL_BOUNDARIES
+        lgrid%Mbx2_jm1(i,j,k) = &
+        -tmp*lgrid%fac_x2(i,j,k)
+#else
+        lgrid%Mbx2_jm1(i,j,k) = &
+        -tmp
+#endif
+
+     end do
+    end do
+   end do
+
+#if sdims_make==3
+     
+   do k=lx3,ux3+1
+    do j=lx2,ux2
+     do i=lx1,ux1
+
+#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
+
+        tmp = &
+        (lgrid%emfx2_cor(i+1,j,k)-lgrid%emfx2_cor(i,j,k))/(lgrid%nodes(1,i+1,j,k)-lgrid%nodes(1,i,j,k)) - &
+        (lgrid%emfx1_cor(i,j+1,k)-lgrid%emfx1_cor(i,j,k))/(lgrid%nodes(2,i,j+1,k)-lgrid%nodes(2,i,j,k))
+
+#elif defined(GEOMETRY_3D_SPHERICAL)
+
+        rmi = lgrid%r_cor(i,j,k)
+        rpl = lgrid%r_cor(i+1,j,k)
+
+        r = lgrid%r_x3(i,j,k)
+
+#ifdef NONUNIFORM_RADIAL_NODES
+        inv_dl = rp1/(rpl-rmi)
+#else
+        inv_dl = lgrid%inv_dx1
+#endif
+ 
+        tmp = &
+        (rpl*lgrid%emfx2_cor(i+1,j,k)-rmi*lgrid%emfx2_cor(i,j,k))*inv_dl/r - &
+        (lgrid%emfx1_cor(i,j+1,k)-lgrid%emfx1_cor(i,j,k))*lgrid%inv_dx2/r
+       
+#else
+
+        tmp = &
+        (lgrid%emfx2_cor(i+1,j,k)-lgrid%emfx2_cor(i,j,k))*lgrid%inv_dx1 - &
+        (lgrid%emfx1_cor(i,j+1,k)-lgrid%emfx1_cor(i,j,k))*lgrid%inv_dx2
+
+#endif
+
+#ifdef USE_INTERNAL_BOUNDARIES
+        lgrid%Mbx3_jm1(i,j,k) = &
+        -tmp*lgrid%fac_x3(i,j,k)
+#else
+        lgrid%Mbx3_jm1(i,j,k) = &
+        -tmp
+#endif
+
+     end do
+    end do
+   end do
+
+#endif
+
+ end subroutine compute_ct_res
+#endif
+
 subroutine visres_rhs(mgrid,lgrid)
   type(mpigrid), intent(in) :: mgrid
   type(locgrid), intent(inout) :: lgrid
@@ -21625,6 +21948,297 @@ subroutine visres_rhs(mgrid,lgrid)
 end subroutine visres_rhs
 #endif
 
+#ifdef USE_MHD
+subroutine bcs_staggered_bfield(mgrid,lgrid)
+ type(mpigrid), intent(in) :: mgrid
+ type(locgrid), intent(inout) :: lgrid
+ 
+ integer :: lx1,lx2,lx3,ux1,ux2,ux3 
+ integer i,j,k,ierr
+
+ ierr = 0
+
+ lx1 = mgrid%i1(1)
+ ux1 = mgrid%i2(1)
+ lx2 = mgrid%i1(2)
+ ux2 = mgrid%i2(2)
+ lx3 = mgrid%i1(3)
+ ux3 = mgrid%i2(3)
+
+ i = 0
+ j = 0
+ k = 0
+
+#ifdef ENFORCE_BARRIERS
+  call mpi_barrier(mgrid%comm_cart,ierr) 
+#endif
+ call communicate_array(mgrid,lx1,ux1+1,lx2,ux2,lx3,ux3,1,lgrid%b_x1,.false.)
+ call communicate_array(mgrid,lx1,ux1,lx2,ux2+1,lx3,ux3,1,lgrid%b_x2,.false.)
+#if sdims_make==3
+ call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3+1,1,lgrid%b_x3,.false.)
+#endif
+
+#ifndef USE_INTERNAL_BOUNDARIES
+
+#if defined(X1L_REFLECTIVE) || defined(X1L_OUTFLOW) || defined(X1L_DIODE)
+
+ if(mgrid%coords_dd(1)==0) then
+ 
+  do k=lx3,ux3
+   do j=lx2,ux2+1
+    
+#ifdef X1L_BFIELD_PMC
+    lgrid%b_x2(lx1-1,j,k) = -lgrid%b_x2(lx1,j,k)
+#else
+    lgrid%b_x2(lx1-1,j,k) = lgrid%b_x2(lx1,j,k)
+#endif
+
+   end do
+  end do
+ 
+#if sdims_make==3
+  do k=lx3,ux3+1
+   do j=lx2,ux2
+    
+#ifdef X1L_BFIELD_PMC
+    lgrid%b_x3(lx1-1,j,k) = -lgrid%b_x3(lx1,j,k)
+#else
+    lgrid%b_x3(lx1-1,j,k) = lgrid%b_x3(lx1,j,k)
+#endif
+
+   end do
+  end do
+#endif
+
+ end if
+
+#endif
+
+#if defined(X1U_REFLECTIVE) || defined(X1U_OUTFLOW) || defined(X1U_DIODE)
+
+ if(mgrid%coords_dd(1)==mgrid%bricks(1)-1) then
+ 
+  do k=lx3,ux3
+   do j=lx2,ux2+1
+    
+#ifdef X1U_BFIELD_PMC
+    lgrid%b_x2(ux1+1,j,k) = -lgrid%b_x2(ux1,j,k)
+#else
+    lgrid%b_x2(ux1+1,j,k) = lgrid%b_x2(ux1,j,k)
+#endif
+
+   end do
+  end do
+ 
+#if sdims_make==3
+  do k=lx3,ux3+1
+   do j=lx2,ux2
+    
+#ifdef X1U_BFIELD_PMC
+    lgrid%b_x3(ux1+1,j,k) = -lgrid%b_x3(ux1,j,k)
+#else
+    lgrid%b_x3(ux1+1,j,k) = lgrid%b_x3(ux1,j,k)
+#endif
+
+   end do
+  end do
+#endif
+
+ end if
+
+#endif
+
+#if defined(X2L_REFLECTIVE) || defined(X2L_OUTFLOW) || defined(X2L_DIODE)
+
+ if(mgrid%coords_dd(2)==0) then
+
+  do k=lx3,ux3
+   do i=lx1,ux1+1
+
+#ifdef X2L_BFIELD_PMC
+    lgrid%b_x1(i,lx2-1,k) = -lgrid%b_x1(i,lx2,k)
+#else
+    lgrid%b_x1(i,lx2-1,k) = lgrid%b_x1(i,lx2,k)
+#endif
+
+   end do
+  end do
+
+#if sdims_make==3
+  do k=lx3,ux3+1
+   do i=lx1,ux1
+
+#ifdef X2L_BFIELD_PMC
+    lgrid%b_x3(i,lx2-1,k) = -lgrid%b_x3(i,lx2,k)
+#else
+    lgrid%b_x3(i,lx2-1,k) = lgrid%b_x3(i,lx2,k)
+#endif
+
+   end do
+  end do
+#endif
+
+ end if
+
+#endif
+
+#if defined(X2U_REFLECTIVE) || defined(X2U_OUTFLOW) || defined(X2U_DIODE)
+
+ if(mgrid%coords_dd(2)==mgrid%bricks(2)-1) then
+
+  do k=lx3,ux3
+   do i=lx1,ux1+1
+
+#ifdef X2U_BFIELD_PMC
+    lgrid%b_x1(i,ux2+1,k) = -lgrid%b_x1(i,ux2,k)
+#else
+    lgrid%b_x1(i,ux2+1,k) = lgrid%b_x1(i,ux2,k)
+#endif
+
+   end do
+  end do
+
+#if sdims_make==3
+  do k=lx3,ux3+1
+   do i=lx1,ux1
+
+#ifdef X2U_BFIELD_PMC
+    lgrid%b_x3(i,ux2+1,k) = -lgrid%b_x3(i,ux2,k)
+#else
+    lgrid%b_x3(i,ux2+1,k) = lgrid%b_x3(i,ux2,k)
+#endif
+
+   end do
+  end do
+#endif
+
+ end if
+
+#endif
+
+#if sdims_make==3
+
+#if defined(X3L_REFLECTIVE) || defined(X3L_OUTFLOW) || defined(X3L_DIODE)
+
+ if(mgrid%coords_dd(3)==0) then
+
+  do j=lx2,ux2
+   do i=lx1,ux1+1
+
+#ifdef X3L_BFIELD_PMC
+    lgrid%b_x1(i,j,lx3-1) = -lgrid%b_x1(i,j,lx3)
+#else
+    lgrid%b_x1(i,j,lx3-1) = lgrid%b_x1(i,j,lx3)
+#endif
+
+   end do
+  end do
+
+  do j=lx2,ux2+1
+   do i=lx1,ux1
+
+#ifdef X3L_BFIELD_PMC
+    lgrid%b_x2(i,j,lx3-1) = -lgrid%b_x2(i,j,lx3)
+#else
+    lgrid%b_x2(i,j,lx3-1) = lgrid%b_x2(i,j,lx3)
+#endif
+
+   end do
+  end do
+
+ end if
+
+#endif
+
+#if defined(X3U_REFLECTIVE) || defined(X3U_OUTFLOW) || defined(X3U_DIODE)
+
+ if(mgrid%coords_dd(3)==mgrid%bricks(3)-1) then
+
+  do j=lx2,ux2
+   do i=lx1,ux1+1
+
+#ifdef X3U_BFIELD_PMC
+    lgrid%b_x1(i,j,ux3+1) = -lgrid%b_x1(i,j,ux3)
+#else
+    lgrid%b_x1(i,j,ux3+1) = lgrid%b_x1(i,j,ux3)
+#endif
+
+   end do
+  end do
+
+  do j=lx2,ux2+1
+   do i=lx1,ux1
+
+#ifdef X3U_BFIELD_PMC
+    lgrid%b_x2(i,j,ux3+1) = -lgrid%b_x2(i,j,ux3)
+#else
+    lgrid%b_x2(i,j,ux3+1) = lgrid%b_x2(i,j,ux3)
+#endif
+
+   end do
+  end do
+
+ end if
+
+#endif
+
+#endif
+
+#else
+
+#if sdims_make==3
+ do k=lx3-1,ux3+1
+#else
+ do k=lx3,ux3
+#endif
+  do j=lx2-1,ux2+1
+   do i=lx1,ux1+1
+   
+     if((lgrid%is_solid(i-1,j,k)==1) .and. (lgrid%is_solid(i,j,k)==1)) then
+      lgrid%b_x1(i,j,k) = rph*(lgrid%b_cc(1,i-1,j,k)+lgrid%b_cc(1,i,j,k))
+     end if
+   
+   end do
+  end do
+ end do
+
+#if sdims_make==3
+ do k=lx3-1,ux3+1
+#else
+ do k=lx3,ux3
+#endif
+  do j=lx2,ux2+1
+   do i=lx1-1,ux1+1
+   
+     if((lgrid%is_solid(i,j-1,k)==1) .and. (lgrid%is_solid(i,j,k)==1)) then
+      lgrid%b_x2(i,j,k) = rph*(lgrid%b_cc(2,i,j-1,k)+lgrid%b_cc(2,i,j,k))
+     end if
+   
+   end do
+  end do
+ end do
+
+#if sdims_make==3
+
+ do k=lx3,ux3+1
+  do j=lx2-1,ux2+1
+   do i=lx1-1,ux1+1
+   
+     if((lgrid%is_solid(i,j,k-1)==1) .and. (lgrid%is_solid(i,j,k)==1)) then
+      lgrid%b_x3(i,j,k) = rph*(lgrid%b_cc(3,i,j,k-1)+lgrid%b_cc(3,i,j,k))
+     end if
+   
+   end do
+  end do
+ end do
+
+#endif
+
+#endif
+
+end subroutine bcs_staggered_bfield
+#endif
+
 #ifdef DNS_STS
 
 subroutine bcs_dns(mgrid,lgrid)
@@ -21671,11 +22285,6 @@ subroutine bcs_dns(mgrid,lgrid)
   call communicate_ndarray(mgrid,sdims+1,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_rho:i_vx3,:,:,:),.true.)
 #ifdef USE_MHD
   call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%b_cc,.true.)
-  call communicate_array(mgrid,lx1,ux1+1,lx2,ux2,lx3,ux3,1,lgrid%b_x1,.false.)
-  call communicate_array(mgrid,lx1,ux1,lx2,ux2+1,lx3,ux3,1,lgrid%b_x2,.false.)
-#if sdims_make==3
-  call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3+1,1,lgrid%b_x3,.false.)
-#endif
 #endif
  
 #ifndef USE_INTERNAL_BOUNDARIES
@@ -22340,298 +22949,11 @@ subroutine bcs_dns(mgrid,lgrid)
 
 #endif
 
-end subroutine bcs_dns
-
 #ifdef USE_MHD
-subroutine compute_ct_res(mgrid,lgrid)
-   type(mpigrid), intent(inout) :: mgrid
-   type(locgrid), intent(inout) :: lgrid
-
-   integer :: i,j,k
-   integer :: lx1,ux1,lx2,ux2,lx3,ux3
-
-   real(kind=rp) :: tmp
-   real(kind=rp) :: r,x
-   real(kind=rp) :: sin_theta_m,sin_theta_p,sin_theta
-   real(kind=rp) :: inv_r_sin_theta
-   real(kind=rp) :: rmi,rpl,inv_dl
-   
-   r = rp0
-   x = rp0
-   sin_theta_m = rp0
-   sin_theta_p = rp0
-   sin_theta = rp0
-   inv_r_sin_theta = rp0
-   rmi = rp0
-   rpl = rp0
-   inv_dl = rp0
-
-   lx1 = mgrid%i1(1)
-   ux1 = mgrid%i2(1)
-   lx2 = mgrid%i1(2)
-   ux2 = mgrid%i2(2)
-   lx3 = mgrid%i1(3)
-   ux3 = mgrid%i2(3)
-
-   do k=lx3,ux3
-    do j=lx2,ux2+1
-     do i=lx1,ux1+1
-
-       lgrid%emfx3_cor(i,j,k) = & 
-       lgrid%Jeta_cor_x3(i,j,k)
-
-     end do
-    end do
-   end do
-
-#if sdims_make==3
-
-   do k=lx3,ux3+1
-    do j=lx2,ux2+1
-     do i=lx1,ux1
-
-       lgrid%emfx1_cor(i,j,k) = & 
-       lgrid%Jeta_cor_x1(i,j,k)
-
-     end do
-    end do
-   end do
-
-   do k=lx3,ux3+1
-    do j=lx2,ux2
-     do i=lx1,ux1+1
-
-       lgrid%emfx2_cor(i,j,k) = & 
-       lgrid%Jeta_cor_x2(i,j,k)
-
-     end do
-    end do
-   end do
-
-#endif
-    
-   do k=lx3,ux3
-    do j=lx2,ux2
-     do i=lx1,ux1+1
-
-#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
-
-        tmp = &
-#if sdims_make==3
-        -(lgrid%emfx2_cor(i,j,k+1)-lgrid%emfx2_cor(i,j,k))/(lgrid%nodes(3,i,j,k+1)-lgrid%nodes(3,i,j,k)) + &
-#endif
-        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))/(lgrid%nodes(2,i,j+1,k)-lgrid%nodes(2,i,j,k))
-
-#elif defined(GEOMETRY_2D_POLAR)
-
-        tmp = &
-        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2
-
-        r = lgrid%r_x1(i,j,k)
-        tmp = tmp/r
-
-#elif defined(GEOMETRY_2D_CYLINDRICAL)
-
-#ifdef NONUNIFORM_RADIAL_NODES 
-        tmp = &
-        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))/(lgrid%nodes(2,i,j+1,k)-lgrid%nodes(2,i,j,k))
-#else
-        tmp = &
-        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2
+  call bcs_staggered_bfield(mgrid,lgrid)
 #endif
 
-#elif defined(GEOMETRY_2D_SPHERICAL) 
-
-        sin_theta_m = lgrid%sin_theta_cor(i,j,k)
-        sin_theta_p = lgrid%sin_theta_cor(i,j+1,k)
-
-        x = lgrid%coords_x1(1,i,j,k)
-
-        tmp = &
-        (sin_theta_p*lgrid%emfx3_cor(i,j+1,k)-sin_theta_m*lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2/x
-
-#elif defined(GEOMETRY_3D_SPHERICAL) 
-
-        sin_theta_m = lgrid%sin_theta_cor(i,j,k)
-        sin_theta_p = lgrid%sin_theta_cor(i,j+1,k)
-
-        inv_r_sin_theta = lgrid%inv_r_sin_theta_x1(i,j,k)
-
-        tmp = &
-        -(lgrid%emfx2_cor(i,j,k+1)-lgrid%emfx2_cor(i,j,k))*lgrid%inv_dx3*inv_r_sin_theta + &               
-        (sin_theta_p*lgrid%emfx3_cor(i,j+1,k)-sin_theta_m*lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2*inv_r_sin_theta
-
-#else
-
-        tmp = &
-#if sdims_make==3
-        -(lgrid%emfx2_cor(i,j,k+1)-lgrid%emfx2_cor(i,j,k))*lgrid%inv_dx3 + &
-#endif
-        (lgrid%emfx3_cor(i,j+1,k)-lgrid%emfx3_cor(i,j,k))*lgrid%inv_dx2
-
-#endif
-
-#ifdef USE_INTERNAL_BOUNDARIES
-        lgrid%Mbx1_jm1(i,j,k) = &
-        -tmp*lgrid%fac_x1(i,j,k)
-#else
-        lgrid%Mbx1_jm1(i,j,k) = &
-        -tmp
-#endif
-
-     end do
-    end do
-   end do
-     
-   do k=lx3,ux3
-    do j=lx2,ux2+1
-     do i=lx1,ux1
-
-#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
-
-        tmp = &
-#if sdims_make==3
-        (lgrid%emfx1_cor(i,j,k+1)-lgrid%emfx1_cor(i,j,k))/(lgrid%nodes(3,i,j,k+1)-lgrid%nodes(3,i,j,k)) &
-#endif
-        -(lgrid%emfx3_cor(i+1,j,k)-lgrid%emfx3_cor(i,j,k))/(lgrid%nodes(1,i+1,j,k)-lgrid%nodes(1,i,j,k))
-
-#elif defined(GEOMETRY_2D_POLAR)
-
-#ifdef NONUNIFORM_RADIAL_NODES
-        rmi = lgrid%r_cor(i,j,k)
-        rpl = lgrid%r_cor(i+1,j,k)
-        inv_dl = rp1/(rpl-rmi)
-#else
-        inv_dl = lgrid%inv_dx1
-#endif
-
-        tmp = &
-        (lgrid%emfx3_cor(i,j,k)-lgrid%emfx3_cor(i+1,j,k))*inv_dl
-
-#elif defined(GEOMETRY_2D_CYLINDRICAL)
-
-        rmi = lgrid%nodes(1,i,j,k)
-        rpl = lgrid%nodes(1,i+1,j,k) 
-#ifdef NONUNIFORM_RADIAL_NODES
-        inv_dl = rp1/(rpl-rmi)
-#else
-        inv_dl = lgrid%inv_dx1
-#endif
-
-        tmp = &
-        (rmi*lgrid%emfx3_cor(i,j,k)-rpl*lgrid%emfx3_cor(i+1,j,k))*inv_dl/lgrid%coords_x2(1,i,j,k)
-
-#elif defined(GEOMETRY_2D_SPHERICAL)
-
-        rmi = lgrid%r_cor(i,j,k)
-        rpl = lgrid%r_cor(i+1,j,k)
-
-        r = lgrid%r_x2(i,j,k)
-
-#ifdef NONUNIFORM_RADIAL_NODES
-        inv_dl = rp1/(rpl-rmi)
-#else
-        inv_dl = lgrid%inv_dx1
-#endif
-
-        tmp = &
-        (rmi*lgrid%emfx3_cor(i,j,k)-rpl*lgrid%emfx3_cor(i+1,j,k))*inv_dl/r
-
-#elif defined(GEOMETRY_3D_SPHERICAL)
-
-        rmi = lgrid%r_cor(i,j,k)
-        rpl = lgrid%r_cor(i+1,j,k)
-
-        r = lgrid%r_x2(i,j,k)
-        sin_theta = lgrid%sin_theta_x2(i,j,k)
-        inv_r_sin_theta = rp1/(r*sin_theta)
-
-#ifdef NONUNIFORM_RADIAL_NODES
-        inv_dl = rp1/(rpl-rmi)
-#else
-        inv_dl = lgrid%inv_dx1
-#endif
-
-        tmp = &
-        (lgrid%emfx1_cor(i,j,k+1)-lgrid%emfx1_cor(i,j,k))*lgrid%inv_dx3*inv_r_sin_theta + &
-        (rmi*lgrid%emfx3_cor(i,j,k)-rpl*lgrid%emfx3_cor(i+1,j,k))*inv_dl/r
-
-#else
-
-        tmp = &
-#if sdims_make==3
-        (lgrid%emfx1_cor(i,j,k+1)-lgrid%emfx1_cor(i,j,k))*lgrid%inv_dx3 + &
-#endif
-        (lgrid%emfx3_cor(i,j,k)-lgrid%emfx3_cor(i+1,j,k))*lgrid%inv_dx1
-
-#endif
-
-#ifdef USE_INTERNAL_BOUNDARIES
-        lgrid%Mbx2_jm1(i,j,k) = &
-        -tmp*lgrid%fac_x2(i,j,k)
-#else
-        lgrid%Mbx2_jm1(i,j,k) = &
-        -tmp
-#endif
-
-     end do
-    end do
-   end do
-
-#if sdims_make==3
-     
-   do k=lx3,ux3+1
-    do j=lx2,ux2
-     do i=lx1,ux1
-
-#ifdef GEOMETRY_CARTESIAN_NONUNIFORM
-
-        tmp = &
-        (lgrid%emfx2_cor(i+1,j,k)-lgrid%emfx2_cor(i,j,k))/(lgrid%nodes(1,i+1,j,k)-lgrid%nodes(1,i,j,k)) - &
-        (lgrid%emfx1_cor(i,j+1,k)-lgrid%emfx1_cor(i,j,k))/(lgrid%nodes(2,i,j+1,k)-lgrid%nodes(2,i,j,k))
-
-#elif defined(GEOMETRY_3D_SPHERICAL)
-
-        rmi = lgrid%r_cor(i,j,k)
-        rpl = lgrid%r_cor(i+1,j,k)
-
-        r = lgrid%r_x3(i,j,k)
-
-#ifdef NONUNIFORM_RADIAL_NODES
-        inv_dl = rp1/(rpl-rmi)
-#else
-        inv_dl = lgrid%inv_dx1
-#endif
- 
-        tmp = &
-        (rpl*lgrid%emfx2_cor(i+1,j,k)-rmi*lgrid%emfx2_cor(i,j,k))*inv_dl/r - &
-        (lgrid%emfx1_cor(i,j+1,k)-lgrid%emfx1_cor(i,j,k))*lgrid%inv_dx2/r
-       
-#else
-
-        tmp = &
-        (lgrid%emfx2_cor(i+1,j,k)-lgrid%emfx2_cor(i,j,k))*lgrid%inv_dx1 - &
-        (lgrid%emfx1_cor(i,j+1,k)-lgrid%emfx1_cor(i,j,k))*lgrid%inv_dx2
-
-#endif
-
-#ifdef USE_INTERNAL_BOUNDARIES
-        lgrid%Mbx3_jm1(i,j,k) = &
-        -tmp*lgrid%fac_x3(i,j,k)
-#else
-        lgrid%Mbx3_jm1(i,j,k) = &
-        -tmp
-#endif
-
-     end do
-    end do
-   end do
-
-#endif
-
- end subroutine compute_ct_res
-
-#endif
+end subroutine bcs_dns
 
  subroutine dns_step(mgrid,lgrid,strang)
   type(mpigrid), intent(inout) :: mgrid
