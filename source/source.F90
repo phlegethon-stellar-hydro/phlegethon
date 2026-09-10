@@ -2663,7 +2663,7 @@ contains
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
  ! COMMUNICATION SUBROUTINES
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
- 
+
  subroutine communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,gst,vec,communicate_corners)
     type(mpigrid), intent(in) :: mgrid
     integer, intent(in) :: lx1,ux1,lx2,ux2,lx3,ux3,gst
@@ -2680,15 +2680,49 @@ contains
 
     integer, dimension(3) :: sizes,subsizes,rstarts,sstarts
     integer :: ghost,is,prev_mpi,next_mpi,prev,next,ierror,itmp
-    integer :: edge,i,j,k,iv
+    integer :: edge,i,j,k,iv,tag,lb1,lb2,lb3
     integer, dimension(3) :: i1,i2,ri1,ri2,si1,si2
     integer :: sendtype,recvtype
+
+    integer :: nreq
+    integer, dimension(4) :: reqs
+
+    integer, parameter :: cache_max = 64
+
+    type :: cache_entry_t
+       integer :: lx1,ux1,lx2,ux2,lx3,ux3,gst
+       logical :: corners
+       logical :: has_type(2,3) = .false.
+       integer :: sendtype(2,3)
+       integer :: recvtype(2,3)
+    end type cache_entry_t
+
+    type(cache_entry_t), save :: cache(cache_max)
+    integer, save :: ncache = 0
+    integer :: icache
 
     if(communicate_corners) then
       ghost = gst
     else
       ghost = 0
     endif
+
+    i1(1) = lx1
+    i1(2) = lx2
+    i1(3) = lx3
+
+    i2(1) = ux1
+    i2(2) = ux2
+    i2(3) = ux3
+
+    lb1 = lbound(vec,1)
+    lb2 = lbound(vec,2)
+    lb3 = lbound(vec,3)
+
+    sizes(:) = ubound(vec)-lbound(vec)+1
+
+    icache = find_cache_entry()
+    if (icache==0) icache = new_cache_entry()
 
     do is=1,sdims
 
@@ -2702,14 +2736,6 @@ contains
        next = MPI_PROC_NULL
      if ((.not.mgrid%periodic(is)).and.(mgrid%coords_dd(is)==0)) &
        prev = MPI_PROC_NULL
-
-     i1(1) = lx1
-     i1(2) = lx2
-     i1(3) = lx3
-
-     i2(1) = ux1
-     i2(2) = ux2
-     i2(3) = ux3
 
      do iv=1,3
       si1(iv) = i1(iv)
@@ -2732,7 +2758,11 @@ contains
      ri1(is) = i1(is)-gst
      ri2(is) = i1(is)-1
 
+     nreq = 0
+
      do edge=1,2
+
+      tag = (is-1)*2 + edge
 
       if ((mgrid%periodic(is)).and.(mgrid%bricks(is)==1)) then
 
@@ -2751,38 +2781,47 @@ contains
 
       else
 
-       sizes(:) = ubound(vec)-lbound(vec)+1
+       if (.not. cache(icache)%has_type(edge,is)) then
 
-       do iv=1,3
-        subsizes(iv) = sizes(iv)
-       end do
+        do iv=1,3
+         subsizes(iv) = sizes(iv)
+        end do
 
-       subsizes(1:sdims) = subsizes(1:sdims)-2*(gst-ghost)
-       subsizes(is) = gst
+        subsizes(1:sdims) = subsizes(1:sdims)-2*(gst-ghost)
+        subsizes(is) = gst
 
-       sstarts(1) = si1(1)-lbound(vec,1)
-       sstarts(2) = si1(2)-lbound(vec,2)
-       sstarts(3) = si1(3)-lbound(vec,3)
+        sstarts(1) = si1(1)-lb1
+        sstarts(2) = si1(2)-lb2
+        sstarts(3) = si1(3)-lb3
 
-       rstarts(1) = ri1(1)-lbound(vec,1)
-       rstarts(2) = ri1(2)-lbound(vec,2)
-       rstarts(3) = ri1(3)-lbound(vec,3)
+        rstarts(1) = ri1(1)-lb1
+        rstarts(2) = ri1(2)-lb2
+        rstarts(3) = ri1(3)-lb3
 
-       call mpi_type_create_subarray(3,sizes,subsizes,sstarts,&
-       MPI_ORDER_FORTRAN,MPI_RP,sendtype,ierror)
-       call mpi_type_create_subarray(3,sizes,subsizes,rstarts,&
-       MPI_ORDER_FORTRAN,MPI_RP,recvtype,ierror)
+        call mpi_type_create_subarray(3,sizes,subsizes,sstarts,&
+        MPI_ORDER_FORTRAN,MPI_RP,sendtype,ierror)
+        call mpi_type_create_subarray(3,sizes,subsizes,rstarts,&
+        MPI_ORDER_FORTRAN,MPI_RP,recvtype,ierror)
 
-       call mpi_type_commit(sendtype,ierror)
-       call mpi_type_commit(recvtype,ierror)
+        call mpi_type_commit(sendtype,ierror)
+        call mpi_type_commit(recvtype,ierror)
 
-       call mpi_sendrecv( &
-       vec,1,sendtype,next,0, &
-       vec,1,recvtype,prev,0, &
-       mgrid%comm_cart,MPI_STATUS_IGNORE,ierror)
+        cache(icache)%sendtype(edge,is) = sendtype
+        cache(icache)%recvtype(edge,is) = recvtype
+        cache(icache)%has_type(edge,is) = .true.
 
-       call mpi_type_free(sendtype,ierror)
-       call mpi_type_free(recvtype,ierror)
+       else
+
+        sendtype = cache(icache)%sendtype(edge,is)
+        recvtype = cache(icache)%recvtype(edge,is)
+
+       end if
+
+       nreq = nreq + 1
+       call mpi_isend(vec,1,sendtype,next,tag,mgrid%comm_cart,reqs(nreq),ierror)
+
+       nreq = nreq + 1
+       call mpi_irecv(vec,1,recvtype,prev,tag,mgrid%comm_cart,reqs(nreq),ierror)
 
       endif
 
@@ -2798,7 +2837,42 @@ contains
 
      end do
 
+     if(nreq>0) then
+       call mpi_waitall(nreq,reqs(1:nreq),MPI_STATUSES_IGNORE,ierror)
+     end if
+
     end do
+
+  contains
+
+    integer function find_cache_entry() result(idx)
+      integer :: ii
+      idx = 0
+      do ii=1,ncache
+       if (cache(ii)%lx1==lx1 .and. cache(ii)%ux1==ux1 .and. &
+           cache(ii)%lx2==lx2 .and. cache(ii)%ux2==ux2 .and. &
+           cache(ii)%lx3==lx3 .and. cache(ii)%ux3==ux3 .and. &
+           cache(ii)%gst==gst .and. (cache(ii)%corners.eqv.communicate_corners)) then
+        idx = ii
+        return
+       end if
+      end do
+    end function find_cache_entry
+
+    integer function new_cache_entry() result(idx)
+      if (ncache>=cache_max) then
+        write(*,*) 'communicate_array: datatype cache exhausted (cache_max=',cache_max,')'
+        call mpi_abort(mgrid%comm_cart,1,ierror)
+      end if
+      ncache = ncache + 1
+      idx = ncache
+      cache(idx)%lx1 = lx1; cache(idx)%ux1 = ux1
+      cache(idx)%lx2 = lx2; cache(idx)%ux2 = ux2
+      cache(idx)%lx3 = lx3; cache(idx)%ux3 = ux3
+      cache(idx)%gst = gst
+      cache(idx)%corners = communicate_corners
+      cache(idx)%has_type = .false.
+    end function new_cache_entry
 
  end subroutine communicate_array
 
@@ -2818,15 +2892,49 @@ contains
 
     integer, dimension(4) :: sizes,subsizes,rstarts,sstarts
     integer :: ghost,is,prev_mpi,next_mpi,prev,next,ierror,itmp
-    integer :: edge,iv,i,j,k
+    integer :: edge,iv,i,j,k,tag,lb1,lb2,lb3
     integer, dimension(3) :: i1,i2,ri1,ri2,si1,si2
     integer :: sendtype,recvtype
+
+    integer :: nreq
+    integer, dimension(4) :: reqs
+
+    integer, parameter :: cache_max = 64
+
+    type :: cache_entry_t
+       integer :: nv,lx1,ux1,lx2,ux2,lx3,ux3,gst
+       logical :: corners
+       logical :: has_type(2,3) = .false.
+       integer :: sendtype(2,3)
+       integer :: recvtype(2,3)
+    end type cache_entry_t
+
+    type(cache_entry_t), save :: cache(cache_max)
+    integer, save :: ncache = 0
+    integer :: icache
 
     if(communicate_corners) then
       ghost = gst
     else
       ghost = 0
     endif
+
+    i1(1) = lx1
+    i1(2) = lx2
+    i1(3) = lx3
+
+    i2(1) = ux1
+    i2(2) = ux2
+    i2(3) = ux3
+
+    lb1 = lbound(vec,2)
+    lb2 = lbound(vec,3)
+    lb3 = lbound(vec,4)
+
+    sizes(:) = ubound(vec)-lbound(vec)+1
+
+    icache = find_cache_entry()
+    if (icache==0) icache = new_cache_entry()
 
     do is=1,sdims
 
@@ -2840,14 +2948,6 @@ contains
        next = MPI_PROC_NULL
      if ((.not.mgrid%periodic(is)).and.(mgrid%coords_dd(is)==0)) &
        prev = MPI_PROC_NULL
-
-     i1(1) = lx1
-     i1(2) = lx2
-     i1(3) = lx3
-
-     i2(1) = ux1
-     i2(2) = ux2
-     i2(3) = ux3
 
      do iv=1,3
       si1(iv) = i1(iv)
@@ -2870,7 +2970,11 @@ contains
      ri1(is) = i1(is)-gst
      ri2(is) = i1(is)-1
 
+     nreq = 0
+
      do edge=1,2
+
+      tag = (is-1)*2 + edge
 
       if ((mgrid%periodic(is)).and.(mgrid%bricks(is)==1)) then
 
@@ -2891,40 +2995,49 @@ contains
 
       else
 
-       sizes(:) = ubound(vec)-lbound(vec)+1
+       if (.not. cache(icache)%has_type(edge,is)) then
 
-       do iv=1,4
-        subsizes(iv) = sizes(iv)
-       end do
+        do iv=1,4
+         subsizes(iv) = sizes(iv)
+        end do
 
-       subsizes(2:sdims+1) = subsizes(2:sdims+1)-2*(gst-ghost)
-       subsizes(is+1) = gst
+        subsizes(2:sdims+1) = subsizes(2:sdims+1)-2*(gst-ghost)
+        subsizes(is+1) = gst
 
-       sstarts(1) = 0
-       sstarts(2) = si1(1)-lbound(vec,2)
-       sstarts(3) = si1(2)-lbound(vec,3)
-       sstarts(4) = si1(3)-lbound(vec,4)
+        sstarts(1) = 0
+        sstarts(2) = si1(1)-lb1
+        sstarts(3) = si1(2)-lb2
+        sstarts(4) = si1(3)-lb3
 
-       rstarts(1) = 0
-       rstarts(2) = ri1(1)-lbound(vec,2)
-       rstarts(3) = ri1(2)-lbound(vec,3)
-       rstarts(4) = ri1(3)-lbound(vec,4)
+        rstarts(1) = 0
+        rstarts(2) = ri1(1)-lb1
+        rstarts(3) = ri1(2)-lb2
+        rstarts(4) = ri1(3)-lb3
 
-       call mpi_type_create_subarray(4,sizes,subsizes,sstarts,&
-       MPI_ORDER_FORTRAN,MPI_RP,sendtype,ierror)
-       call mpi_type_create_subarray(4,sizes,subsizes,rstarts,&
-       MPI_ORDER_FORTRAN,MPI_RP,recvtype,ierror)
+        call mpi_type_create_subarray(4,sizes,subsizes,sstarts,&
+        MPI_ORDER_FORTRAN,MPI_RP,sendtype,ierror)
+        call mpi_type_create_subarray(4,sizes,subsizes,rstarts,&
+        MPI_ORDER_FORTRAN,MPI_RP,recvtype,ierror)
 
-       call mpi_type_commit(sendtype,ierror)
-       call mpi_type_commit(recvtype,ierror)
+        call mpi_type_commit(sendtype,ierror)
+        call mpi_type_commit(recvtype,ierror)
 
-       call mpi_sendrecv( &
-       vec,1,sendtype,next,0, &
-       vec,1,recvtype,prev,0, &
-       mgrid%comm_cart,MPI_STATUS_IGNORE,ierror)
+        cache(icache)%sendtype(edge,is) = sendtype
+        cache(icache)%recvtype(edge,is) = recvtype
+        cache(icache)%has_type(edge,is) = .true.
 
-       call mpi_type_free(sendtype,ierror)
-       call mpi_type_free(recvtype,ierror)
+       else
+
+        sendtype = cache(icache)%sendtype(edge,is)
+        recvtype = cache(icache)%recvtype(edge,is)
+
+       end if
+
+       nreq = nreq + 1
+       call mpi_isend(vec,1,sendtype,next,tag,mgrid%comm_cart,reqs(nreq),ierror)
+
+       nreq = nreq + 1
+       call mpi_irecv(vec,1,recvtype,prev,tag,mgrid%comm_cart,reqs(nreq),ierror)
 
       endif
 
@@ -2940,10 +3053,46 @@ contains
 
      end do
 
+     if(nreq>0) then
+       call mpi_waitall(nreq,reqs(1:nreq),MPI_STATUSES_IGNORE,ierror)
+     end if
+
     end do
 
+  contains
+
+    integer function find_cache_entry() result(idx)
+      integer :: ii
+      idx = 0
+      do ii=1,ncache
+       if (cache(ii)%nv==nv .and. cache(ii)%lx1==lx1 .and. cache(ii)%ux1==ux1 .and. &
+           cache(ii)%lx2==lx2 .and. cache(ii)%ux2==ux2 .and. &
+           cache(ii)%lx3==lx3 .and. cache(ii)%ux3==ux3 .and. &
+           cache(ii)%gst==gst .and. (cache(ii)%corners.eqv.communicate_corners)) then
+        idx = ii
+        return
+       end if
+      end do
+    end function find_cache_entry
+
+    integer function new_cache_entry() result(idx)
+      if (ncache>=cache_max) then
+        write(*,*) 'communicate_ndarray: datatype cache exhausted (cache_max=',cache_max,')'
+        call mpi_abort(mgrid%comm_cart,1,ierror)
+      end if
+      ncache = ncache + 1
+      idx = ncache
+      cache(idx)%nv = nv
+      cache(idx)%lx1 = lx1; cache(idx)%ux1 = ux1
+      cache(idx)%lx2 = lx2; cache(idx)%ux2 = ux2
+      cache(idx)%lx3 = lx3; cache(idx)%ux3 = ux3
+      cache(idx)%gst = gst
+      cache(idx)%corners = communicate_corners
+      cache(idx)%has_type = .false.
+    end function new_cache_entry
+
  end subroutine communicate_ndarray
- 
+  
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
  ! I/O
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
