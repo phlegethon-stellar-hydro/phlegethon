@@ -192,14 +192,15 @@ Contributor guidelines are available in [Contributing](docs/source/modules/contr
 
 If you use **PHLEGETHON** in your work, please cite it using the following BibTeX entry for its [associated method paper](https://arxiv.org/abs/2604.12672):
 ```bibtex
-@misc{leidi2026phlegethon,
-      title={Phlegethon: a fully compressible magnetohydrodynamic code for simulations in stellar astrophysics}, 
-      author={G. Leidi and A. Holas and K. Vitovsky and F. Rizzuti and A. Roy and J. Reichert and K. Bayer and D. Gagnier and R. Andrassy and P. Christians and P. V. F. Edelmann and V. Varma and R. Hirschi and F. K. Röpke},
-      year={2026},
-      eprint={2604.12672},
-      archivePrefix={arXiv},
-      primaryClass={astro-ph.SR},
-      url={https://arxiv.org/abs/2604.12672}, 
+@article{Leidi2026Phlegethon,
+	author = {Leidi, G. and Holas, A. and Vitovsky, K. and Rizzuti, F. and Roy, A. and Reichert, J. and Bayer, K. and Gagnier, D. and Andrassy, R. and Christians, P. and Edelmann, P. V. F. and Varma, V. and Hirschi, R. and Cheung, P. S.-H. and R{\" o}pke, F. K.},
+	journal = {The Open Journal of Astrophysics},
+	doi = {10.33232/001c.171923},
+	year = {2026},
+	month = {sep 29},
+	publisher = {Maynooth Academic Publishing},
+	title = {Phlegethon: a fully compressible magnetohydrodynamic code for simulations in stellar astrophysics},
+	volume = {9},
 }
 ```
 
