@@ -1,5 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
+
 authors:
   - family-names: Leidi
     given-names: Giovanni
@@ -7,11 +8,80 @@ authors:
   - family-names: Holas
     given-names: Alexander
     orcid: https://orcid.org/0000-0001-5184-6928
-title: phlegethon
-version: 2026.4.1
+  - family-names: Vitovsky
+    given-names: Kristian
+  - family-names: Rizzuti
+    given-names: Federico
+  - family-names: Roy
+    given-names: Arkaprabha
+  - family-names: Reichert
+    given-names: Jonas
+  - family-names: Bayer
+    given-names: Korinna
+  - family-names: Gagnier
+    given-names: Damien
+  - family-names: Andrassy
+    given-names: Robert
+  - family-names: Christians
+    given-names: Paul
+  - family-names: Edelmann
+    given-names: Philipp
+  - family-names: Varma
+    given-names: Vishnu
+  - family-names: Hirschi
+    given-names: Raphael
+  - family-names: Röpke
+    given-names: Friedrich
+
+title: "Phlegethon"
+version: "v2026.4.1"
 date-released: 2026-04-02
-doi: NA
-license: AGPLv3.0
-repository-code: 'https://github.com/phlegethon-stellar-hydro/phlegethon'
+
+doi: "10.5281/zenodo.19554676"
+license: "AGPL-3.0"
+repository-code: "https://github.com/phlegethon-stellar-hydro/phlegethon"
+
 abstract: >-
-    Phlegethon stellar hydro code.
+  Phlegethon stellar hydro code.
+
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Leidi
+      given-names: G.
+    - family-names: Holas
+      given-names: A.
+    - family-names: Vitovsky
+      given-names: K.
+    - family-names: Rizzuti
+      given-names: F.
+    - family-names: Roy
+      given-names: A.
+    - family-names: Reichert
+      given-names: J.
+    - family-names: Bayer
+      given-names: K.
+    - family-names: Gagnier
+      given-names: D.
+    - family-names: Andrassy
+      given-names: R.
+    - family-names: Christians
+      given-names: P.
+    - family-names: Edelmann
+      given-names: P. V. F.
+    - family-names: Varma
+      given-names: V.
+    - family-names: Hirschi
+      given-names: R.
+    - family-names: Cheung
+      given-names: P. S.-H.
+    - family-names: Röpke
+      given-names: F. K.
+  title: >-
+    Phlegethon: a fully compressible magnetohydrodynamic code for simulations
+    in stellar astrophysics
+  journal: "The Open Journal of Astrophysics"
+  year: 2026
+  volume: 9
+  doi: "10.33232/001c.171923"
+  publisher: "Maynooth Academic Publishing"
