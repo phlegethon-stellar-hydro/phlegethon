@@ -1203,6 +1203,8 @@ module source
 #endif 
     fe_x1,fe_x2
 
+    real(kind=rp), dimension(1:sdims) :: Tl,Tu
+
 #endif
 
 #ifdef THERMAL_DIFFUSION_STS
@@ -1214,8 +1216,6 @@ module source
 #ifdef STS_EVOLVE_TEMP
     real(kind=rp), allocatable, dimension(:,:,:) :: icv
 #endif
-
-    real(kind=rp), dimension(1:sdims) :: Tl,Tu
 
 #endif
 
@@ -16540,7 +16540,7 @@ contains
 
 #ifdef USE_PRAD
 #ifndef USE_FASTEOS
-   real(kind=rp) :: tmp1,tmp2,Res0,Res_prad,dRes_dT
+   real(kind=rp) :: tmp1,tmp2,Res0,Res_prad,dRes_dT,tmp
    integer :: iter
 #endif
 #endif
