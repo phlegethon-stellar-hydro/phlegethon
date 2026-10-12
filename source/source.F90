@@ -8355,7 +8355,11 @@ contains
 #endif
 
 #if defined(HELMHOLTZ_EOS) || defined(USE_PRAD) || defined(PIG_EOS) || defined(PIG_XVAR_EOS)
+#ifdef GEOMETRY_CUBED_SPHERE
+     call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.true.)
+#else
      call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,communicate_corners)
+#endif
 #endif
 
 #ifdef USE_FASTEOS
@@ -24910,7 +24914,8 @@ end subroutine bcs_dns
 #ifdef THERMAL_DIFFUSION_STS 
   call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.true.)
 #endif
- 
+
+#ifdef USE_WB
  do k=kg1,kg2
   do j=lx2-2,ux2+2
    do i=lx1-2,ux1+2
@@ -24918,13 +24923,18 @@ end subroutine bcs_dns
    end do
   end do
  end do
+#endif
   
  if(mgrid%coords_dd(1)==0) then
  
   do k=kg1,kg2
    do j=lx2-2,ux2+2
     do m=1,2
+#ifdef USE_WB
      lgrid%temp(lx1-m,j,k)         = -lgrid%temp(lx1+m-1,j,k)
+#else
+     lgrid%temp(lx1-m,j,k)         = rp2*lgrid%Tl(1)-lgrid%temp(lx1+m-1,j,k)
+#endif
      lgrid%kappa(lx1-m,j,k)        = lgrid%kappa(lx1+m-1,j,k)
      lgrid%prim(i_rho,lx1-m,j,k)   = lgrid%prim(i_rho,lx1+m-1,j,k)
     end do
@@ -24938,7 +24948,11 @@ end subroutine bcs_dns
   do k=kg1,kg2
    do j=lx2-2,ux2+2
     do m=1,2
+#ifdef USE_WB
      lgrid%temp(ux1+m,j,k)         = -lgrid%temp(ux1-m+1,j,k)
+#else
+     lgrid%temp(ux1+m,j,k)         = rp2*lgrid%Tu(1)-lgrid%temp(ux1-m+1,j,k)
+#endif
      lgrid%kappa(ux1+m,j,k)        = lgrid%kappa(ux1-m+1,j,k)
      lgrid%prim(i_rho,ux1+m,j,k)   = lgrid%prim(i_rho,ux1-m+1,j,k)
     end do
@@ -24952,7 +24966,11 @@ end subroutine bcs_dns
   do k=kg1,kg2
    do i=lx1-2,ux1+2
     do m=1,2
+#ifdef USE_WB
      lgrid%temp(i,lx2-m,k)         = -lgrid%temp(i,lx2+m-1,k)
+#else
+     lgrid%temp(i,lx2-m,k)         = rp2*lgrid%Tl(2)-lgrid%temp(i,lx2+m-1,k)
+#endif
      lgrid%kappa(i,lx2-m,k)        = lgrid%kappa(i,lx2+m-1,k)
      lgrid%prim(i_rho,i,lx2-m,k)   = lgrid%prim(i_rho,i,lx2+m-1,k)
     end do
@@ -24966,7 +24984,11 @@ end subroutine bcs_dns
   do k=kg1,kg2
    do i=lx1-2,ux1+2
     do m=1,2
+#ifdef USE_WB
      lgrid%temp(i,ux2+m,k)         = -lgrid%temp(i,ux2-m+1,k)
+#else
+     lgrid%temp(i,ux2+m,k)         = rp2*lgrid%Tu(2)-lgrid%temp(i,ux2-m+1,k)
+#endif
      lgrid%kappa(i,ux2+m,k)        = lgrid%kappa(i,ux2-m+1,k)
      lgrid%prim(i_rho,i,ux2+m,k)   = lgrid%prim(i_rho,i,ux2-m+1,k)
     end do
@@ -24982,7 +25004,11 @@ end subroutine bcs_dns
   do j=lx2-2,ux2+2
    do i=lx1-2,ux1+2
     do m=1,2
+#ifdef USE_WB
      lgrid%temp(i,j,lx3-m)         = -lgrid%temp(i,j,lx3+m-1)
+#else
+     lgrid%temp(i,j,lx3-m)         = rp2*lgrid%Tl(3)-lgrid%temp(i,j,lx3+m-1)
+#endif
      lgrid%kappa(i,j,lx3-m)        = lgrid%kappa(i,j,lx3+m-1)
      lgrid%prim(i_rho,i,j,lx3-m)   = lgrid%prim(i_rho,i,j,lx3+m-1)
     end do
@@ -24996,7 +25022,11 @@ end subroutine bcs_dns
   do j=lx2-2,ux2+2
    do i=lx1-2,ux1+2
     do m=1,2
+#ifdef USE_WB
      lgrid%temp(i,j,ux3+m)         = -lgrid%temp(i,j,ux3-m+1)
+#else
+     lgrid%temp(i,j,ux3+m)         = rp2*lgrid%Tu(3)-lgrid%temp(i,j,ux3-m+1)
+#endif
      lgrid%kappa(i,j,ux3+m)        = lgrid%kappa(i,j,ux3-m+1)
      lgrid%prim(i_rho,i,j,ux3+m)   = lgrid%prim(i_rho,i,j,ux3-m+1)
     end do
@@ -25007,6 +25037,7 @@ end subroutine bcs_dns
   
 #endif
 
+#ifdef USE_WB
  do k=kg1,kg2
   do j=lx2-2,ux2+2
    do i=lx1-2,ux1+2
@@ -25014,6 +25045,7 @@ end subroutine bcs_dns
    end do
   end do
  end do
+#endif
 
  end subroutine bcs_thermal_diffusion
 
