@@ -1103,6 +1103,15 @@ module source
 #endif
 
 #ifdef GEOMETRY_CUBED_SPHERE
+
+#if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(THERMAL_DIFFUSION_STS)
+    real(kind=rp), allocatable, dimension(:,:,:,:) :: &
+    grad_temp
+
+    real(kind=rp), allocatable, dimension(:,:,:,:,:) :: &
+    ainv
+#endif
+
     real(kind=rp), allocatable, dimension(:,:,:,:) :: &
 #if sdims_make==3
     n_x3, &
@@ -1613,6 +1622,26 @@ contains
 #endif
 
 #ifdef GEOMETRY_CUBED_SPHERE
+
+#if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(THERMAL_DIFFUSION_STS)
+
+    allocate(lgrid%grad_temp(1:sdims,lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc, &
+#if sdims_make==2
+    lx3:ux3))
+#endif
+#if sdims_make==3
+    lx3-ngc:ux3+ngc))
+#endif
+
+    allocate(lgrid%ainv(1:sdims,1:sdims,lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc, &
+#if sdims_make==2
+    lx3:ux3))
+#endif
+#if sdims_make==3
+    lx3-ngc:ux3+ngc))
+#endif
+
+#endif
 
     allocate(lgrid%r(lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc, &
 #if sdims_make==2
@@ -2265,6 +2294,17 @@ contains
 
 #endif
 
+
+#ifdef GEOMETRY_CUBED_SPHERE
+
+#if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(THERMAL_DIFFUSION_STS)
+    
+    call init_lsq_gradient(mgrid,lgrid)
+  
+#endif
+
+#endif
+
     call h5open_f(ierr)
  
  end subroutine initialize_simulation
@@ -2423,6 +2463,10 @@ contains
 #endif
 
 #ifdef GEOMETRY_CUBED_SPHERE
+#if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(THERMAL_DIFFUSION_STS)
+    deallocate(lgrid%grad_temp)
+    deallocate(lgrid%ainv)
+#endif
     deallocate(lgrid%r)
     deallocate(lgrid%n_x1)
     deallocate(lgrid%n_x2)
@@ -14276,6 +14320,13 @@ contains
      call compute_userdef_kappa(mgrid,lgrid,tau_rk(irk))
 #endif
 
+#ifdef GEOMETRY_CUBED_SPHERE
+
+     call bcs_thermal_diffusion(mgrid,lgrid)
+     call thermal_diffusion_nonorthogonal(mgrid,lgrid)
+     
+#else
+
 #ifndef USE_INTERNAL_BOUNDARIES
 
 #if defined(X1L_REFLECTIVE) || defined(X1L_OUTFLOW) || defined(X1L_DIODE)
@@ -14869,6 +14920,8 @@ contains
 
       end do
     end do
+
+#endif
 
 #endif
 
@@ -18290,6 +18343,509 @@ contains
 #endif
 
 #ifdef GEOMETRY_CUBED_SPHERE
+
+#if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(THERMAL_DIFFUSION_STS)
+ subroutine init_lsq_gradient(mgrid,lgrid)
+  type(mpigrid), intent(in) :: mgrid
+  type(locgrid), intent(inout) :: lgrid
+  
+#if sdims_make==3
+  integer, parameter :: sd=3, kd=1
+#else
+  integer, parameter :: sd=2, kd=0
+#endif
+  integer :: i,j,k,di,dj,dk,a,b, &
+  lx1,lx2,lx3,ux1,ux2,ux3
+  real(kind=rp) :: dx(1:sd), w, am(1:sd,1:sd)
+  
+  lx1 = mgrid%i1(1)
+  lx2 = mgrid%i1(2)
+  lx3 = mgrid%i1(3)
+  ux1 = mgrid%i2(1)
+  ux2 = mgrid%i2(2)
+  ux3 = mgrid%i2(3)
+    
+#if sdims_make==3
+  do k=lx3-1,ux3+1
+#else
+  do k=lx3,ux3
+#endif
+   do j=lx2-1,ux2+1
+    do i=lx1-1,ux1+1
+
+     am = rp0
+     do dk=-kd,kd
+      do dj=-1,1
+       do di=-1,1
+        if (di==0 .and. dj==0 .and. dk==0) cycle
+        dx = lgrid%coords(1:sd,i+di,j+dj,k+dk) - lgrid%coords(1:sd,i,j,k)
+        w  = rp1/sum(dx*dx)
+        do b=1,sd
+         do a=1,sd
+          am(a,b) = am(a,b) + w*dx(a)*dx(b)
+         end do
+        end do
+       end do
+      end do
+     end do
+
+     lgrid%ainv(:,:,i,j,k) = invert_small(am)
+
+    end do
+   end do
+  end do
+ end subroutine init_lsq_gradient
+ 
+ function invert_small(m) result(inv)
+  real(kind=rp), intent(in) :: m(:,:)
+  real(kind=rp) :: inv(size(m,1),size(m,2))
+  real(kind=rp) :: det,inv_det
+  if (size(m,1)==2) then
+   det = m(1,1)*m(2,2)-m(1,2)*m(2,1)
+   inv_det = rp1/det
+   inv(1,1) =  m(2,2)*inv_det
+   inv(1,2) = -m(1,2)*inv_det
+   inv(2,1) = -m(2,1)*inv_det
+   inv(2,2) =  m(1,1)*inv_det
+  else
+   det = m(1,1)*(m(2,2)*m(3,3)-m(2,3)*m(3,2)) &
+       - m(1,2)*(m(2,1)*m(3,3)-m(2,3)*m(3,1)) &
+       + m(1,3)*(m(2,1)*m(3,2)-m(2,2)*m(3,1))
+   inv_det = rp1/det
+   inv(1,1) = (m(2,2)*m(3,3)-m(2,3)*m(3,2))*inv_det
+   inv(1,2) = (m(1,3)*m(3,2)-m(1,2)*m(3,3))*inv_det
+   inv(1,3) = (m(1,2)*m(2,3)-m(1,3)*m(2,2))*inv_det
+   inv(2,1) = (m(2,3)*m(3,1)-m(2,1)*m(3,3))*inv_det
+   inv(2,2) = (m(1,1)*m(3,3)-m(1,3)*m(3,1))*inv_det
+   inv(2,3) = (m(1,3)*m(2,1)-m(1,1)*m(2,3))*inv_det
+   inv(3,1) = (m(2,1)*m(3,2)-m(2,2)*m(3,1))*inv_det
+   inv(3,2) = (m(1,2)*m(3,1)-m(1,1)*m(3,2))*inv_det
+   inv(3,3) = (m(1,1)*m(2,2)-m(1,2)*m(2,1))*inv_det
+  end if
+ end function invert_small
+ 
+ subroutine thermal_diffusion_nonorthogonal(mgrid,lgrid)
+ type(mpigrid), intent(in)    :: mgrid
+ type(locgrid), intent(inout) :: lgrid
+
+ integer :: i,j,k,lx1,lx2,lx3,ux1,ux2,ux3,iw,isd
+ real(kind=rp) :: Krad
+ real(kind=rp) :: tmp,invd,gL,dTd,proj,gradTn,TL,TR,KKL,KKR,Kf,den,acc
+ real(kind=rp) :: rcfL(1:sdims),rLR(1:sdims),eLR(1:sdims)
+ real(kind=rp) :: gradTbarf(1:sdims),gradTf(1:sdims)
+
+ lx1 = mgrid%i1(1)
+ lx2 = mgrid%i1(2)
+ lx3 = mgrid%i1(3)
+ ux1 = mgrid%i2(1)
+ ux2 = mgrid%i2(2)
+ ux3 = mgrid%i2(3)
+
+ call compute_cc_gradient_array(lx1,lx2,lx3,ux1,ux2,ux3,ngc, &
+ lgrid%coords,lgrid%ainv,lgrid%temp,lgrid%grad_temp)
+
+ Krad = fthirds*CONST_RAD*CONST_C
+
+#ifdef THERMAL_DIFFUSION_EXPLICIT
+ 
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+     lgrid%res(i_rhoe,i,j,k) = rp0 
+    end do
+   end do
+  end do
+   
+#endif
+
+ do k=lx3,ux3
+  do j=lx2,ux2
+
+   do i=lx1,ux1+1
+
+    iw = 0
+    if(mgrid%coords_dd(1)==0 .and. i==lx1) iw = -1
+    if(mgrid%coords_dd(1)==mgrid%bricks(1)-1 .and. i==ux1+1) iw = 1
+
+    do isd=1,sdims
+     tmp       = lgrid%coords(isd,i-1,j,k)
+     rcfL(isd) = lgrid%coords_x1(isd,i,j,k)-tmp
+     rLR(isd)  = lgrid%coords(isd,i,j,k)-tmp
+    end do
+
+    acc = rp0
+    do isd=1,sdims
+     acc = acc + rLR(isd)*rLR(isd)
+    end do
+    invd = rp1/sqrt(acc)
+
+    do isd=1,sdims
+     eLR(isd) = rLR(isd)*invd
+    end do
+
+    acc = rp0
+    do isd=1,sdims
+     acc = acc + rcfL(isd)*eLR(isd)
+    end do
+    gL = rp1 - acc*invd
+
+    TL = lgrid%temp(i-1,j,k)
+    TR = lgrid%temp(i,j,k)
+
+    if(iw < 0) then
+
+     do isd=1,sdims
+      gradTbarf(isd) = lgrid%grad_temp(isd,i,j,k)
+     end do
+     den = lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k)
+     Kf  = Krad*(0.5_rp*(TL+TR))**3/den
+
+    else if(iw > 0) then
+
+     do isd=1,sdims
+      gradTbarf(isd) = lgrid%grad_temp(isd,i-1,j,k)
+     end do
+     den = lgrid%prim(i_rho,i-1,j,k)*lgrid%kappa(i-1,j,k)
+     Kf  = Krad*(0.5_rp*(TL+TR))**3/den
+
+    else
+
+     do isd=1,sdims
+      gradTbarf(isd) = gL*lgrid%grad_temp(isd,i-1,j,k) &
+      + (rp1-gL)*lgrid%grad_temp(isd,i,j,k)
+     end do
+
+     den = lgrid%prim(i_rho,i-1,j,k)*lgrid%kappa(i-1,j,k)
+     KKL = Krad*TL**3/den
+     den = lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k)
+     KKR = Krad*TR**3/den
+
+     Kf = rp2*KKL*KKR/(KKL+KKR)
+
+    endif
+
+    dTd = (TR-TL)*invd
+
+    proj = rp0
+    do isd=1,sdims
+     proj = proj + gradTbarf(isd)*eLR(isd)
+    end do
+
+    do isd=1,sdims
+     gradTf(isd) = gradTbarf(isd) + eLR(isd)*(dTd-proj)
+    end do
+
+    gradTn = rp0
+    do isd=1,sdims
+     gradTn = gradTn + gradTf(isd)*lgrid%n_x1(isd,i,j,k)
+    end do
+
+    lgrid%fe_x1(i) = Kf*gradTn*lgrid%A_x1(i,j,k)
+
+   end do
+
+#ifdef THERMAL_DIFFUSION_EXPLICIT
+   do i=lx1,ux1
+    lgrid%res(i_rhoe,i,j,k) = lgrid%res(i_rhoe,i,j,k) - &
+    (lgrid%fe_x1(i+1)-lgrid%fe_x1(i))*lgrid%ivol(i,j,k)
+   end do
+#endif
+#ifdef THERMAL_DIFFUSION_STS
+   do i=lx1,ux1
+    lgrid%Me_jm1(i,j,k) = &
+    (lgrid%fe_x1(i+1)-lgrid%fe_x1(i))*lgrid%ivol(i,j,k)
+   end do
+#endif
+
+  end do
+ end do
+
+ do k=lx3,ux3
+  do i=lx1,ux1
+
+   do j=lx2,ux2+1
+
+    iw = 0
+
+    if(mgrid%coords_dd(2)==0 .and. j==lx2) iw = -1
+    if(mgrid%coords_dd(2)==mgrid%bricks(2)-1 .and. j==ux2+1) iw = 1
+
+    do isd=1,sdims
+     tmp       = lgrid%coords(isd,i,j-1,k)
+     rcfL(isd) = lgrid%coords_x2(isd,i,j,k)-tmp
+     rLR(isd)  = lgrid%coords(isd,i,j,k)-tmp
+    end do
+
+    acc = rp0
+    do isd=1,sdims
+     acc = acc + rLR(isd)*rLR(isd)
+    end do
+    invd = rp1/sqrt(acc)
+
+    do isd=1,sdims
+     eLR(isd) = rLR(isd)*invd
+    end do
+
+    acc = rp0
+    do isd=1,sdims
+     acc = acc + rcfL(isd)*eLR(isd)
+    end do
+    gL = rp1 - acc*invd
+
+    TL = lgrid%temp(i,j-1,k)
+    TR = lgrid%temp(i,j,k)
+
+    if(iw < 0) then
+
+     do isd=1,sdims
+      gradTbarf(isd) = lgrid%grad_temp(isd,i,j,k)
+     end do
+     den = lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k)
+     Kf  = Krad*(0.5_rp*(TL+TR))**3/den
+
+    else if(iw > 0) then
+
+     do isd=1,sdims
+      gradTbarf(isd) = lgrid%grad_temp(isd,i,j-1,k)
+     end do
+     den = lgrid%prim(i_rho,i,j-1,k)*lgrid%kappa(i,j-1,k)
+     Kf  = Krad*(0.5_rp*(TL+TR))**3/den
+
+    else
+
+     do isd=1,sdims
+      gradTbarf(isd) = gL*lgrid%grad_temp(isd,i,j-1,k) &
+      + (rp1-gL)*lgrid%grad_temp(isd,i,j,k)
+     end do
+
+     den = lgrid%prim(i_rho,i,j-1,k)*lgrid%kappa(i,j-1,k)
+     KKL = Krad*TL**3/den
+     den = lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k)
+     KKR = Krad*TR**3/den
+
+     Kf = rp2*KKL*KKR/(KKL+KKR)
+
+    endif
+
+    dTd = (TR-TL)*invd
+
+    proj = rp0
+    do isd=1,sdims
+     proj = proj + gradTbarf(isd)*eLR(isd)
+    end do
+
+    do isd=1,sdims
+     gradTf(isd) = gradTbarf(isd) + eLR(isd)*(dTd-proj)
+    end do
+
+    gradTn = rp0
+    do isd=1,sdims
+     gradTn = gradTn + gradTf(isd)*lgrid%n_x2(isd,i,j,k)
+    end do
+
+    lgrid%fe_x2(j) = Kf*gradTn*lgrid%A_x2(i,j,k)
+
+   end do
+
+#ifdef THERMAL_DIFFUSION_EXPLICIT
+   do j=lx2,ux2
+    lgrid%res(i_rhoe,i,j,k) = lgrid%res(i_rhoe,i,j,k) - &
+    (lgrid%fe_x2(j+1)-lgrid%fe_x2(j))*lgrid%ivol(i,j,k)
+   end do
+#endif
+#ifdef THERMAL_DIFFUSION_STS
+   do j=lx2,ux2
+    lgrid%Me_jm1(i,j,k) = lgrid%Me_jm1(i,j,k) + &
+    (lgrid%fe_x2(j+1)-lgrid%fe_x2(j))*lgrid%ivol(i,j,k)
+   end do
+#endif
+
+  end do
+ end do
+
+#if sdims_make==3
+
+ do j=lx2,ux2
+  do i=lx1,ux1
+
+   do k=lx3,ux3+1
+
+    iw = 0
+    if(mgrid%coords_dd(3)==0 .and. k==lx3) iw = -1
+    if(mgrid%coords_dd(3)==mgrid%bricks(3)-1 .and. k==ux3+1) iw = 1
+
+    do isd=1,sdims
+     tmp       = lgrid%coords(isd,i,j,k-1)
+     rcfL(isd) = lgrid%coords_x3(isd,i,j,k)-tmp
+     rLR(isd)  = lgrid%coords(isd,i,j,k)-tmp
+    end do
+
+    acc = rp0
+    do isd=1,sdims
+     acc = acc + rLR(isd)*rLR(isd)
+    end do
+    invd = rp1/sqrt(acc)
+
+    do isd=1,sdims
+     eLR(isd) = rLR(isd)*invd
+    end do
+
+    acc = rp0
+    do isd=1,sdims
+     acc = acc + rcfL(isd)*eLR(isd)
+    end do
+    gL = rp1 - acc*invd
+
+    TL = lgrid%temp(i,j,k-1)
+    TR = lgrid%temp(i,j,k)
+
+    if(iw < 0) then
+
+     do isd=1,sdims
+      gradTbarf(isd) = lgrid%grad_temp(isd,i,j,k)
+     end do
+     den = lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k)
+     Kf  = Krad*(0.5_rp*(TL+TR))**3/den
+
+    else if(iw > 0) then
+
+     do isd=1,sdims
+      gradTbarf(isd) = lgrid%grad_temp(isd,i,j,k-1)
+     end do
+     den = lgrid%prim(i_rho,i,j,k-1)*lgrid%kappa(i,j,k-1)
+     Kf  = Krad*(0.5_rp*(TL+TR))**3/den
+
+    else
+
+     do isd=1,sdims
+      gradTbarf(isd) = gL*lgrid%grad_temp(isd,i,j,k-1) &
+      + (rp1-gL)*lgrid%grad_temp(isd,i,j,k)
+     end do
+
+     den = lgrid%prim(i_rho,i,j,k-1)*lgrid%kappa(i,j,k-1)
+     KKL = Krad*TL**3/den
+     den = lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k)
+     KKR = Krad*TR**3/den
+
+     Kf = rp2*KKL*KKR/(KKL+KKR)
+
+    endif
+
+    dTd = (TR-TL)*invd
+
+    proj = rp0
+    do isd=1,sdims
+     proj = proj + gradTbarf(isd)*eLR(isd)
+    end do
+
+    do isd=1,sdims
+     gradTf(isd) = gradTbarf(isd) + eLR(isd)*(dTd-proj)
+    end do
+
+    gradTn = rp0
+    do isd=1,sdims
+     gradTn = gradTn + gradTf(isd)*lgrid%n_x3(isd,i,j,k)
+    end do
+
+    lgrid%fe_x3(k) = Kf*gradTn*lgrid%A_x3(i,j,k)
+
+   end do
+
+#ifdef THERMAL_DIFFUSION_EXPLICIT
+   do k=lx3,ux3
+    lgrid%res(i_rhoe,i,j,k) = lgrid%res(i_rhoe,i,j,k) - &
+    (lgrid%fe_x3(k+1)-lgrid%fe_x3(k))*lgrid%ivol(i,j,k)
+   end do
+#endif
+#ifdef THERMAL_DIFFUSION_STS
+   do k=lx3,ux3
+    lgrid%Me_jm1(i,j,k) = lgrid%Me_jm1(i,j,k) + &
+    (lgrid%fe_x3(k+1)-lgrid%fe_x3(k))*lgrid%ivol(i,j,k)
+   end do
+#endif
+
+  end do
+ end do
+
+#endif
+
+#ifdef THERMAL_DIFFUSION_STS
+#ifdef STS_EVOLVE_TEMP
+
+  do k=lx3,ux3
+   do j=lx2,ux2
+    do i=lx1,ux1
+      lgrid%Me_jm1(i,j,k) = lgrid%Me_jm1(i,j,k)*lgrid%icv(i,j,k)
+    end do
+   end do
+  end do 
+
+#endif
+#endif
+
+ end subroutine thermal_diffusion_nonorthogonal
+  
+#endif
+ 
+ subroutine compute_cc_gradient_array(lx1,lx2,lx3,ux1,ux2,ux3,ghost,coords,ainv,vec,grad)
+  integer, intent(in) :: lx1,lx2,lx3,ux1,ux2,ux3,ghost
+#if sdims_make==3
+  real(kind=rp), intent(in)  :: coords(1:3,lx1-ghost:ux1+ghost,lx2-ghost:ux2+ghost,lx3-ghost:ux3+ghost)
+  real(kind=rp), intent(in)  :: ainv(1:3,1:3,lx1-ghost:ux1+ghost,lx2-ghost:ux2+ghost,lx3-ghost:ux3+ghost)
+  real(kind=rp), intent(in)  :: vec(lx1-ghost:ux1+ghost,lx2-ghost:ux2+ghost,lx3-ghost:ux3+ghost)
+  real(kind=rp), intent(out) :: grad(1:3,lx1-ghost:ux1+ghost,lx2-ghost:ux2+ghost,lx3-ghost:ux3+ghost)
+#else
+  real(kind=rp), intent(in)  :: coords(1:2,lx1-ghost:ux1+ghost,lx2-ghost:ux2+ghost,lx3:ux3)
+  real(kind=rp), intent(in)  :: ainv(1:2,1:2,lx1-ghost:ux1+ghost,lx2-ghost:ux2+ghost,lx3:ux3)
+  real(kind=rp), intent(in)  :: vec(lx1-ghost:ux1+ghost,lx2-ghost:ux2+ghost,lx3:ux3)
+  real(kind=rp), intent(out) :: grad(1:2,lx1-ghost:ux1+ghost,lx2-ghost:ux2+ghost,lx3:ux3)
+#endif
+
+#if sdims_make==3
+  integer, parameter :: sd=3, kd=1
+#else
+  integer, parameter :: sd=2, kd=0
+#endif
+
+  integer :: i,j,k,di,dj,dk,a,b
+  real(kind=rp) :: dx(1:sd), w, rhs(1:sd)
+
+#if sdims_make==3
+  do k=lx3-1,ux3+1
+#else
+  do k=lx3,ux3
+#endif
+   do j=lx2-1,ux2+1
+    do i=lx1-1,ux1+1
+
+     rhs = rp0
+     do dk=-kd,kd
+      do dj=-1,1
+       do di=-1,1
+        if (di==0 .and. dj==0 .and. dk==0) cycle
+        dx = coords(1:sd,i+di,j+dj,k+dk) - coords(1:sd,i,j,k)
+        w  = rp1/sum(dx*dx)
+        do a=1,sd
+          rhs(a) = rhs(a) &
+          + w*dx(a)*(vec(i+di,j+dj,k+dk)-vec(i,j,k))
+        end do
+       end do
+      end do
+     end do
+
+     do a=1,sd
+       grad(a,i,j,k) = rp0
+       do b=1,sd
+        grad(a,i,j,k) = grad(a,i,j,k) + ainv(a,b,i,j,k)*rhs(b)
+       end do
+     end do
+
+    end do
+   end do
+  end do
+  
+ end subroutine compute_cc_gradient_array
+ 
 #if sdims_make==2
  subroutine create_geometry(lgrid,mgrid)
    type(locgrid), intent(inout) :: lgrid
@@ -24327,6 +24883,378 @@ end subroutine bcs_dns
  
 #endif
 
+#if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(THERMAL_DIFFUSION_STS)
+
+#ifdef GEOMETRY_CUBED_SPHERE
+
+ subroutine bcs_thermal_diffusion(mgrid,lgrid)
+ type(mpigrid), intent(in)    :: mgrid
+ type(locgrid), intent(inout) :: lgrid
+ 
+ integer :: i,j,k,m,lx1,lx2,lx3,ux1,ux2,ux3,kg1,kg2
+ 
+ lx1 = mgrid%i1(1)
+ lx2 = mgrid%i1(2)
+ lx3 = mgrid%i1(3)
+ ux1 = mgrid%i2(1)
+ ux2 = mgrid%i2(2)
+ ux3 = mgrid%i2(3)
+ 
+ kg1 = lx3
+ kg2 = ux3
+#if sdims_make==3
+ kg1 = lx3-2
+ kg2 = ux3+2
+#endif
+
+#ifdef THERMAL_DIFFUSION_STS 
+  call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.true.)
+#endif
+ 
+ do k=kg1,kg2
+  do j=lx2-2,ux2+2
+   do i=lx1-2,ux1+2
+    lgrid%temp(i,j,k) = lgrid%temp(i,j,k)-lgrid%eq_prim_cc(ieq_T,i,j,k)
+   end do
+  end do
+ end do
+  
+ if(mgrid%coords_dd(1)==0) then
+ 
+  do k=kg1,kg2
+   do j=lx2-2,ux2+2
+    do m=1,2
+     lgrid%temp(lx1-m,j,k)         = -lgrid%temp(lx1+m-1,j,k)
+     lgrid%kappa(lx1-m,j,k)        = lgrid%kappa(lx1+m-1,j,k)
+     lgrid%prim(i_rho,lx1-m,j,k)   = lgrid%prim(i_rho,lx1+m-1,j,k)
+    end do
+   end do
+  end do
+ 
+ endif
+  
+ if(mgrid%coords_dd(1)==mgrid%bricks(1)-1) then
+  
+  do k=kg1,kg2
+   do j=lx2-2,ux2+2
+    do m=1,2
+     lgrid%temp(ux1+m,j,k)         = -lgrid%temp(ux1-m+1,j,k)
+     lgrid%kappa(ux1+m,j,k)        = lgrid%kappa(ux1-m+1,j,k)
+     lgrid%prim(i_rho,ux1+m,j,k)   = lgrid%prim(i_rho,ux1-m+1,j,k)
+    end do
+   end do
+  end do
+ 
+ endif
+
+ if(mgrid%coords_dd(2)==0) then
+  
+  do k=kg1,kg2
+   do i=lx1-2,ux1+2
+    do m=1,2
+     lgrid%temp(i,lx2-m,k)         = -lgrid%temp(i,lx2+m-1,k)
+     lgrid%kappa(i,lx2-m,k)        = lgrid%kappa(i,lx2+m-1,k)
+     lgrid%prim(i_rho,i,lx2-m,k)   = lgrid%prim(i_rho,i,lx2+m-1,k)
+    end do
+   end do
+  end do
+ 
+ endif
+  
+ if(mgrid%coords_dd(2)==mgrid%bricks(2)-1) then
+
+  do k=kg1,kg2
+   do i=lx1-2,ux1+2
+    do m=1,2
+     lgrid%temp(i,ux2+m,k)         = -lgrid%temp(i,ux2-m+1,k)
+     lgrid%kappa(i,ux2+m,k)        = lgrid%kappa(i,ux2-m+1,k)
+     lgrid%prim(i_rho,i,ux2+m,k)   = lgrid%prim(i_rho,i,ux2-m+1,k)
+    end do
+   end do
+  end do
+ 
+ endif
+  
+#if sdims_make==3
+  
+ if(mgrid%coords_dd(3)==0) then
+  
+  do j=lx2-2,ux2+2
+   do i=lx1-2,ux1+2
+    do m=1,2
+     lgrid%temp(i,j,lx3-m)         = -lgrid%temp(i,j,lx3+m-1)
+     lgrid%kappa(i,j,lx3-m)        = lgrid%kappa(i,j,lx3+m-1)
+     lgrid%prim(i_rho,i,j,lx3-m)   = lgrid%prim(i_rho,i,j,lx3+m-1)
+    end do
+   end do
+  end do
+ 
+ endif
+ 
+ if(mgrid%coords_dd(3)==mgrid%bricks(3)-1) then
+ 
+  do j=lx2-2,ux2+2
+   do i=lx1-2,ux1+2
+    do m=1,2
+     lgrid%temp(i,j,ux3+m)         = -lgrid%temp(i,j,ux3-m+1)
+     lgrid%kappa(i,j,ux3+m)        = lgrid%kappa(i,j,ux3-m+1)
+     lgrid%prim(i_rho,i,j,ux3+m)   = lgrid%prim(i_rho,i,j,ux3-m+1)
+    end do
+   end do
+  end do
+ 
+ endif
+  
+#endif
+
+ do k=kg1,kg2
+  do j=lx2-2,ux2+2
+   do i=lx1-2,ux1+2
+    lgrid%temp(i,j,k) = lgrid%temp(i,j,k)+lgrid%eq_prim_cc(ieq_T,i,j,k)
+   end do
+  end do
+ end do
+
+ end subroutine bcs_thermal_diffusion
+
+#else
+
+ subroutine bcs_thermal_diffusion(mgrid,lgrid)
+  type(mpigrid), intent(inout) :: mgrid
+  type(locgrid), intent(inout) :: lgrid
+
+  integer :: i,j,k
+  integer :: lx1,ux1,lx2,ux2,lx3,ux3
+  integer :: ierr
+  
+  ierr = 0
+
+  i=0
+  j=0
+  k=0
+
+  lx1 = mgrid%i1(1)
+  ux1 = mgrid%i2(1)
+  lx2 = mgrid%i1(2)
+  ux2 = mgrid%i2(2)
+  lx3 = mgrid%i1(3)
+  ux3 = mgrid%i2(3)
+#ifdef ENFORCE_BARRIERS
+  call mpi_barrier(mgrid%comm_cart,ierr)
+#endif
+  call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.false.)
+
+#ifndef USE_INTERNAL_BOUNDARIES
+
+#if defined(X1L_REFLECTIVE) || defined(X1L_OUTFLOW) || defined(X1L_DIODE)
+
+  if(mgrid%coords_dd(1)==0) then
+
+      do k=lx3,ux3
+       do j=lx2,ux2
+
+         lgrid%prim(i_rho,lx1-1,j,k) = rp2*lgrid%prim(i_rho,lx1,j,k)-lgrid%prim(i_rho,lx1+1,j,k)
+
+#ifdef FIX_TEMPERATURE_AT_X1L
+#ifdef USE_WB
+         lgrid%temp(lx1-1,j,k) = rp2*lgrid%eq_prim_x1(ieq_T,lx1,j,k)-lgrid%temp(lx1,j,k)
+#ifdef BALANCE_THERMAL_DIFFUSION
+         lgrid%eq_prim_cc(ieq_T,lx1-1,j,k) = & 
+         rp2*lgrid%eq_prim_x1(ieq_T,lx1,j,k)-lgrid%eq_prim_cc(ieq_T,lx1,j,k)
+#endif
+#else
+         lgrid%temp(lx1-1,j,k) = rp2*lgrid%Tl(1)-lgrid%temp(lx1,j,k)
+#endif
+#else
+         lgrid%temp(lx1-1,j,k) = lgrid%temp(lx1,j,k)
+#ifdef BALANCE_THERMAL_DIFFUSION
+         lgrid%eq_prim_cc(ieq_T,lx1-1,j,k) = lgrid%eq_prim_cc(ieq_T,lx1,j,k)
+#endif
+#endif
+
+       end do
+      end do
+
+  endif
+
+#endif
+
+#if defined(X1U_REFLECTIVE) || defined(X1U_OUTFLOW) || defined(X1U_DIODE)
+
+  if(mgrid%coords_dd(1)==mgrid%bricks(1)-1) then
+
+      do k=lx3,ux3
+       do j=lx2,ux2
+
+         lgrid%prim(i_rho,ux1+1,j,k) = rp2*lgrid%prim(i_rho,ux1,j,k)-lgrid%prim(i_rho,ux1-1,j,k)
+      
+#ifdef FIX_TEMPERATURE_AT_X1U
+#ifdef USE_WB
+         lgrid%temp(ux1+1,j,k) = rp2*lgrid%eq_prim_x1(ieq_T,ux1+1,j,k)-lgrid%temp(ux1,j,k)
+#ifdef BALANCE_THERMAL_DIFFUSION
+         lgrid%eq_prim_cc(ieq_T,ux1+1,j,k) = & 
+         rp2*lgrid%eq_prim_x1(ieq_T,ux1+1,j,k)-lgrid%eq_prim_cc(ieq_T,ux1,j,k)
+#endif
+#else
+         lgrid%temp(ux1+1,j,k) = rp2*lgrid%Tu(1)-lgrid%temp(ux1,j,k)
+#endif
+#else
+         lgrid%temp(ux1+1,j,k) = lgrid%temp(ux1,j,k)
+#ifdef BALANCE_THERMAL_DIFFUSION
+         lgrid%eq_prim_cc(ieq_T,ux1+1,j,k) = lgrid%eq_prim_cc(ieq_T,ux1,j,k)
+#endif
+#endif
+
+       end do
+      end do
+
+  endif
+
+#endif
+
+#if defined(X2L_REFLECTIVE) || defined(X2L_OUTFLOW) || defined(X2L_DIODE)
+
+  if(mgrid%coords_dd(2)==0) then
+
+      do k=lx3,ux3
+       do i=lx1,ux1
+
+         lgrid%prim(i_rho,i,lx2-1,k) = rp2*lgrid%prim(i_rho,i,lx2,k)-lgrid%prim(i_rho,i,lx2+1,k)
+      
+#ifdef FIX_TEMPERATURE_AT_X2L
+#ifdef USE_WB
+         lgrid%temp(i,lx2-1,k) = rp2*lgrid%eq_prim_x2(ieq_T,i,lx2,k)-lgrid%temp(i,lx2,k)
+#ifdef BALANCE_THERMAL_DIFFUSION
+         lgrid%eq_prim_cc(ieq_T,i,lx2-1,k) = &
+         rp2*lgrid%eq_prim_x2(ieq_T,i,lx2,k)-lgrid%eq_prim_cc(ieq_T,i,lx2,k)
+#endif
+#else
+         lgrid%temp(i,lx2-1,k) = rp2*lgrid%Tl(2)-lgrid%temp(i,lx2,k)
+#endif
+#else
+         lgrid%temp(i,lx2-1,k) = lgrid%temp(i,lx2,k)
+#ifdef BALANCE_THERMAL_DIFFUSION
+         lgrid%eq_prim_cc(ieq_T,i,lx2-1,k) = lgrid%eq_prim_cc(ieq_T,i,lx2,k)
+#endif
+#endif
+
+       end do
+      end do
+
+  endif
+
+#endif
+
+#if defined(X2U_REFLECTIVE) || defined(X2U_OUTFLOW) || defined(X2U_DIODE)
+
+  if(mgrid%coords_dd(2)==mgrid%bricks(2)-1) then
+
+      do k=lx3,ux3
+       do i=lx1,ux1
+
+         lgrid%prim(i_rho,i,ux2+1,k) = rp2*lgrid%prim(i_rho,i,ux2,k)-lgrid%prim(i_rho,i,ux2-1,k)
+      
+#ifdef FIX_TEMPERATURE_AT_X2U
+#ifdef USE_WB
+         lgrid%temp(i,ux2+1,k) = rp2*lgrid%eq_prim_x2(ieq_T,i,ux2+1,k)-lgrid%temp(i,ux2,k)
+#ifdef BALANCE_THERMAL_DIFFUSION
+         lgrid%eq_prim_cc(ieq_T,i,ux2+1,k) = &
+         rp2*lgrid%eq_prim_x2(ieq_T,i,ux2+1,k)-lgrid%eq_prim_cc(ieq_T,i,ux2,k)
+#endif
+#else
+         lgrid%temp(i,ux2+1,k) = rp2*lgrid%Tu(2)-lgrid%temp(i,ux2,k)
+#endif
+#else
+         lgrid%temp(i,ux2+1,k) = lgrid%temp(i,ux2,k)
+#ifdef BALANCE_THERMAL_DIFFUSION
+         lgrid%eq_prim_cc(ieq_T,i,ux2+1,k) = lgrid%eq_prim_cc(ieq_T,i,ux2,k)
+#endif
+#endif
+
+       end do
+      end do
+
+  endif
+
+#endif
+
+#if sdims_make==3
+
+#if defined(X3L_REFLECTIVE) || defined(X3L_OUTFLOW) || defined(X3L_DIODE)
+
+  if(mgrid%coords_dd(3)==0) then
+
+      do j=lx2,ux2
+       do i=lx1,ux1
+
+         lgrid%prim(i_rho,i,j,lx3-1) = rp2*lgrid%prim(i_rho,i,j,lx3)-lgrid%prim(i_rho,i,j,lx3+1)
+      
+#ifdef FIX_TEMPERATURE_AT_X3L
+#ifdef USE_WB
+         lgrid%temp(i,j,lx3-1) = rp2*lgrid%eq_prim_x3(ieq_T,i,j,lx3)-lgrid%temp(i,j,lx3)
+#ifdef BALANCE_THERMAL_DIFFUSION
+         lgrid%eq_prim_cc(ieq_T,i,j,lx3-1) = &
+         rp2*lgrid%eq_prim_x3(ieq_T,i,j,lx3)-lgrid%eq_prim_cc(ieq_T,i,j,lx3)
+#endif
+#else
+         lgrid%temp(i,j,lx3-1) = rp2*lgrid%Tl(3)-lgrid%temp(i,j,lx3)
+#endif
+#else
+         lgrid%temp(i,j,lx3-1) = lgrid%temp(i,j,lx3)
+#ifdef BALANCE_THERMAL_DIFFUSION
+         lgrid%eq_prim_cc(ieq_T,i,j,lx3-1) = lgrid%eq_prim_cc(ieq_T,i,j,lx3)
+#endif
+#endif
+
+       end do
+      end do
+
+  endif
+
+#endif
+
+#if defined(X3U_REFLECTIVE) || defined(X3U_OUTFLOW) || defined(X3U_DIODE)
+
+  if(mgrid%coords_dd(3)==mgrid%bricks(3)-1) then
+
+      do j=lx2,ux2
+       do i=lx1,ux1
+
+         lgrid%prim(i_rho,i,j,ux3+1) = rp2*lgrid%prim(i_rho,i,j,ux3)-lgrid%prim(i_rho,i,j,ux3-1)
+      
+#ifdef FIX_TEMPERATURE_AT_X3U
+#ifdef USE_WB
+         lgrid%temp(i,j,ux3+1) = rp2*lgrid%eq_prim_x3(ieq_T,i,j,ux3+1)-lgrid%temp(i,j,ux3)
+#ifdef BALANCE_THERMAL_DIFFUSION
+         lgrid%eq_prim_cc(ieq_T,i,j,ux3+1) = &
+         rp2*lgrid%eq_prim_x3(ieq_T,i,j,ux3+1)-lgrid%eq_prim_cc(ieq_T,i,j,ux3)
+#endif
+#else
+         lgrid%temp(i,j,ux3+1) = rp2*lgrid%Tu(3)-lgrid%temp(i,j,ux3)
+#endif
+#else
+         lgrid%temp(i,j,ux3+1) = lgrid%temp(i,j,ux3)
+#ifdef BALANCE_THERMAL_DIFFUSION
+         lgrid%eq_prim_cc(ieq_T,i,j,ux3+1) = lgrid%eq_prim_cc(ieq_T,i,j,ux3)
+#endif
+#endif
+
+       end do
+      end do
+
+  endif
+
+#endif
+
+#endif
+
+#endif
+
+ end subroutine bcs_thermal_diffusion
+#endif
+
+#endif
+
 #ifdef THERMAL_DIFFUSION_STS
 
  subroutine compute_parabolic_dt(mgrid,lgrid)
@@ -24399,6 +25327,14 @@ end subroutine bcs_dns
       Drad = othird*CONST_C/(lgrid%kappa(i,j,k)*lgrid%prim(i_rho,i,j,k))
 #endif
 
+#ifdef GEOMETRY_CUBED_SPHERE
+
+      inv_dl2 = lgrid%ivol(i,j,k)**tthirds
+
+      inv_dt_par(1) = max(inv_dt_par(1),rp2*Drad*inv_dl2)
+
+#else
+
 #ifdef GEOMETRY_CARTESIAN_NONUNIFORM
       inv_dx1 = rp1/(lgrid%coords_x1(1,i+1,j,k)-lgrid%coords_x1(1,i,j,k))
       inv_dx2 = rp1/(lgrid%coords_x2(2,i,j+1,k)-lgrid%coords_x2(2,i,j,k))
@@ -24438,6 +25374,8 @@ end subroutine bcs_dns
 
 #ifdef USE_INTERNAL_BOUNDARIES
      end if
+#endif
+
 #endif
 
     end do
@@ -24620,7 +25558,11 @@ end subroutine bcs_dns
 #endif
   call communicate_ndarray(mgrid,1,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_rho:i_rho,:,:,:),.false.)
   call bcs_thermal_diffusion(mgrid,lgrid)
+#ifdef GEOMETRY_CUBED_SPHERE
+  call thermal_diffusion_nonorthogonal(mgrid,lgrid)
+#else
   call residuals_thermal_diffusion(mgrid,lgrid)
+#endif
 
   bjm2 = b0
   bjm1 = b1
@@ -24662,8 +25604,12 @@ end subroutine bcs_dns
      call eint_to_temp(mgrid,lgrid) 
 #endif     
      call bcs_thermal_diffusion(mgrid,lgrid)
-     call residuals_thermal_diffusion(mgrid,lgrid)
- 
+#ifdef GEOMETRY_CUBED_SPHERE
+  call thermal_diffusion_nonorthogonal(mgrid,lgrid)
+#else
+  call residuals_thermal_diffusion(mgrid,lgrid)
+#endif
+
      do k=lx3,ux3
       do j=lx2,ux2
        do i=lx1,ux1
@@ -25256,239 +26202,6 @@ end subroutine bcs_dns
 #endif
 
  end subroutine residuals_thermal_diffusion
-
- subroutine bcs_thermal_diffusion(mgrid,lgrid)
-  type(mpigrid), intent(inout) :: mgrid
-  type(locgrid), intent(inout) :: lgrid
-
-  integer :: i,j,k
-  integer :: lx1,ux1,lx2,ux2,lx3,ux3
-  integer :: ierr
-  
-  ierr = 0
-
-  i=0
-  j=0
-  k=0
-
-  lx1 = mgrid%i1(1)
-  ux1 = mgrid%i2(1)
-  lx2 = mgrid%i1(2)
-  ux2 = mgrid%i2(2)
-  lx3 = mgrid%i1(3)
-  ux3 = mgrid%i2(3)
-#ifdef ENFORCE_BARRIERS
-  call mpi_barrier(mgrid%comm_cart,ierr)
-#endif
-  call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,.false.)
-
-#ifndef USE_INTERNAL_BOUNDARIES
-
-#if defined(X1L_REFLECTIVE) || defined(X1L_OUTFLOW) || defined(X1L_DIODE)
-
-  if(mgrid%coords_dd(1)==0) then
-
-      do k=lx3,ux3
-       do j=lx2,ux2
-
-         lgrid%prim(i_rho,lx1-1,j,k) = rp2*lgrid%prim(i_rho,lx1,j,k)-lgrid%prim(i_rho,lx1+1,j,k)
-
-#ifdef FIX_TEMPERATURE_AT_X1L
-#ifdef USE_WB
-         lgrid%temp(lx1-1,j,k) = rp2*lgrid%eq_prim_x1(ieq_T,lx1,j,k)-lgrid%temp(lx1,j,k)
-#ifdef BALANCE_THERMAL_DIFFUSION
-         lgrid%eq_prim_cc(ieq_T,lx1-1,j,k) = & 
-         rp2*lgrid%eq_prim_x1(ieq_T,lx1,j,k)-lgrid%eq_prim_cc(ieq_T,lx1,j,k)
-#endif
-#else
-         lgrid%temp(lx1-1,j,k) = rp2*lgrid%Tl(1)-lgrid%temp(lx1,j,k)
-#endif
-#else
-         lgrid%temp(lx1-1,j,k) = lgrid%temp(lx1,j,k)
-#ifdef BALANCE_THERMAL_DIFFUSION
-         lgrid%eq_prim_cc(ieq_T,lx1-1,j,k) = lgrid%eq_prim_cc(ieq_T,lx1,j,k)
-#endif
-#endif
-
-       end do
-      end do
-
-  endif
-
-#endif
-
-#if defined(X1U_REFLECTIVE) || defined(X1U_OUTFLOW) || defined(X1U_DIODE)
-
-  if(mgrid%coords_dd(1)==mgrid%bricks(1)-1) then
-
-      do k=lx3,ux3
-       do j=lx2,ux2
-
-         lgrid%prim(i_rho,ux1+1,j,k) = rp2*lgrid%prim(i_rho,ux1,j,k)-lgrid%prim(i_rho,ux1-1,j,k)
-      
-#ifdef FIX_TEMPERATURE_AT_X1U
-#ifdef USE_WB
-         lgrid%temp(ux1+1,j,k) = rp2*lgrid%eq_prim_x1(ieq_T,ux1+1,j,k)-lgrid%temp(ux1,j,k)
-#ifdef BALANCE_THERMAL_DIFFUSION
-         lgrid%eq_prim_cc(ieq_T,ux1+1,j,k) = & 
-         rp2*lgrid%eq_prim_x1(ieq_T,ux1+1,j,k)-lgrid%eq_prim_cc(ieq_T,ux1,j,k)
-#endif
-#else
-         lgrid%temp(ux1+1,j,k) = rp2*lgrid%Tu(1)-lgrid%temp(ux1,j,k)
-#endif
-#else
-         lgrid%temp(ux1+1,j,k) = lgrid%temp(ux1,j,k)
-#ifdef BALANCE_THERMAL_DIFFUSION
-         lgrid%eq_prim_cc(ieq_T,ux1+1,j,k) = lgrid%eq_prim_cc(ieq_T,ux1,j,k)
-#endif
-#endif
-
-       end do
-      end do
-
-  endif
-
-#endif
-
-#if defined(X2L_REFLECTIVE) || defined(X2L_OUTFLOW) || defined(X2L_DIODE)
-
-  if(mgrid%coords_dd(2)==0) then
-
-      do k=lx3,ux3
-       do i=lx1,ux1
-
-         lgrid%prim(i_rho,i,lx2-1,k) = rp2*lgrid%prim(i_rho,i,lx2,k)-lgrid%prim(i_rho,i,lx2+1,k)
-      
-#ifdef FIX_TEMPERATURE_AT_X2L
-#ifdef USE_WB
-         lgrid%temp(i,lx2-1,k) = rp2*lgrid%eq_prim_x2(ieq_T,i,lx2,k)-lgrid%temp(i,lx2,k)
-#ifdef BALANCE_THERMAL_DIFFUSION
-         lgrid%eq_prim_cc(ieq_T,i,lx2-1,k) = &
-         rp2*lgrid%eq_prim_x2(ieq_T,i,lx2,k)-lgrid%eq_prim_cc(ieq_T,i,lx2,k)
-#endif
-#else
-         lgrid%temp(i,lx2-1,k) = rp2*lgrid%Tl(2)-lgrid%temp(i,lx2,k)
-#endif
-#else
-         lgrid%temp(i,lx2-1,k) = lgrid%temp(i,lx2,k)
-#ifdef BALANCE_THERMAL_DIFFUSION
-         lgrid%eq_prim_cc(ieq_T,i,lx2-1,k) = lgrid%eq_prim_cc(ieq_T,i,lx2,k)
-#endif
-#endif
-
-       end do
-      end do
-
-  endif
-
-#endif
-
-#if defined(X2U_REFLECTIVE) || defined(X2U_OUTFLOW) || defined(X2U_DIODE)
-
-  if(mgrid%coords_dd(2)==mgrid%bricks(2)-1) then
-
-      do k=lx3,ux3
-       do i=lx1,ux1
-
-         lgrid%prim(i_rho,i,ux2+1,k) = rp2*lgrid%prim(i_rho,i,ux2,k)-lgrid%prim(i_rho,i,ux2-1,k)
-      
-#ifdef FIX_TEMPERATURE_AT_X2U
-#ifdef USE_WB
-         lgrid%temp(i,ux2+1,k) = rp2*lgrid%eq_prim_x2(ieq_T,i,ux2+1,k)-lgrid%temp(i,ux2,k)
-#ifdef BALANCE_THERMAL_DIFFUSION
-         lgrid%eq_prim_cc(ieq_T,i,ux2+1,k) = &
-         rp2*lgrid%eq_prim_x2(ieq_T,i,ux2+1,k)-lgrid%eq_prim_cc(ieq_T,i,ux2,k)
-#endif
-#else
-         lgrid%temp(i,ux2+1,k) = rp2*lgrid%Tu(2)-lgrid%temp(i,ux2,k)
-#endif
-#else
-         lgrid%temp(i,ux2+1,k) = lgrid%temp(i,ux2,k)
-#ifdef BALANCE_THERMAL_DIFFUSION
-         lgrid%eq_prim_cc(ieq_T,i,ux2+1,k) = lgrid%eq_prim_cc(ieq_T,i,ux2,k)
-#endif
-#endif
-
-       end do
-      end do
-
-  endif
-
-#endif
-
-#if sdims_make==3
-
-#if defined(X3L_REFLECTIVE) || defined(X3L_OUTFLOW) || defined(X3L_DIODE)
-
-  if(mgrid%coords_dd(3)==0) then
-
-      do j=lx2,ux2
-       do i=lx1,ux1
-
-         lgrid%prim(i_rho,i,j,lx3-1) = rp2*lgrid%prim(i_rho,i,j,lx3)-lgrid%prim(i_rho,i,j,lx3+1)
-      
-#ifdef FIX_TEMPERATURE_AT_X3L
-#ifdef USE_WB
-         lgrid%temp(i,j,lx3-1) = rp2*lgrid%eq_prim_x3(ieq_T,i,j,lx3)-lgrid%temp(i,j,lx3)
-#ifdef BALANCE_THERMAL_DIFFUSION
-         lgrid%eq_prim_cc(ieq_T,i,j,lx3-1) = &
-         rp2*lgrid%eq_prim_x3(ieq_T,i,j,lx3)-lgrid%eq_prim_cc(ieq_T,i,j,lx3)
-#endif
-#else
-         lgrid%temp(i,j,lx3-1) = rp2*lgrid%Tl(3)-lgrid%temp(i,j,lx3)
-#endif
-#else
-         lgrid%temp(i,j,lx3-1) = lgrid%temp(i,j,lx3)
-#ifdef BALANCE_THERMAL_DIFFUSION
-         lgrid%eq_prim_cc(ieq_T,i,j,lx3-1) = lgrid%eq_prim_cc(ieq_T,i,j,lx3)
-#endif
-#endif
-
-       end do
-      end do
-
-  endif
-
-#endif
-
-#if defined(X3U_REFLECTIVE) || defined(X3U_OUTFLOW) || defined(X3U_DIODE)
-
-  if(mgrid%coords_dd(3)==mgrid%bricks(3)-1) then
-
-      do j=lx2,ux2
-       do i=lx1,ux1
-
-         lgrid%prim(i_rho,i,j,ux3+1) = rp2*lgrid%prim(i_rho,i,j,ux3)-lgrid%prim(i_rho,i,j,ux3-1)
-      
-#ifdef FIX_TEMPERATURE_AT_X3U
-#ifdef USE_WB
-         lgrid%temp(i,j,ux3+1) = rp2*lgrid%eq_prim_x3(ieq_T,i,j,ux3+1)-lgrid%temp(i,j,ux3)
-#ifdef BALANCE_THERMAL_DIFFUSION
-         lgrid%eq_prim_cc(ieq_T,i,j,ux3+1) = &
-         rp2*lgrid%eq_prim_x3(ieq_T,i,j,ux3+1)-lgrid%eq_prim_cc(ieq_T,i,j,ux3)
-#endif
-#else
-         lgrid%temp(i,j,ux3+1) = rp2*lgrid%Tu(3)-lgrid%temp(i,j,ux3)
-#endif
-#else
-         lgrid%temp(i,j,ux3+1) = lgrid%temp(i,j,ux3)
-#ifdef BALANCE_THERMAL_DIFFUSION
-         lgrid%eq_prim_cc(ieq_T,i,j,ux3+1) = lgrid%eq_prim_cc(ieq_T,i,j,ux3)
-#endif
-#endif
-
-       end do
-      end do
-
-  endif
-
-#endif
-
-#endif
-
-#endif
-
- end subroutine bcs_thermal_diffusion
 
 #endif
 
