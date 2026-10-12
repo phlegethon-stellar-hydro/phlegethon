@@ -18450,18 +18450,6 @@ contains
 
  Krad = fthirds*CONST_RAD*CONST_C
 
-#ifdef THERMAL_DIFFUSION_EXPLICIT
- 
-  do k=lx3,ux3
-   do j=lx2,ux2
-    do i=lx1,ux1
-     lgrid%res(i_rhoe,i,j,k) = rp0 
-    end do
-   end do
-  end do
-   
-#endif
-
  do k=lx3,ux3
   do j=lx2,ux2
 
