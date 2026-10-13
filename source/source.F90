@@ -15925,6 +15925,7 @@ contains
       rhostarL = rhoL*dsuL/dsumL
       rhostarR = rhoR*dsuR/dsumR
 
+#ifdef LHLLD_FLUX
       a1_inv  = rp1 / (rhoL*dsuL*dsumL - bx1_2)
       vx2starL = vx2L - bx1 * bx2L * (ustar - vx1L) * a1_inv
       bx2starL = bx2L * (rhoL * dsuL*dsuL - bx1_2) * a1_inv
@@ -15939,6 +15940,48 @@ contains
 
       vx3starR = vx3R - bx1 * bx3R * (ustar - vx1R) * a2_inv
       bx3starR = bx3R * (rhoR * dsuR*dsuR - bx1_2) * a2_inv
+#endif
+#ifdef HLLD_FLUX
+
+      dummy = rhoL*dsuL*dsumL - bx1_2
+
+      if(abs(dummy)>em11*pstar) then
+
+       a1_inv  = rp1 / (rhoL*dsuL*dsumL - bx1_2)
+       vx2starL = vx2L - bx1 * bx2L * (ustar - vx1L) * a1_inv
+       bx2starL = bx2L * (rhoL * dsuL*dsuL - bx1_2) * a1_inv
+       vx3starL = vx3L - bx1 * bx3L * (ustar - vx1L) * a1_inv
+       bx3starL = bx3L * (rhoL * dsuL*dsuL - bx1_2) * a1_inv
+
+      else
+
+       vx2starL = vx2L 
+       bx2starL = bx2L 
+       vx3starL = vx3L 
+       bx3starL = bx3L 
+
+      endif
+
+      dummy = rhoR*dsuR*dsumR - bx1_2
+
+      if(abs(dummy)>em11*pstar) then
+
+       a2_inv  = rp1 / (rhoR * dsuR * dsumR - bx1_2)
+       vx2starR = vx2R - bx1 * bx2R * (ustar - vx1R) * a2_inv
+       bx2starR = bx2R * (rhoR * dsuR*dsuR - bx1_2) * a2_inv
+       vx3starR = vx3R - bx1 * bx3R * (ustar - vx1R) * a2_inv
+       bx3starR = bx3R * (rhoR * dsuR*dsuR - bx1_2) * a2_inv
+ 
+      else
+
+       vx2starR = vx2R 
+       bx2starR = bx2R 
+       vx3starR = vx3R 
+       bx3starR = bx3R 
+ 
+      endif
+
+#endif
 
       vdotbL = vx1L*bx1+vx2L*bx2L+vx3L*bx3L
       vdotbR = vx1R*bx1+vx2R*bx2R+vx3R*bx3R
