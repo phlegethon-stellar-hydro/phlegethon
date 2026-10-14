@@ -1104,6 +1104,14 @@ module source
 
 #ifdef GEOMETRY_CUBED_SPHERE
 
+#ifdef SAVE_SPHERICAL_PROJECTIONS
+    integer, allocatable :: spj_nphi(:)     
+    integer, allocatable :: spj_ntheta(:)   
+    integer, allocatable :: spj_off(:)       
+    integer, allocatable :: spj_cell(:,:)    
+    real(kind=rp), allocatable :: spj_w(:,:)
+#endif
+
 #if defined(THERMAL_DIFFUSION_EXPLICIT) || defined(THERMAL_DIFFUSION_STS)
     real(kind=rp), allocatable, dimension(:,:,:,:) :: &
     grad_temp
@@ -2102,10 +2110,18 @@ contains
     lgrid%x3l = x3l
     lgrid%x3u = x3u
 
+#ifdef GEOMETRY_CUBED_SPHERE
+    lgrid%dx1 = rp2*cs_r1 / real(nx1,kind=rp)
+    lgrid%dx2 = rp2*cs_r1 / real(nx2,kind=rp)
+#if sdims_make==3
+    lgrid%dx3 = rp2*cs_r1 / real(nx3,kind=rp)
+#endif
+#else
     lgrid%dx1 = (lgrid%x1u - lgrid%x1l) / real(nx1,kind=rp)
     lgrid%dx2 = (lgrid%x2u - lgrid%x2l) / real(nx2,kind=rp)
 #if sdims_make==3
     lgrid%dx3 = (lgrid%x3u - lgrid%x3l) / real(nx3,kind=rp)
+#endif
 #endif
 
     lgrid%inv_dx1 = rp1/lgrid%dx1
@@ -2308,6 +2324,244 @@ contains
     call h5open_f(ierr)
  
  end subroutine initialize_simulation
+
+#if defined(SAVE_SPHERICAL_PROJECTIONS) && defined(GEOMETRY_CUBED_SPHERE)
+
+ subroutine init_spherical_projections(mgrid,lgrid)
+
+    type(mpigrid), intent(in) :: mgrid
+    type(locgrid), intent(inout) :: lgrid
+
+    integer :: ir,it,ip,ci,cj,ck,ic,ncand,ncell,npts,ipt,ibest,ntot,ierr
+    integer :: di,dj,dk,n,jp
+    real(kind=rp) :: r,h,d2,d2min,theta,phi,sin_theta,dphi,xp(3)
+
+    real(kind=rp) :: xc(3),dv(3),g(3),a(3,27),wn(27),wts(27)
+    real(kind=rp) :: m11,m12,m13,m22,m23,m33,det
+    real(kind=rp) :: c11,c12,c13,c22,c23,c33
+
+    integer, allocatable :: cand_i(:),cand_j(:),cand_k(:)
+    real(kind=rp), allocatable :: cand_h2(:)
+    real(kind=rp), allocatable :: local_dist(:),global_dist(:)
+
+    allocate(lgrid%spj_nphi(1:nspj))
+    allocate(lgrid%spj_ntheta(1:nspj))
+    allocate(lgrid%spj_off(1:nspj))
+
+    ntot = 0
+    do ir=1,nspj
+     r = lgrid%spj_r(ir)
+     dphi = lgrid%dx1/r
+     lgrid%spj_nphi(ir)   = nint(rp2*CONST_PI/dphi)
+     lgrid%spj_ntheta(ir) = nint(CONST_PI/dphi)
+     lgrid%spj_off(ir) = ntot
+     ntot = ntot + lgrid%spj_nphi(ir)*lgrid%spj_ntheta(ir)
+    end do
+
+    allocate(lgrid%spj_cell(1:3,1:ntot))
+    allocate(lgrid%spj_w(1:27,1:ntot))
+    lgrid%spj_cell = 0
+    lgrid%spj_w = rp0
+
+    ncell = (mgrid%i2(1)-mgrid%i1(1)+1)* &
+            (mgrid%i2(2)-mgrid%i1(2)+1)* &
+            (mgrid%i2(3)-mgrid%i1(3)+1)
+
+    allocate(cand_i(1:ncell))
+    allocate(cand_j(1:ncell))
+    allocate(cand_k(1:ncell))
+    allocate(cand_h2(1:ncell))
+
+    do ir=1,nspj
+
+     r = lgrid%spj_r(ir)
+     npts = lgrid%spj_nphi(ir)*lgrid%spj_ntheta(ir)
+
+     allocate(local_dist(1:npts))
+     allocate(global_dist(1:npts))
+
+     ncand = 0
+     do ck=mgrid%i1(3),mgrid%i2(3)
+      do cj=mgrid%i1(2),mgrid%i2(2)
+       do ci=mgrid%i1(1),mgrid%i2(1)
+
+        h = sqrt(sum((lgrid%coords_x1(1:3,ci+1,cj,ck)-lgrid%coords_x1(1:3,ci,cj,ck))**2))
+        h = max(h,sqrt(sum((lgrid%coords_x2(1:3,ci,cj+1,ck)-lgrid%coords_x2(1:3,ci,cj,ck))**2)))
+        h = max(h,sqrt(sum((lgrid%coords_x3(1:3,ci,cj,ck+1)-lgrid%coords_x3(1:3,ci,cj,ck))**2)))
+
+        if(abs(lgrid%r(ci,cj,ck)-r) <= h) then
+         ncand = ncand + 1
+         cand_i(ncand) = ci
+         cand_j(ncand) = cj
+         cand_k(ncand) = ck
+         cand_h2(ncand) = h*h
+        end if
+
+       end do
+      end do
+     end do
+
+     ipt = 0
+     do it=1,lgrid%spj_ntheta(ir)
+
+      theta = real(it-0.5,kind=rp)*CONST_PI/real(lgrid%spj_ntheta(ir),kind=rp)
+      sin_theta = sin(theta)
+
+      do ip=1,lgrid%spj_nphi(ir)
+
+       phi = real(ip-0.5,kind=rp)*rp2*CONST_PI/real(lgrid%spj_nphi(ir),kind=rp)
+
+       ipt = ipt + 1
+
+       xp(1) = r*sin_theta*cos(phi)
+       xp(2) = r*sin_theta*sin(phi)
+       xp(3) = r*cos(theta)
+
+       d2min = HUGE(rp0)
+       ibest = 0
+
+       do ic=1,ncand
+        d2 = (lgrid%coords(1,cand_i(ic),cand_j(ic),cand_k(ic))-xp(1))**2 + &
+             (lgrid%coords(2,cand_i(ic),cand_j(ic),cand_k(ic))-xp(2))**2 + &
+             (lgrid%coords(3,cand_i(ic),cand_j(ic),cand_k(ic))-xp(3))**2
+        if(d2 < d2min) then
+         d2min = d2
+         ibest = ic
+        end if
+       end do
+
+       local_dist(ipt) = HUGE(rp0)
+
+       if(ibest > 0) then
+        if(d2min <= cand_h2(ibest)) then
+         local_dist(ipt) = d2min
+         lgrid%spj_cell(1,lgrid%spj_off(ir)+ipt) = cand_i(ibest)
+         lgrid%spj_cell(2,lgrid%spj_off(ir)+ipt) = cand_j(ibest)
+         lgrid%spj_cell(3,lgrid%spj_off(ir)+ipt) = cand_k(ibest)
+        end if
+       end if
+
+      end do
+     end do
+
+     call mpi_allreduce(local_dist,global_dist,npts, &
+     MPI_RP,MPI_MIN,mgrid%comm_cart,ierr)
+
+     do ipt=1,npts
+      if(local_dist(ipt) > global_dist(ipt)) then
+       lgrid%spj_cell(1:3,lgrid%spj_off(ir)+ipt) = 0
+      end if
+     end do
+
+     deallocate(local_dist)
+     deallocate(global_dist)
+
+     ipt = 0
+     do it=1,lgrid%spj_ntheta(ir)
+
+      theta = real(it-0.5,kind=rp)*CONST_PI/real(lgrid%spj_ntheta(ir),kind=rp)
+      sin_theta = sin(theta)
+
+      do ip=1,lgrid%spj_nphi(ir)
+
+       phi = real(ip-0.5,kind=rp)*rp2*CONST_PI/real(lgrid%spj_nphi(ir),kind=rp)
+
+       ipt = ipt + 1
+       jp = lgrid%spj_off(ir) + ipt
+
+       if(lgrid%spj_cell(1,jp) > 0) then
+
+        ci = lgrid%spj_cell(1,jp)
+        cj = lgrid%spj_cell(2,jp)
+        ck = lgrid%spj_cell(3,jp)
+
+        xp(1) = r*sin_theta*cos(phi)
+        xp(2) = r*sin_theta*sin(phi)
+        xp(3) = r*cos(theta)
+
+        xc(1:3) = lgrid%coords(1:3,ci,cj,ck)
+        dv(1:3) = xp(1:3) - xc(1:3)
+
+        m11 = rp0 
+        m12 = rp0 
+        m13 = rp0
+        m22 = rp0 
+        m23 = rp0 
+        m33 = rp0
+
+        n = 0
+        do dk=-1,1
+         do dj=-1,1
+          do di=-1,1
+
+           n = n + 1
+
+           if(n /= 14) then   
+
+            a(1:3,n) = lgrid%coords(1:3,ci+di,cj+dj,ck+dk) - xc(1:3)
+            wn(n) = rp1/sum(a(1:3,n)**2)
+
+            m11 = m11 + wn(n)*a(1,n)*a(1,n)
+            m12 = m12 + wn(n)*a(1,n)*a(2,n)
+            m13 = m13 + wn(n)*a(1,n)*a(3,n)
+            m22 = m22 + wn(n)*a(2,n)*a(2,n)
+            m23 = m23 + wn(n)*a(2,n)*a(3,n)
+            m33 = m33 + wn(n)*a(3,n)*a(3,n)
+
+           end if
+
+          end do
+         end do
+        end do
+
+        c11 = m22*m33 - m23*m23
+        c12 = m13*m23 - m12*m33
+        c13 = m12*m23 - m13*m22
+        c22 = m11*m33 - m13*m13
+        c23 = m12*m13 - m11*m23
+        c33 = m11*m22 - m12*m12
+
+        det = m11*c11 + m12*c12 + m13*c13
+
+        wts = rp0
+
+        if(abs(det) > em11*m11*m22*m33) then
+
+         g(1) = (c11*dv(1) + c12*dv(2) + c13*dv(3))/det
+         g(2) = (c12*dv(1) + c22*dv(2) + c23*dv(3))/det
+         g(3) = (c13*dv(1) + c23*dv(2) + c33*dv(3))/det
+
+         do n=1,27
+          if(n /= 14) then
+           wts(n) = wn(n)*(a(1,n)*g(1) + a(2,n)*g(2) + a(3,n)*g(3))
+          end if
+         end do
+
+         wts(14) = rp1 - sum(wts)
+
+        else
+
+         wts(14) = rp1
+
+        end if
+
+        lgrid%spj_w(1:27,jp) = wts(1:27)
+
+       end if
+
+      end do
+     end do
+
+    end do
+
+    deallocate(cand_i)
+    deallocate(cand_j)
+    deallocate(cand_k)
+    deallocate(cand_h2)
+
+ end subroutine init_spherical_projections
+
+#endif
 
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
  ! GRID DESTRUCTION
@@ -2943,7 +3197,7 @@ contains
     integer :: nreq
     integer, dimension(4) :: reqs
 
-    integer, parameter :: cache_max = 64
+    integer, parameter :: cache_max = 128
 
     type :: cache_entry_t
        integer :: nv,lx1,ux1,lx2,ux2,lx3,ux3,gst
@@ -4198,18 +4452,25 @@ contains
     integer :: ir,it,ip,iv,ierr,total_size,nv
     integer :: id_x1,id_x2,id_x3,ic
 
-    real(kind=rp) :: x1,x2,x3,theta,phi,r,sin_theta,x1_ref,x2_ref,x3_ref
-    real(kind=rp) :: x1min,x1max,x2min,x2max,x3min,x3max,u,v,w
+    real(kind=rp) :: r
+#ifndef GEOMETRY_CUBED_SPHERE
+    real(kind=rp) :: x1,x2,x3,phi,theta,sin_theta,x1_ref,x2_ref,x3_ref
+    real(kind=rp) :: x1min,x1max,x2min,x2max,x3min,x3max,u,v,w,dphi,dtheta
     real(kind=rp) :: q000,q001,q010,q100,q101,q011,q110,q111
     real(kind=rp) :: c000,c001,c010,c100,c101,c011,c110,c111
+#endif
 
     real(kind=rp), allocatable :: local_flat(:)
     real(kind=rp), allocatable :: global_flat(:)
     real(kind=rp), allocatable :: global_data(:,:,:)
     real(kind=rp), allocatable :: phi_arr(:),theta_arr(:)
 
-    real(kind=rp) :: dphi,dtheta
     integer :: nspj_nodes_phi,nspj_nodes_theta
+
+#ifdef GEOMETRY_CUBED_SPHERE
+    integer :: ipt,n,di,dj,dk
+    real(kind=rp) :: qacc
+#endif
 
     character(len=filename_size) :: filename
 
@@ -4264,6 +4525,8 @@ contains
     nv = nv + 3
 #endif
 
+#ifndef GEOMETRY_CUBED_SPHERE
+
     x1min = lgrid%coords_x1(1,mgrid%i1(1),mgrid%i1(2),mgrid%i1(3))
     x1max = lgrid%coords_x1(1,mgrid%i2(1)+1,mgrid%i2(2),mgrid%i2(3))
     x2min = lgrid%coords_x2(2,mgrid%i1(1),mgrid%i1(2),mgrid%i1(3))
@@ -4271,17 +4534,24 @@ contains
     x3min = lgrid%coords_x3(3,mgrid%i1(1),mgrid%i1(2),mgrid%i1(3))
     x3max = lgrid%coords_x3(3,mgrid%i2(1),mgrid%i2(2),mgrid%i2(3)+1)
 
+#endif
+
     do ir=1,nspj
 
      ic = 1
 
      r = lgrid%spj_r(ir)
 
+#ifdef GEOMETRY_CUBED_SPHERE
+     nspj_nodes_phi = lgrid%spj_nphi(ir)
+     nspj_nodes_theta = lgrid%spj_ntheta(ir)
+#else
      dphi = lgrid%dx1/r
      dtheta = dphi
  
      nspj_nodes_phi = nint(rp2*CONST_PI/dphi)
      nspj_nodes_theta = nint(CONST_PI/dtheta) 
+#endif
 
      total_size = nv*nspj_nodes_phi*nspj_nodes_theta
 
@@ -4293,6 +4563,82 @@ contains
 
      allocate(phi_arr(1:nspj_nodes_phi))
      allocate(theta_arr(1:nspj_nodes_theta))
+
+#ifdef GEOMETRY_CUBED_SPHERE
+
+     do ip=1,nspj_nodes_phi
+      phi_arr(ip) = real(ip-0.5,kind=rp)*rp2*CONST_PI/real(nspj_nodes_phi,kind=rp)
+     end do
+
+     do it=1,nspj_nodes_theta
+
+      theta_arr(it) = real(it-0.5,kind=rp)*CONST_PI/real(nspj_nodes_theta,kind=rp)
+
+      do ip=1,nspj_nodes_phi
+
+       ipt = lgrid%spj_off(ir) + (it-1)*nspj_nodes_phi + ip
+       ic = ((it-1)*nspj_nodes_phi + ip - 1)*nv + 1
+
+       id_x1 = lgrid%spj_cell(1,ipt)
+       id_x2 = lgrid%spj_cell(2,ipt)
+       id_x3 = lgrid%spj_cell(3,ipt)
+
+       if(id_x1 > 0) then
+
+        do iv=1,nvars
+         qacc = rp0
+         n = 0
+         do dk=-1,1
+          do dj=-1,1
+           do di=-1,1
+            n = n + 1
+            qacc = qacc + lgrid%spj_w(n,ipt)* &
+                   lgrid%prim(iv,id_x1+di,id_x2+dj,id_x3+dk)
+           end do
+          end do
+         end do
+         local_flat(ic) = qacc
+         ic = ic + 1
+        end do
+
+        qacc = rp0
+        n = 0
+        do dk=-1,1
+         do dj=-1,1
+          do di=-1,1
+           n = n + 1
+           qacc = qacc + lgrid%spj_w(n,ipt)* &
+                  lgrid%temp(id_x1+di,id_x2+dj,id_x3+dk)
+          end do
+         end do
+        end do
+        local_flat(ic) = qacc
+        ic = ic + 1
+
+#ifdef USE_MHD
+        do iv=1,3
+         qacc = rp0
+         n = 0
+         do dk=-1,1
+          do dj=-1,1
+           do di=-1,1
+            n = n + 1
+            qacc = qacc + lgrid%spj_w(n,ipt)* &
+                   lgrid%b_cc(iv,id_x1+di,id_x2+dj,id_x3+dk)
+           end do
+          end do
+         end do
+         local_flat(ic) = qacc
+         ic = ic + 1
+        end do
+#endif
+
+       end if
+
+      end do
+     end do
+
+#else
 
      do it=1,nspj_nodes_theta
 
@@ -4419,6 +4765,8 @@ contains
 
        end do
      end do
+
+#endif
 
 #ifdef ENFORCE_BARRIERS
      call mpi_barrier(mgrid%comm_cart,ip)
@@ -6899,6 +7247,12 @@ contains
      end do
     end do
 
+#endif
+
+#if defined(SAVE_SPHERICAL_PROJECTIONS) && defined(GEOMETRY_CUBED_SPHERE)
+    
+    call init_spherical_projections(mgrid,lgrid)
+    
 #endif
 
 #ifdef SAVE_RPROFS
