@@ -3212,6 +3212,14 @@ contains
     call hdf5_write_array(h5,id,"temp",mgrid,&
     mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%temp,1)
 
+    call hdf5_write_array(h5,id,"eint",mgrid,&
+    mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%eint,1)
+
+#ifdef USE_FASTEOS
+    call hdf5_write_ndarray(h5,id,"gammaf",mgrid,2,&
+    mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%gammaf,1)
+#endif
+
     call h5gclose_f(id, error)
     call h5fclose_f(h5%file_id, error)
 
@@ -3468,6 +3476,22 @@ contains
     mgrid%i1(2),mgrid%i2(2),&
     mgrid%i1(3),mgrid%i2(3),&
     ngc,lgrid%temp)
+
+    call  read_array(h5,group_id,"eint",mgrid,&
+    mgrid%i1(1),mgrid%i2(1),&
+    mgrid%i1(2),mgrid%i2(2),&
+    mgrid%i1(3),mgrid%i2(3),&
+    ngc,lgrid%eint)
+
+#ifdef USE_FASTEOS
+
+    call  read_ndarray(h5,group_id,"gammaf",mgrid,2,&
+    mgrid%i1(1),mgrid%i2(1),&
+    mgrid%i1(2),mgrid%i2(2),&
+    mgrid%i1(3),mgrid%i2(3),&
+    ngc,lgrid%gammaf)
+
+#endif
 
     call read_rp(h5,group_id,"time",lgrid%time)
 
@@ -7387,105 +7411,6 @@ contains
      call monopole_gravity(mgrid,lgrid,int(nx1/2))
 #endif
 #endif 
-
-    else
-
-     do k=lx3,ux3
-      do j=lx2,ux2
-       do i=lx1,ux1
-
-        rho = lgrid%prim(i_rho,i,j,k)
-
-#ifdef HELMHOLTZ_EOS
-#ifdef ADVECT_YE_IABAR
-        abar = rp1/lgrid%prim(i_iabar,i,j,k)
-        ye = lgrid%prim(i_ye,i,j,k)
-#endif
-#ifdef ADVECT_SPECIES
-        inv_abar = rp0
-        ye = rp0
-        do iv=1,nspecies
-         tmp = lgrid%prim(i_as1+iv-1,i,j,k)/lgrid%A(iv)
-         inv_abar = inv_abar + tmp
-         ye = ye + tmp*lgrid%Z(iv)
-        end do
-        abar = rp1/inv_abar
-#endif
-        zbar = abar*ye
-#else
-#ifdef ADVECT_YE_IABAR
-        ye = lgrid%prim(i_ye,i,j,k)
-        abar = rp1/lgrid%prim(i_iabar,i,j,k)
-        inv_mu =  (ye*abar+rp1)/abar
-#endif
-#ifdef ADVECT_SPECIES
-        inv_mu = rp0
-        do iv=1,nspecies
-         inv_mu = inv_mu + lgrid%prim(i_as1+iv-1,i,j,k)*(lgrid%Z(iv)+rp1)/lgrid%A(iv)
-        end do
-#endif
-#endif
-
-        p = lgrid%prim(i_p,i,j,k)
-
-#ifdef USE_PRAD
-        T = lgrid%temp(i,j,k)
-        T2 = T*T
-        T3 = T2*T
-        T4 = T3*T
-        eint = CONST_RGAS*rho*T*igmm1*inv_mu + CONST_RAD*T4
-#ifdef USE_FASTEOS
-        mu = rp1/inv_mu
-
-        tmp1 = CONST_RAD*mu*T3
-        tmp2 = CONST_RGAS*rho
-
-        dp_drho = fthirds * &
-        CONST_RAD*CONST_RGAS*T4*(rp3*gm-rp4) / &
-        (rp4*tmp1*gmm1+tmp2)
-
-        dp_deps = gmm1 * &
-        (rp4*tmp1+rp3*tmp2) / &
-        (rp12*tmp1*gmm1+rp3*tmp2)
-
-        sound2 = dp_drho+dp_deps*(p+eint)/rho
-        lgrid%gammaf(i_gammae,i,j,k) = p/eint+rp1
-        lgrid%gammaf(i_gammac,i,j,k) = sound2*rho/p
-#endif
-#elif defined(HELMHOLTZ_EOS)
-        T = lgrid%temp(i,j,k)
-        call helm_rhoT_given_full(rho,T,abar,zbar,p,eint,sound,cv)                                                   
-        eint = rho*eint 
-#ifdef USE_FASTEOS
-        lgrid%gammaf(i_gammae,i,j,k) = p/eint+rp1
-        lgrid%gammaf(i_gammac,i,j,k) = sound*sound*rho/p
-#endif
-#elif defined(PIG_EOS)
-        T = lgrid%temp(i,j,k)
-        call pig_rhoT_given_full(rho,T,p,eint,sound,cv)                                                   
-        eint = rho*eint 
-#ifdef USE_FASTEOS
-        lgrid%gammaf(i_gammae,i,j,k) = p/eint+rp1
-        lgrid%gammaf(i_gammac,i,j,k) = sound*sound*rho/p
-#endif
-#elif defined(PIG_XVAR_EOS)
-        T = lgrid%temp(i,j,k)
-        tmp = lgrid%prim(i_as1,i,j,k)
-        call pig_xvar_rhoT_given_full(rho,T,tmp,p,eint,sound,cv)                                                   
-        eint = rho*eint 
-#ifdef USE_FASTEOS
-        lgrid%gammaf(i_gammae,i,j,k) = p/eint+rp1
-        lgrid%gammaf(i_gammac,i,j,k) = sound*sound*rho/p
-#endif
-#else
-        eint = p*igmm1
-#endif
-
-        lgrid%eint(i,j,k) = eint
-   
-       end do
-      end do
-     end do 
 
     endif
 
