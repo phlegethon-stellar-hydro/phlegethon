@@ -1233,6 +1233,10 @@ module source
 
     real(kind=rp), allocatable, dimension(:,:,:,:) :: b_cc
 
+#ifdef TRACK_VECTOR_POTENTIAL
+    real(kind=rp), allocatable, dimension(:,:,:,:) :: A0_cc,A_cc
+#endif
+
     real(kind=rp), allocatable, dimension(:,:,:,:) :: &
 #if sdims_make==3
     emf_x3, &
@@ -1899,6 +1903,27 @@ contains
     allocate(lgrid%fbx3(1:sdims,lx3:ux3+1))
 #endif
 
+#ifdef TRACK_VECTOR_POTENTIAL
+
+#if sdims_make==2
+    ierr = 1
+#endif
+#if sdims_make==3
+    ierr = 3
+#endif
+
+    allocate(lgrid%A0_cc(1:ierr,lx1:ux1,lx2:ux2,lx3:ux3))
+
+    allocate(lgrid%A_cc(1:ierr,lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc, &
+#if sdims_make==2
+    lx3:ux3))
+#endif
+#if sdims_make==3
+    lx3-ngc:ux3+ngc))
+#endif
+
+#endif
+
     allocate(lgrid%b_cc(1:sdims,lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc, &
 #if sdims_make==2
     lx3:ux3))
@@ -2472,6 +2497,13 @@ contains
 #endif
 
 #ifdef USE_MHD
+
+#ifdef TRACK_VECTOR_POTENTIAL
+
+    deallocate(lgrid%A0_cc)
+    deallocate(lgrid%A_cc)
+
+#endif
 
     deallocate(lgrid%bLx1)
     deallocate(lgrid%bRx1)
@@ -3197,6 +3229,21 @@ contains
     call hdf5_write_array(h5,id,"b_x3",mgrid,&
     mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3)+1,1,lgrid%ivol,lgrid%b_x3,1)
 #endif
+
+#ifdef TRACK_VECTOR_POTENTIAL
+
+#if sdims_make==2
+    error = 1
+#endif
+#if sdims_make==3
+    error = 3
+#endif
+
+    call hdf5_write_ndarray(h5,id,"A_cc",mgrid,error,&
+    mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%A_cc,1)
+
+#endif
+
 #endif
 
 #ifdef USE_GRAVITY
@@ -3436,6 +3483,23 @@ contains
     mgrid%i1(2),mgrid%i2(2),&
     mgrid%i1(3),mgrid%i2(3)+1,&
     1,lgrid%b_x3)
+#endif
+
+#ifdef TRACK_VECTOR_POTENTIAL
+
+#if sdims_make==2
+    error = 1
+#endif
+#if sdims_make==3
+    error = 3
+#endif
+
+    call  read_ndarray(h5,group_id,"A_cc",mgrid,error,&
+    mgrid%i1(1),mgrid%i2(1),&
+    mgrid%i1(2),mgrid%i2(2),&
+    mgrid%i1(3),mgrid%i2(3),&
+    ngc,lgrid%A_cc)
+
 #endif
 
 #endif
@@ -3777,6 +3841,20 @@ contains
 #ifdef USE_MHD
     call hdf5_write_ndarray(h5,id,"bfield",mgrid,sdims, &
     mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%b_cc,0)
+
+#ifdef TRACK_VECTOR_POTENTIAL
+
+#if sdims_make==2
+    error = 1
+#endif
+#if sdims_make==3
+    error = 3
+#endif
+
+    call hdf5_write_ndarray(h5,id,"A_cc",mgrid,error, &
+    mgrid%i1(1),mgrid%i2(1),mgrid%i1(2),mgrid%i2(2),mgrid%i1(3),mgrid%i2(3),ngc,lgrid%ivol,lgrid%A_cc,0)
+#endif
+
 #endif
 
 #ifdef USE_GRAVITY_SOLVER
@@ -8217,6 +8295,20 @@ contains
        bx3 = rp0
 #endif
        rhoe = rhoe + rph*(bx1*bx1+bx2*bx2+bx3*bx3)
+
+#ifdef TRACK_VECTOR_POTENTIAL
+
+#if sdims_make==2
+       lgrid%A0_cc(1,i,j,k) = lgrid%A_cc(1,i,j,k)
+#endif
+#if sdims_make==3
+       do iv=1,3
+        lgrid%A0_cc(iv,i,j,k) = lgrid%A_cc(iv,i,j,k)
+       end do
+#endif
+
+#endif
+
 #endif
       
 #ifdef EVOLVE_ETOT
@@ -8318,7 +8410,7 @@ contains
      call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%b_cc,communicate_corners)
 #endif
 
-#if defined(HELMHOLTZ_EOS) || defined(USE_PRAD) || defined(PIG_EOS) || defined(PIG_XVAR_EOS)
+#if defined(HELMHOLTZ_EOS) || defined(USE_PRAD) || defined(PIG_EOS) || defined(PIG_XVAR_EOS) || defined(THERMAL_DIFFUSION_EXPLICIT)
      call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,communicate_corners)
 #endif
 
@@ -14938,7 +15030,56 @@ contains
      !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
      ! RK UPDATE
      !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-     
+    
+#ifdef TRACK_VECTOR_POTENTIAL
+
+     do k=lx3,ux3
+      do j=lx2,ux2
+       do i=lx1,ux1
+
+         tmp = oquart*( &
+         lgrid%emfx3_cor(i,j,k) + &
+         lgrid%emfx3_cor(i+1,j,k) + &
+         lgrid%emfx3_cor(i,j+1,k) + &
+         lgrid%emfx3_cor(i+1,j+1,k) )
+        
+         lgrid%A_cc(1,i,j,k) = &
+         a1rk*lgrid%A0_cc(1,i,j,k) + &
+         a2rk*lgrid%A_cc(1,i,j,k) + &
+         a3rk*tmp
+
+#if sdims_make==3
+
+         tmp = oquart*( &
+         lgrid%emfx2_cor(i,j,k) + &
+         lgrid%emfx2_cor(i+1,j,k) + &
+         lgrid%emfx2_cor(i,j,k+1) + &
+         lgrid%emfx2_cor(i+1,j,k+1) )
+        
+         lgrid%A_cc(2,i,j,k) = &
+         a1rk*lgrid%A0_cc(2,i,j,k) + &
+         a2rk*lgrid%A_cc(2,i,j,k) + &
+         a3rk*tmp
+
+         tmp = oquart*( &
+         lgrid%emfx1_cor(i,j,k) + &
+         lgrid%emfx1_cor(i,j+1,k) + &
+         lgrid%emfx1_cor(i,j,k+1) + &
+         lgrid%emfx1_cor(i,j+1,k+1) )
+        
+         lgrid%A_cc(3,i,j,k) = &
+         a1rk*lgrid%A0_cc(3,i,j,k) + &
+         a2rk*lgrid%A_cc(3,i,j,k) + &
+         a3rk*tmp
+
+#endif
+
+       end do
+      end do
+     end do
+
+#endif
+
 #ifdef USE_INTERNAL_BOUNDARIES
 
      do k=lx3,ux3
@@ -25118,7 +25259,6 @@ end subroutine bcs_dns
      Tminus = Tminus-lgrid%eq_prim_cc(ieq_T,i-1,j,k)
 #endif
      gradT = (Tplus-Tminus)*inv_dl
-
 
      lgrid%fe_x1(i) = Krad*Kint*gradT
 

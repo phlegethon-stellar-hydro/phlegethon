@@ -2235,6 +2235,9 @@ class h5grid:
     def bfield(self,ix=-1,iy=-1,iz=-1):
         return self.vec4d(self.grid['bfield'],ix=ix,iy=iy,iz=iz)
  
+    def vector_potential(self,ix=-1,iy=-1,iz=-1):
+        return self.vec4d(self.grid['A_cc'],ix=ix,iy=iy,iz=iz)
+ 
     def br(self,ix=-1,iy=-1,iz=-1):
 
       b = self.bfield(ix=ix,iy=iy,iz=iz)
