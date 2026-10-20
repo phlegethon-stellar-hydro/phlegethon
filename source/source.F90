@@ -790,7 +790,11 @@ module source
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
  
  real(kind=rp), parameter :: &
+#ifdef rgas_make
+ CONST_RGAS = rgas_make, &
+#else
  CONST_RGAS = 8.31446261815324e7_rp, &
+#endif
  CONST_RAD = 7.565767381646406e-15_rp, &
 #ifdef CONST_GRAV_UNITY
  CONST_GRAV = 1.0_rp, &
@@ -8083,7 +8087,11 @@ contains
     Tminus = rp0
     Tplus = rp0
     gradT = rp0
+#ifdef CONSTANT_THERMAL_CONDUCTIVITY
+    Krad = rp1
+#else
     Krad = fthirds*CONST_RAD*CONST_C
+#endif
     Kint = rp0
     Kminus = rp0
     Kplus = rp0 
@@ -12739,11 +12747,23 @@ contains
 
          or3 = y*om1-x*om2
 
+#ifdef ONLY_CORIOLIS
+
+         oor1 = rp0
+
+         oor2 = rp0
+
+         oor3 = rp0
+       
+#else
+
          oor1 = or3*om2-or2*om3
 
          oor2 = -or3*om1+or1*om3
 
          oor3 = or2*om1-or1*om2
+
+#endif
 
          lgrid%res(i_rhovx1,i,j,k) = lgrid%res(i_rhovx1,i,j,k) + &
          rp2*ov1+rho*oor1
@@ -12756,16 +12776,28 @@ contains
          rp2*ov3+rho*oor3
 #endif
 
+#ifndef ONLY_CORIOLIS
          lgrid%res(i_rhoe,i,j,k) = lgrid%res(i_rhoe,i,j,k) + &
 #if sdims_make==3
          rhovx3*oor3 + &
 #endif
          rhovx2*oor2 + &
          rhovx1*oor1
+#endif
 
 #endif
 
 #ifdef GEOMETRY_2D_POLAR
+
+#ifdef ONLY_CORIOLIS
+
+         lgrid%res(i_rhovx1,i,j,k) = lgrid%res(i_rhovx1,i,j,k) & 
+         -rp2*rhovx2*om3
+
+         lgrid%res(i_rhovx2,i,j,k) = lgrid%res(i_rhovx2,i,j,k) & 
+         +rp2*rhovx1*om3
+
+#else
 
          r = lgrid%r(i,j,k)
          tmp = r*om3*om3
@@ -12781,7 +12813,11 @@ contains
 
 #endif
 
+#endif
+
 #ifdef GEOMETRY_2D_CYLINDRICAL
+
+#ifndef ONLY_CORIOLIS
 
          r = lgrid%r(i,j,k)
          tmp = r*om3*om3
@@ -12791,12 +12827,12 @@ contains
 
          lgrid%res(i_rhoe,i,j,k) = lgrid%res(i_rhoe,i,j,k) - &
          rhovx1*tmp
+#endif
 
 #endif
 
 #ifdef GEOMETRY_3D_SPHERICAL
          
-         r = lgrid%r(i,j,k)
          sin_theta = lgrid%sin_theta(i,j,k)
          cos_theta = lgrid%cos_theta(i,j,k)
 
@@ -12804,10 +12840,21 @@ contains
          ov1 = -sin_theta*tmp
          ov2 = -cos_theta*tmp
          ov3 = (cos_theta*rhovx2+sin_theta*rhovx1)*om3
+
+#ifdef ONLY_CORIOLIS
+
+         oor1 = rp0
+         oor2 = rp0
+
+#else
+
+         r = lgrid%r(i,j,k)
          or3 = r*sin_theta*om3
          tmp = or3*om3
          oor1 = -sin_theta*tmp
          oor2 = -cos_theta*tmp
+
+#endif
 
          lgrid%res(i_rhovx1,i,j,k) = lgrid%res(i_rhovx1,i,j,k) + &
          rp2*ov1+rho*oor1
@@ -12818,9 +12865,11 @@ contains
          lgrid%res(i_rhovx3,i,j,k) = lgrid%res(i_rhovx3,i,j,k) + &
          rp2*ov3
 
+#ifndef ONLY_CORIOLIS
          lgrid%res(i_rhoe,i,j,k) = lgrid%res(i_rhoe,i,j,k) + &
          rhovx1*oor1 + &
          rhovx2*oor2
+#endif
 
 #endif
 
@@ -14548,11 +14597,15 @@ contains
        do i=lx1,ux1+1
 
         Tminus = lgrid%temp(i-1,j,k)
-        Kminus = Tminus*Tminus*Tminus/(lgrid%prim(i_rho,i-1,j,k)*lgrid%kappa(i-1,j,k))
-
         Tplus = lgrid%temp(i,j,k)
+
+#ifdef CONSTANT_THERMAL_CONDUCTIVITY
+        Kminus = lgrid%kappa(i-1,j,k)
+        Kplus = lgrid%kappa(i,j,k)
+#else
+        Kminus = Tminus*Tminus*Tminus/(lgrid%prim(i_rho,i-1,j,k)*lgrid%kappa(i-1,j,k))
         Kplus = Tplus*Tplus*Tplus/(lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k))
- 
+#endif
         Kint = rp2*Kminus*Kplus/(Kminus+Kplus)
         
 #ifdef GEOMETRY_CARTESIAN_NONUNIFORM
@@ -14689,13 +14742,17 @@ contains
        do j=lx2,ux2+1
  
         Tminus = lgrid%temp(i,j-1,k)
-        Kminus = Tminus*Tminus*Tminus/(lgrid%prim(i_rho,i,j-1,k)*lgrid%kappa(i,j-1,k))
-
         Tplus = lgrid%temp(i,j,k)
+
+#ifdef CONSTANT_THERMAL_CONDUCTIVITY
+        Kminus = lgrid%kappa(i,j-1,k)
+        Kplus = lgrid%kappa(i,j,k)
+#else
+        Kminus = Tminus*Tminus*Tminus/(lgrid%prim(i_rho,i,j-1,k)*lgrid%kappa(i,j-1,k))
         Kplus = Tplus*Tplus*Tplus/(lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k))
- 
+#endif
         Kint = rp2*Kminus*Kplus/(Kminus+Kplus)
-     
+
 #ifdef GEOMETRY_CARTESIAN_NONUNIFORM
         inv_dl = rp1/(lgrid%coords(2,i,j,k)-lgrid%coords(2,i,j-1,k))
 #endif
@@ -14824,15 +14881,19 @@ contains
       do i=lx1,ux1
 
        do k=lx3,ux3+1
-  
+      
         Tminus = lgrid%temp(i,j,k-1)
-        Kminus = Tminus*Tminus*Tminus/(lgrid%prim(i_rho,i,j,k-1)*lgrid%kappa(i,j,k-1))
-
         Tplus = lgrid%temp(i,j,k)
+
+#ifdef CONSTANT_THERMAL_CONDUCTIVITY
+        Kminus = lgrid%kappa(i,j,k-1)
+        Kplus = lgrid%kappa(i,j,k)
+#else
+        Kminus = Tminus*Tminus*Tminus/(lgrid%prim(i_rho,i,j,k-1)*lgrid%kappa(i,j,k-1))
         Kplus = Tplus*Tplus*Tplus/(lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k))
- 
+#endif
         Kint = rp2*Kminus*Kplus/(Kminus+Kplus)
-     
+
 #ifdef GEOMETRY_CARTESIAN_NONUNIFORM
         inv_dl = rp1/(lgrid%coords(3,i,j,k)-lgrid%coords(3,i,j,k-1))
 #endif
@@ -24376,18 +24437,18 @@ end subroutine bcs_dns
   type(mpigrid), intent(inout) :: mgrid
   type(locgrid), intent(inout) :: lgrid
 
-  integer :: i,j,k
+  integer :: i,j,k,iv
   integer :: lx1,ux1,lx2,ux2,lx3,ux3,ierr
 
   real(kind=rp) :: Drad,inv_dt_par(1),inv_dt_par_comm(1),inv_dx1,inv_dx2,&
   inv_dx3,inv_dl2,rmi,rpl
 
-  real(kind=rp) :: x,y,z,r,tmp
+  real(kind=rp) :: x,y,z,r,tmp,gmm1
 
-#ifdef USE_TIMMES_KAPPA
-  integer :: iv
-  real(kind=rp) :: inv_abar,abar,zbar,ye,rho,T,cv,E,P,sound
-#endif
+  real(kind=rp) :: inv_abar,abar,zbar,ye,inv_mu
+  real(kind=rp) :: rho,T,T2,T3,T4,cv,p,pgas,beta,eint,sound,tmp1
+
+  iv = 0
 
   x = rp0
   y = rp0
@@ -24396,6 +24457,24 @@ end subroutine bcs_dns
   tmp = rp0
   rmi = rp0
   rpl = rp0
+
+  inv_abar = rp1
+  abar     = rp1
+  zbar     = rp1
+  ye       = rp1
+  inv_mu   = rp1/lgrid%mu
+  rho      = rp1
+  T        = rp1
+  T2       = rp1
+  T3       = rp1
+  T4       = rp1
+  cv       = rp1
+  p        = rp1
+  pgas     = rp1
+  beta     = rp1
+  eint     = rp1
+  sound    = rp1
+  tmp1     = rp1
 
   inv_dt_par(1) = rp0
 
@@ -24416,6 +24495,8 @@ end subroutine bcs_dns
 
   inv_dl2 = inv_dx1*inv_dx1+inv_dx2*inv_dx2+inv_dx3*inv_dx3
 
+  gmm1 = lgrid%gm-rp1
+
   do k=lx3,ux3
    do j=lx2,ux2
     do i=lx1,ux1
@@ -24424,22 +24505,74 @@ end subroutine bcs_dns
      if(lgrid%is_solid(i,j,k)==0) then
 #endif
 
-#ifdef USE_TIMMES_KAPPA
-      rho = lgrid%prim(i_rho,i,j,k)
-      T = lgrid%temp(i,j,k)
+#ifdef HELMHOLTZ_EOS
+#ifdef ADVECT_YE_IABAR
+      ye = lgrid%prim(i_ye,i,j,k)
+      abar = rp1/lgrid%prim(i_iabar,i,j,k)
+#endif
+#ifdef ADVECT_SPECIES
       inv_abar = rp0
       ye = rp0
       do iv=1,nspecies
-       tmp = lgrid%prim(i_as1+iv-1,i,j,k)/lgrid%A(iv)
-       inv_abar = inv_abar + tmp
-       ye = ye + tmp*lgrid%Z(iv)
+        tmp1 = lgrid%prim(i_as1+iv-1,i,j,k)/lgrid%A(iv)
+        inv_abar = inv_abar + tmp1
+        ye = ye + tmp1*lgrid%Z(iv)
       end do
       abar = rp1/inv_abar
+#endif
       zbar = abar*ye
-      call helm_rhoT_given_full(rho,T,abar,zbar,P,E,sound,cv)   
-      Drad = fthirds*CONST_RAD*CONST_C*T*T*T/(rho*rho*lgrid%kappa(i,j,k)*cv)
 #else
-      Drad = othird*CONST_C/(lgrid%kappa(i,j,k)*lgrid%prim(i_rho,i,j,k))
+#ifdef ADVECT_YE_IABAR
+      ye = lgrid%prim(i_ye,i,j,k)
+      abar = rp1/lgrid%prim(i_iabar,i,j,k)
+      inv_mu =  (ye*abar+rp1)/abar
+#endif
+#ifdef ADVECT_SPECIES
+      inv_mu = rp0
+      do iv=1,nspecies
+       inv_mu = inv_mu + lgrid%prim(i_as1+iv-1,i,j,k)*(lgrid%Z(iv)+rp1)/lgrid%A(iv)
+      end do
+#endif
+#endif
+
+      T = lgrid%temp(i,j,k)
+      rho = lgrid%prim(i_rho,i,j,k)
+
+#ifdef USE_PRAD
+      p = lgrid%prim(i_p,i,j,k)
+
+      T2 = T*T
+      T3 = T2*T
+      T4 = T3*T
+      pgas = rho*CONST_RGAS*T*inv_mu
+      beta = pgas/p
+
+      cv = inv_mu*CONST_RGAS/gmm1*(rp12*(rp1-beta)*gmm1+beta)/beta
+
+#elif defined(HELMHOLTZ_EOS)
+
+      call  helm_rhoT_given_full(rho,T,abar,zbar,p,eint,sound,cv)
+
+#elif defined(PIG_EOS)
+
+      call  pig_rhoT_given_full(rho,T,p,eint,sound,cv)
+
+#elif defined(PIG_XVAR_EOS)
+
+      tmp1 = lgrid%prim(i_as1,i,j,k)
+
+      call  pig_xvar_rhoT_given_full(rho,T,tmp1,p,eint,sound,cv)
+
+#else
+
+      cv = inv_mu*CONST_RGAS/gmm1
+
+#endif
+
+#ifdef CONSTANT_THERMAL_CONDUCTIVITY
+      Drad = lgrid%kappa(i,j,k)/(rho*cv)
+#else
+      Drad = fthirds*CONST_RAD*CONST_C*T*T*T/(rho*rho*lgrid%kappa(i,j,k)*cv)
 #endif
 
 #ifdef GEOMETRY_CARTESIAN_NONUNIFORM
@@ -24459,7 +24592,7 @@ end subroutine bcs_dns
 
 #if defined(GEOMETRY_2D_POLAR) || defined(GEOMETRY_2D_SPHERICAL)
       r = lgrid%r(i,j,k)
-      inv_dx2 = rp1/r*inv_dx2
+      inv_dx2 = lgrid%inv_dx2/r
       inv_dl2 = inv_dx1*inv_dx1+inv_dx2*inv_dx2
 #endif
 
@@ -24472,8 +24605,8 @@ end subroutine bcs_dns
 
 #ifdef GEOMETRY_3D_SPHERICAL
       r = lgrid%r(i,j,k)
-      inv_dx2 = rp1/r*inv_dx2
-      inv_dx3 = lgrid%inv_r_sin_theta(i,j,k)*inv_dx3
+      inv_dx2 = lgrid%inv_dx2/r
+      inv_dx3 = lgrid%inv_r_sin_theta(i,j,k)*lgrid%inv_dx3
       inv_dl2 = inv_dx1*inv_dx1+inv_dx2*inv_dx2+inv_dx3*inv_dx3
 #endif
 
@@ -24512,6 +24645,8 @@ end subroutine bcs_dns
   integer :: ierr
 
   ierr = 0
+
+  eint = rp0
 
   gm = lgrid%gm
   gmm1 = gm-rp1
@@ -24882,7 +25017,11 @@ end subroutine bcs_dns
   rmi = rp0
   rpl = rp0
 
+#ifdef CONSTANT_THERMAL_CONDUCTIVITY
+  Krad = rp1
+#else
   Krad = fthirds*CONST_RAD*CONST_C
+#endif
 
 #ifdef USE_TIMMES_KAPPA
   call compute_timmes_kappa(lgrid)
@@ -24952,14 +25091,18 @@ end subroutine bcs_dns
    do j=lx2,ux2
 
     do i=lx1,ux1+1
-     
+    
      Tminus = lgrid%temp(i-1,j,k)
-     Kminus = Tminus*Tminus*Tminus/(lgrid%prim(i_rho,i-1,j,k)*lgrid%kappa(i-1,j,k))
-
      Tplus = lgrid%temp(i,j,k)
-     Kplus = Tplus*Tplus*Tplus/(lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k))
 
-     Kint = rp2*(Kminus*Kplus)/(Kminus+Kplus)
+#ifdef CONSTANT_THERMAL_CONDUCTIVITY
+     Kminus = lgrid%kappa(i-1,j,k)
+     Kplus = lgrid%kappa(i,j,k)
+#else
+     Kminus = Tminus*Tminus*Tminus/(lgrid%prim(i_rho,i-1,j,k)*lgrid%kappa(i-1,j,k))
+     Kplus = Tplus*Tplus*Tplus/(lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k))
+#endif
+     Kint = rp2*Kminus*Kplus/(Kminus+Kplus)
 
 #ifdef GEOMETRY_CARTESIAN_NONUNIFORM
      inv_dl = rp1/(lgrid%coords(1,i,j,k)-lgrid%coords(1,i-1,j,k))
@@ -25092,13 +25235,17 @@ end subroutine bcs_dns
     do j=lx2,ux2+1
 
      Tminus = lgrid%temp(i,j-1,k)
-     Kminus = Tminus*Tminus*Tminus/(lgrid%prim(i_rho,i,j-1,k)*lgrid%kappa(i,j-1,k))
-
      Tplus = lgrid%temp(i,j,k)
-     Kplus = Tplus*Tplus*Tplus/(lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k))
 
-     Kint = rp2*(Kminus*Kplus)/(Kminus+Kplus)
-     
+#ifdef CONSTANT_THERMAL_CONDUCTIVITY
+     Kminus = lgrid%kappa(i,j-1,k)
+     Kplus = lgrid%kappa(i,j,k)
+#else
+     Kminus = Tminus*Tminus*Tminus/(lgrid%prim(i_rho,i,j-1,k)*lgrid%kappa(i,j-1,k))
+     Kplus = Tplus*Tplus*Tplus/(lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k))
+#endif
+     Kint = rp2*Kminus*Kplus/(Kminus+Kplus)
+ 
 #ifdef GEOMETRY_CARTESIAN_NONUNIFORM
      inv_dl = rp1/(lgrid%coords(2,i,j,k)-lgrid%coords(2,i,j-1,k))
 #endif
@@ -25226,15 +25373,19 @@ end subroutine bcs_dns
    do i=lx1,ux1
 
     do k=lx3,ux3+1
- 
+
      Tminus = lgrid%temp(i,j,k-1)
-     Kminus = Tminus*Tminus*Tminus/(lgrid%prim(i_rho,i,j,k-1)*lgrid%kappa(i,j,k-1))
-
      Tplus = lgrid%temp(i,j,k)
+
+#ifdef CONSTANT_THERMAL_CONDUCTIVITY
+     Kminus = lgrid%kappa(i,j,k-1)
+     Kplus = lgrid%kappa(i,j,k)
+#else
+     Kminus = Tminus*Tminus*Tminus/(lgrid%prim(i_rho,i,j,k-1)*lgrid%kappa(i,j,k-1))
      Kplus = Tplus*Tplus*Tplus/(lgrid%prim(i_rho,i,j,k)*lgrid%kappa(i,j,k))
-
-     Kint = rp2*(Kminus*Kplus)/(Kminus+Kplus)
-
+#endif
+     Kint = rp2*Kminus*Kplus/(Kminus+Kplus)
+ 
 #ifdef GEOMETRY_CARTESIAN_NONUNIFORM
      inv_dl = rp1/(lgrid%coords(3,i,j,k)-lgrid%coords(3,i,j,k-1))
 #endif

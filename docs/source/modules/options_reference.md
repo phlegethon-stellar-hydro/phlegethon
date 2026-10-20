@@ -69,6 +69,7 @@ For `GEOMETRY_CUBED_SPHERE`, the following parameters must be defined at compile
 | Option | Meaning |
 | --- | --- |
 | `COROTATING_FRAME` | Solves the governing equations in the co-rotating frame defined by the angular frequency vector `lgrid%omega_rot(1:3)` specified by the user in `app.F90`. |
+| `ONLY_CORIOLIS` | Excludes centrifugal acceleration source terms from the governing equations in the co-rotating reference frame. |
 | `USE_CONSTANT_ACCELERATION` | Applies a constant-acceleration body force to the system. In `app.F90`, the grid components of the acceleration vector must be defined in `lgrid%acc(1:sdims_make)`. |
 | `USE_MHD` | Enables ideal magnetohydrodynamics (solved with the CT-contact algorithm of [Gardiner+05](https://ui.adsabs.harvard.edu/abs/2005JCoPh.205..509G/abstract)). In `app.F90`, the face-centered magnetic field components must be filled, e.g., `lgrid%b_x1(i,j,k)` etc. |
 | `Mach_ct_make=1e-6_rp` | Minimum local Mach number to enable the (upwind) contact version of constrained transport. |
@@ -80,6 +81,7 @@ For `GEOMETRY_CUBED_SPHERE`, the following parameters must be defined at compile
 | `USE_NUCLEAR_NETWORK` | Couples a time-dependent nuclear network to the system of conservation laws, in Godunov-split fashion by default (see Sect. 2.13). The network solver is time-implicit. The network has to be used in combination with the option `ADVECT_SPECIES`. The number of reactions (`nreacs_make`) must be defined in the Makefile. Furthermore, the network solver needs the functions `compute_network_rates`, `compute_network_residuals`, `compute_network_jacobian`, and `compute_network_dedt`, all of which must be defined in `app.F90` (see `tests/nuclear-network` for an example of the usage of the nuclear network solver). A python script (`./miscellaneous/create_network/create_network.py`) is provided to automatically generate the Fortran code based on the array of input isotopes, density and temperature conditions, and the timescale of interest. |
 | `THERMAL_DIFFUSION_EXPLICIT` | Enables thermal diffusion solved explicitly in time-unsplit fashion (unstable if the time step is longer than the parabolic CFL criterion, see Sect. 2.10). The cell-centered opacity must be filled in `app.F90` as `lgrid%kappa(i,j,k)`. |
 | `THERMAL_DIFFUSION_STS` | Enables radiative diffusion solved with the RKL2 super time stepper of [Meyer+14](https://ui.adsabs.harvard.edu/abs/2014JCoPh.257..594M/abstract) (see, Sect. 2.10). The cell-centered opacity must be filled in `app.F90` as `lgrid%kappa(i,j,k)`. |
+| `CONSTANT_THERMAL_CONDUCTIVITY` | Keeps the thermal conductivity at each cell center, stored in `lgrid%kappa(i,j,k)`, constant in time. |
 | `USE_EDOT` | Enables time independent heating. The heating rate per unit volume (`lgrid%edot(i,j,k)`) must be provided in `app.F90` at every cell center. |
 | `USERDEF_EDOT` | Allows the user to prescribe an analytical form of the energy source. The array `lgrid%edot(:,:,:)` must be filled over the whole local grid in `subroutine compute_userdef_edot(mgrid,lgrid,tau)`. Here,`tau` specifies the time at which the energy source is evaluated and can be used when the source has an explicit time dependence. This subroutine must be provided by the user in `app.F90`. |
 | `VARIABLE_EDOT` | Makes `USE_EDOT` time-dependent by applying `lgrid%edot` only for `t >= t_start_edot_make`. |
@@ -87,6 +89,7 @@ For `GEOMETRY_CUBED_SPHERE`, the following parameters must be defined at compile
 | `USE_NEULOSS` | Enables nonnuclear neutrino cooling, computed according to [Itoh+1996](https://ui.adsabs.harvard.edu/abs/1996ApJS..102..411I/abstract) (adapted from Frank Timmes' [cococubed](https://cococubed.com/code_pages/nuloss.shtml)). |
 | `DNS_EXPLICIT` | Enables explicit viscosity and, when `USE_MHD` is enabled, resistivity. The corresponding terms in the governing equations are integrated fully explicitly without time splitting. The viscous coefficient array `lgrid%nus(:,:,:)` (and, for MHD, the resistive coefficient array `lgrid%eta(:,:,:)`) must be filled in `app.F90`. This option is supported only on Cartesian grids, both uniform and nonuniform. |
 | `DNS_STS` | Enables explicit viscosity and, when `USE_MHD` is enabled, resistivity. The parabolic terms are coupled to the gas-dynamics/MHD equations using Strang splitting and integrated with the RKL2 super-time-stepping scheme. The viscous coefficient array `lgrid%nus(:,:,:)` (and, for MHD, the resistive coefficient array `lgrid%eta(:,:,:)`) must be filled in `app.F90`. This option is supported only on Cartesian grids, both uniform and nonuniform. | 
+|`rgas_make=1.0_rp` | Allows the user to specify a custom value for the gas constant. |
 
 ### 4. Boundary conditions (see Table 1)
 
