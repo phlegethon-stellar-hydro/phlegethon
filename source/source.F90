@@ -7701,6 +7701,10 @@ contains
 
        end if
 
+       if((lgrid%time+lgrid%dt)>tmax) then
+         lgrid%dt = tmax - lgrid%time
+       endif
+
        if(mgrid%rankl==master_rank) then
 
          if(mod(lgrid%step,info_terminal_rate)==0) &
@@ -7711,10 +7715,6 @@ contains
 
        call mpi_barrier(mgrid%comm_cart,ierr)
        wcti_hydro = get_wtime(mgrid)
-
-       if((lgrid%time+lgrid%dt)>tmax) then
-         lgrid%dt = tmax - lgrid%time
-       endif
 
 #ifdef USE_NUCLEAR_NETWORK
 #ifdef NUCLEAR_NETWORK_STRANG
@@ -7830,8 +7830,7 @@ contains
 #endif
 
 #ifdef SAVE_RPROFS
-    if((lgrid%step==lgrid%rprofs_inextoutput) .or. (lgrid%time>=tmax) .or. (lgrid%step==stepmax)) then
-
+    if((lgrid%step==lgrid%rprofs_inextoutput) .or. (lgrid%time>=tmax) .or. (lgrid%step==stepmax) .or. (max_T_met>0)) then
 
 #if defined(DNS_EXPLICIT) || defined(DNS_STS)
       call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%prim(i_vx1:i_vx3,:,:,:),.true.)
@@ -7854,21 +7853,21 @@ contains
 #endif
 
 #ifdef SAVE_PLANES
-    if((lgrid%step==lgrid%planes_inextoutput) .or. (lgrid%time>=tmax) .or. (lgrid%step==stepmax)) then
+    if((lgrid%step==lgrid%planes_inextoutput) .or. (lgrid%time>=tmax) .or. (lgrid%step==stepmax) .or. (max_T_met>0)) then
       call write_planes(mgrid,lgrid) 
       lgrid%planes_inextoutput = lgrid%planes_inextoutput + lgrid%planes_dstep_dump
     end if
 #endif
 
 #ifdef SAVE_RAYS
-    if((lgrid%step==lgrid%rays_inextoutput) .or. (lgrid%time>=tmax) .or. (lgrid%step==stepmax)) then
+    if((lgrid%step==lgrid%rays_inextoutput) .or. (lgrid%time>=tmax) .or. (lgrid%step==stepmax) .or. (max_T_met>0)) then
       call write_rays(mgrid,lgrid) 
       lgrid%rays_inextoutput = lgrid%rays_inextoutput + lgrid%rays_dstep_dump
     end if
 #endif
 
 #ifdef SAVE_SPHERICAL_PROJECTIONS
-    if((lgrid%step==lgrid%spj_inextoutput) .or. (lgrid%time>=tmax) .or. (lgrid%step==stepmax)) then
+    if((lgrid%step==lgrid%spj_inextoutput) .or. (lgrid%time>=tmax) .or. (lgrid%step==stepmax) .or. (max_T_met>0)) then
 #ifndef SAVE_RPROFS
 #ifdef ENFORCE_BARRIERS
       call mpi_barrier(mgrid%comm_cart,ierr)
@@ -7886,22 +7885,45 @@ contains
 
 #ifdef USERDEF_OUTPUT
 
-    if(iudflush>0) then    
+    if((lgrid%time>=tmax) .or. (lgrid%step==stepmax) .or. (max_T_met>0)) then
 
-     if(mgrid%rankl==master_rank) then
-
-      open(newunit=iv,file='./udos/udo_'//trim(str(lgrid%step-1))//'.dat', &
-      status='replace',action='write',form='unformatted',access='stream')
-
-      do i=1,iudflush
-       write(iv) (lgrid%ud_state(i,ipr),ipr=1,nudvars)
-      end do
+      iudflush = iudflush + 1
  
-      close(iv)
+      call extract_userdef_quantities(mgrid,lgrid,iudflush)
+
+      if(mgrid%rankl==master_rank) then
+
+       open(newunit=iv,file='./udos/udo_'//trim(str(lgrid%step))//'.dat', &
+       status='replace',action='write',form='unformatted',access='stream')
+
+       do i=1,iudflush
+        write(iv) (lgrid%ud_state(i,ipr),ipr=1,nudvars)
+       end do
+ 
+       close(iv)
+
+      end if
+
+    else
+
+     if(iudflush>0) then    
+
+      if(mgrid%rankl==master_rank) then
+
+       open(newunit=iv,file='./udos/udo_'//trim(str(lgrid%step-1))//'.dat', &
+       status='replace',action='write',form='unformatted',access='stream')
+
+       do i=1,iudflush
+        write(iv) (lgrid%ud_state(i,ipr),ipr=1,nudvars)
+       end do
+ 
+       close(iv)
+
+      end if
 
      end if
 
-    end if
+    endif
 
 #endif
  
