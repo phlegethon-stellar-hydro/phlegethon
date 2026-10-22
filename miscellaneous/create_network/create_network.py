@@ -514,7 +514,7 @@ with open("%s/%s"%(path_to_data,jina_reaclib_file)) as file_in:
                       Reac.is_pep = True
 
                #if triple alpha
-               if(np.max(np.abs(Reac.multR)==3)):
+               if(np.max(np.abs(Reac.multR))==3):
                  if(Reac.R[0]=='he4'):
                    Reac.is_triple_alpha = True
 
@@ -1678,9 +1678,9 @@ for i,reac in enumerate(netc.reactions):
 
     if(reac_type==8):
      if(max_nr==1):
-      f.write('   dlam_dY_%d_%d=rho2*Y%d*Y%d*R%d \n'%(i+1,idx_rct[0]+1,idx_rct[1]+1,idx_rct[2],i+1))
-      f.write('   dlam_dY_%d_%d=rho2*Y%d*Y%d*R%d \n'%(i+1,idx_rct[1]+1,idx_rct[0]+1,idx_rct[2],i+1))
-      f.write('   dlam_dY_%d_%d=rho2*Y%d*Y%d*R%d \n'%(i+1,idx_rct[2]+1,idx_rct[0]+1,idx_rct[1],i+1))
+      for a in range(3):
+       o = [idx_rct[b]+1 for b in range(3) if b!=a]
+       f.write('   dlam_dY_%d_%d=rho2*Y%d*Y%d*R%d \n'%(i+1,idx_rct[a]+1,o[0],o[1],i+1))
      if(max_nr==3):
       f.write('   dlam_dY_%d_%d=rph*rho2*Y%d*Y%d*R%d \n'%(i+1,idx_rct[0]+1,idx_rct[0]+1,idx_rct[0]+1,i+1))
 

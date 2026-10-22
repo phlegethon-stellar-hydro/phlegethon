@@ -8265,7 +8265,7 @@ contains
      call communicate_ndarray(mgrid,sdims,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%b_cc,communicate_corners)
 #endif
 
-#if defined(HELMHOLTZ_EOS) || defined(USE_PRAD) || defined(PIG_EOS) || defined(PIG_XVAR_EOS)
+#if defined(HELMHOLTZ_EOS) || defined(USE_PRAD) || defined(PIG_EOS) || defined(PIG_XVAR_EOS) || defined(THERMAL_DIFFUSION_EXPLICIT)
      call communicate_array(mgrid,lx1,ux1,lx2,ux2,lx3,ux3,ngc,lgrid%temp,communicate_corners)
 #endif
 
