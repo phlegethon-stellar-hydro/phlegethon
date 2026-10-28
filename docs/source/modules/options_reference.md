@@ -358,6 +358,7 @@ For `LHLL-type` solvers, if both low-Mach and supersonic flows need to be captur
 
 | Option| Meaning |
 | --- | --- |
-| `USE_SINGLE_PRECISION` / `USE_DOUBLE_PRECISION` | floating-point precision mode |
-| `LITTLE_ENDIAN`  / `BIG_ENDIAN`|  endianness setting for binary I/O paths |
-| `ENFORCE_BARRIERS` | enforces mpi-barrier calls before communication calls |
+| `USE_SINGLE_PRECISION` / `USE_DOUBLE_PRECISION` | Floating-point precision mode. |
+| `LITTLE_ENDIAN`  / `BIG_ENDIAN`| Endianness setting for binary I/O paths. |
+| `ENFORCE_BARRIERS` | Enforces mpi-barrier calls before communication calls. |
+| `EMF_MPI_AWARE` | Averages the emf on cell edges shared between neighboring MPI subdomains, so that all processes use an identical value. This keeps the constrained transport update consistent across domain boundaries, at the cost of extra communication each step. | 

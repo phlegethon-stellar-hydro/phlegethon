@@ -9448,8 +9448,7 @@ contains
          else
           if (abs(ap)>=rp2*abs(am)) then
            ap = -rp2*am
-          end if
-          if (abs(am)>=rp2*abs(ap)) then
+          else if (abs(am)>=rp2*abs(ap)) then
            am = -rp2*ap
           end if
          end if
@@ -9588,8 +9587,7 @@ contains
          else
           if (abs(ap)>=rp2*abs(am)) then
            ap = -rp2*am
-          end if
-          if (abs(am)>=rp2*abs(ap)) then
+          else if (abs(am)>=rp2*abs(ap)) then
            am = -rp2*ap
           end if
          end if
@@ -9792,8 +9790,7 @@ contains
         else
          if (abs(ap)>=rp2*abs(am)) then
           ap = -rp2*am
-         end if
-         if (abs(am)>=rp2*abs(ap)) then
+         else if (abs(am)>=rp2*abs(ap)) then
           am = -rp2*ap
          end if
         end if
@@ -10595,8 +10592,7 @@ contains
          else
           if (abs(ap)>=rp2*abs(am)) then
            ap = -rp2*am
-          end if
-          if (abs(am)>=rp2*abs(ap)) then
+          else if (abs(am)>=rp2*abs(ap)) then
            am = -rp2*ap
           end if
          end if
@@ -10759,8 +10755,7 @@ contains
         else
          if (abs(ap)>=rp2*abs(am)) then
           ap = -rp2*am
-         end if
-         if (abs(am)>=rp2*abs(ap)) then
+         else if (abs(am)>=rp2*abs(ap)) then
           am = -rp2*ap
          end if
         end if
@@ -10801,8 +10796,7 @@ contains
         else
          if (abs(ap)>=rp2*abs(am)) then
           ap = -rp2*am
-         end if
-         if (abs(am)>=rp2*abs(ap)) then
+         else if (abs(am)>=rp2*abs(ap)) then
           am = -rp2*ap
          end if
         end if
@@ -11137,8 +11131,7 @@ contains
         else
          if (abs(ap)>=rp2*abs(am)) then
           ap = -rp2*am
-         end if
-         if (abs(am)>=rp2*abs(ap)) then
+         else if (abs(am)>=rp2*abs(ap)) then
           am = -rp2*ap
          end if
         end if
@@ -11859,8 +11852,7 @@ contains
          else
           if (abs(ap)>=rp2*abs(am)) then
            ap = -rp2*am
-          end if
-          if (abs(am)>=rp2*abs(ap)) then
+          else if (abs(am)>=rp2*abs(ap)) then
            am = -rp2*ap
           end if
          end if
@@ -11999,8 +11991,7 @@ contains
          else
           if (abs(ap)>=rp2*abs(am)) then
            ap = -rp2*am
-          end if
-          if (abs(am)>=rp2*abs(ap)) then
+          else if (abs(am)>=rp2*abs(ap)) then
            am = -rp2*ap
           end if
          end if
@@ -12345,8 +12336,7 @@ contains
         else
          if (abs(ap)>=rp2*abs(am)) then
           ap = -rp2*am
-         end if
-         if (abs(am)>=rp2*abs(ap)) then
+         else if (abs(am)>=rp2*abs(ap)) then
           am = -rp2*ap
          end if
         end if
@@ -13971,6 +13961,18 @@ contains
 
 #endif
     
+#endif
+
+#ifdef EMF_MPI_AWARE
+
+#if sdims_make==2
+    call communicate_emf_average(mgrid,lx1,ux1,lx2,ux2,lx3,ux3, &
+    lgrid%emfx3_cor)
+#else
+    call communicate_emf_average(mgrid,lx1,ux1,lx2,ux2,lx3,ux3, &
+    lgrid%emfx1_cor,lgrid%emfx2_cor,lgrid%emfx3_cor)
+#endif
+
 #endif
  
      do k=lx3,ux3
@@ -33937,6 +33939,263 @@ end subroutine bcs_dns
  ! USEFUL FUNCTIONS
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
  
+#ifdef EMF_MPI_AWARE
+
+ subroutine communicate_emf_average(mgrid,lx1,ux1,lx2,ux2,lx3,ux3, &
+#if sdims_make==3
+ emfx1,emfx2, &
+#endif
+ emfx3)
+    type(mpigrid), intent(in) :: mgrid
+    integer, intent(in) :: lx1,ux1,lx2,ux2,lx3,ux3
+    real(kind=rp), intent(inout) :: emfx3(lx1:ux1+1,lx2:ux2+1,lx3:ux3)
+#if sdims_make==3
+    real(kind=rp), intent(inout) :: emfx1(lx1:ux1,lx2:ux2+1,lx3:ux3+1)
+    real(kind=rp), intent(inout) :: emfx2(lx1:ux1+1,lx2:ux2,lx3:ux3+1)
+#endif
+
+    integer, parameter :: cache_max = 64
+
+    type :: cache_entry_t
+       integer :: a1,b1,a2,b2,a3,b3
+       logical :: node(3)
+       logical :: has_type(2,3) = .false.
+       integer :: sendtype(2,3)
+       real(kind=rp), allocatable :: rbuf(:,:,:)  
+    end type cache_entry_t
+
+    type(cache_entry_t), save, target :: cache(cache_max)
+    integer, save :: ncache = 0
+
+    call average_shared_edges(lx1,ux1+1,lx2,ux2+1,lx3,ux3, &
+    (/.true.,.true.,.false./),emfx3)
+#if sdims_make==3
+    call average_shared_edges(lx1,ux1,lx2,ux2+1,lx3,ux3+1, &
+    (/.false.,.true.,.true./),emfx1)
+    call average_shared_edges(lx1,ux1+1,lx2,ux2,lx3,ux3+1, &
+    (/.true.,.false.,.true./),emfx2)
+#endif
+
+  contains
+
+    subroutine average_shared_edges(a1,b1,a2,b2,a3,b3,node,arr)
+      integer, intent(in) :: a1,b1,a2,b2,a3,b3
+      logical, intent(in) :: node(3)
+      real(kind=rp), intent(inout) :: arr(a1:b1,a2:b2,a3:b3)
+
+      integer :: is,i,j,k,idx,n,n1,n2,n3,ierror,nreq,edge
+      integer :: prev_mpi,next_mpi,prev,next,icache
+      integer :: sendtype
+      integer, dimension(3) :: sizes,subsizes,sstarts
+      integer, dimension(4) :: reqs
+      real(kind=rp), pointer :: rb(:,:,:)
+
+      n1 = b1-a1+1
+      n2 = b2-a2+1
+      n3 = b3-a3+1
+
+      sizes(1) = n1
+      sizes(2) = n2
+      sizes(3) = n3
+
+      icache = find_cache_entry(a1,b1,a2,b2,a3,b3,node)
+      if (icache==0) icache = new_cache_entry(a1,b1,a2,b2,a3,b3,node)
+      rb => cache(icache)%rbuf
+
+      do is=1,sdims
+
+       if (.not.node(is)) cycle
+       if ((.not.mgrid%periodic(is)).and.(mgrid%bricks(is)==1)) cycle
+
+       if ((mgrid%periodic(is)).and.(mgrid%bricks(is)==1)) then
+        select case(is)
+        case(1)
+         do k=a3,b3
+          do j=a2,b2
+           arr(a1,j,k) = rph*(arr(a1,j,k)+arr(b1,j,k))
+           arr(b1,j,k) = arr(a1,j,k)
+          end do
+         end do
+        case(2)
+         do k=a3,b3
+          do i=a1,b1
+           arr(i,a2,k) = rph*(arr(i,a2,k)+arr(i,b2,k))
+           arr(i,b2,k) = arr(i,a2,k)
+          end do
+         end do
+        case(3)
+         do j=a2,b2
+          do i=a1,b1
+           arr(i,j,a3) = rph*(arr(i,j,a3)+arr(i,j,b3))
+           arr(i,j,b3) = arr(i,j,a3)
+          end do
+         end do
+        end select
+        cycle
+       end if
+
+       call mpi_cart_shift(mgrid%comm_cart,int(is-1),1,prev_mpi,next_mpi,ierror)
+       prev = prev_mpi
+       next = next_mpi
+
+       if ((.not.mgrid%periodic(is)).and.(mgrid%coords_dd(is)==mgrid%bricks(is)-1)) &
+         next = MPI_PROC_NULL
+       if ((.not.mgrid%periodic(is)).and.(mgrid%coords_dd(is)==0)) &
+         prev = MPI_PROC_NULL
+
+       select case(is)
+       case(1)
+        n = n2*n3
+       case(2)
+        n = n1*n3
+       case(3)
+        n = n1*n2
+       end select
+
+       do edge=1,2
+
+        if (.not. cache(icache)%has_type(edge,is)) then
+
+         do i=1,3
+          subsizes(i) = sizes(i)
+          sstarts(i)  = 0
+         end do
+         subsizes(is) = 1
+         if (edge==2) sstarts(is) = sizes(is)-1
+
+         call mpi_type_create_subarray(3,sizes,subsizes,sstarts,&
+         MPI_ORDER_FORTRAN,MPI_RP,sendtype,ierror)
+         call mpi_type_commit(sendtype,ierror)
+
+         cache(icache)%sendtype(edge,is) = sendtype
+         cache(icache)%has_type(edge,is) = .true.
+
+        end if
+
+       end do
+
+       nreq = 0
+
+       nreq = nreq + 1
+       call mpi_isend(arr,1,cache(icache)%sendtype(2,is),next,1, &
+                      mgrid%comm_cart,reqs(nreq),ierror)
+       nreq = nreq + 1
+       call mpi_irecv(rb(1:n,1,is),n,MPI_RP,prev,1, &
+                      mgrid%comm_cart,reqs(nreq),ierror)
+
+       nreq = nreq + 1
+       call mpi_isend(arr,1,cache(icache)%sendtype(1,is),prev,2, &
+                      mgrid%comm_cart,reqs(nreq),ierror)
+       nreq = nreq + 1
+       call mpi_irecv(rb(1:n,2,is),n,MPI_RP,next,2, &
+                      mgrid%comm_cart,reqs(nreq),ierror)
+
+       call mpi_waitall(nreq,reqs(1:nreq),MPI_STATUSES_IGNORE,ierror)
+
+       select case(is)
+
+       case(1)
+        if (prev/=MPI_PROC_NULL) then
+         do k=a3,b3
+          do j=a2,b2
+           idx = (j-a2) + (k-a3)*n2 + 1
+           arr(a1,j,k) = rph*(arr(a1,j,k)+rb(idx,1,is))
+          end do
+         end do
+        end if
+        if (next/=MPI_PROC_NULL) then
+         do k=a3,b3
+          do j=a2,b2
+           idx = (j-a2) + (k-a3)*n2 + 1
+           arr(b1,j,k) = rph*(arr(b1,j,k)+rb(idx,2,is))
+          end do
+         end do
+        end if
+
+       case(2)
+        if (prev/=MPI_PROC_NULL) then
+         do k=a3,b3
+          do i=a1,b1
+           idx = (i-a1) + (k-a3)*n1 + 1
+           arr(i,a2,k) = rph*(arr(i,a2,k)+rb(idx,1,is))
+          end do
+         end do
+        end if
+        if (next/=MPI_PROC_NULL) then
+         do k=a3,b3
+          do i=a1,b1
+           idx = (i-a1) + (k-a3)*n1 + 1
+           arr(i,b2,k) = rph*(arr(i,b2,k)+rb(idx,2,is))
+          end do
+         end do
+        end if
+
+       case(3)
+        if (prev/=MPI_PROC_NULL) then
+         do j=a2,b2
+          do i=a1,b1
+           idx = (i-a1) + (j-a2)*n1 + 1
+           arr(i,j,a3) = rph*(arr(i,j,a3)+rb(idx,1,is))
+          end do
+         end do
+        end if
+        if (next/=MPI_PROC_NULL) then
+         do j=a2,b2
+          do i=a1,b1
+           idx = (i-a1) + (j-a2)*n1 + 1
+           arr(i,j,b3) = rph*(arr(i,j,b3)+rb(idx,2,is))
+          end do
+         end do
+        end if
+
+       end select
+
+      end do
+
+    end subroutine average_shared_edges
+
+    integer function find_cache_entry(a1,b1,a2,b2,a3,b3,node) result(idx)
+      integer, intent(in) :: a1,b1,a2,b2,a3,b3
+      logical, intent(in) :: node(3)
+      integer :: ii
+      idx = 0
+      do ii=1,ncache
+       if (cache(ii)%a1==a1 .and. cache(ii)%b1==b1 .and. &
+           cache(ii)%a2==a2 .and. cache(ii)%b2==b2 .and. &
+           cache(ii)%a3==a3 .and. cache(ii)%b3==b3 .and. &
+           all(cache(ii)%node.eqv.node)) then
+        idx = ii
+        return
+       end if
+      end do
+    end function find_cache_entry
+
+    integer function new_cache_entry(a1,b1,a2,b2,a3,b3,node) result(idx)
+      integer, intent(in) :: a1,b1,a2,b2,a3,b3
+      logical, intent(in) :: node(3)
+      integer :: n1,n2,n3,nmax,ierror
+      if (ncache>=cache_max) then
+        write(*,*) 'communicate_emf_average: datatype cache exhausted (cache_max=',cache_max,')'
+        call mpi_abort(mgrid%comm_cart,1,ierror)
+      end if
+      ncache = ncache + 1
+      idx = ncache
+      cache(idx)%a1 = a1; cache(idx)%b1 = b1
+      cache(idx)%a2 = a2; cache(idx)%b2 = b2
+      cache(idx)%a3 = a3; cache(idx)%b3 = b3
+      cache(idx)%node = node
+      cache(idx)%has_type = .false.
+      n1 = b1-a1+1
+      n2 = b2-a2+1
+      n3 = b3-a3+1
+      nmax = max(n2*n3,max(n1*n3,n1*n2))
+      allocate(cache(idx)%rbuf(nmax,2,3))
+    end function new_cache_entry
+
+ end subroutine communicate_emf_average 
+
+#endif
+
  character(len=20) function str(k)
    integer, intent(in) :: k
    write (str, *) k
