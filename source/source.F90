@@ -7924,6 +7924,10 @@ contains
     real(kind=rp), dimension(1:3,1:3) :: rk_coeff
     real(kind=rp), dimension(1:3) :: tau_rk
 #endif
+#ifdef RK4_STEPPER
+    real(kind=rp), dimension(1:14,1:3) :: rk_coeff
+    real(kind=rp), dimension(1:14) :: c_rk,tau_rk
+#endif
 
     real(kind=rp) :: a1rk,a2rk,a3rk
 
@@ -8121,6 +8125,62 @@ contains
     tau_rk(1) = lgrid%time
     tau_rk(2) = tau_rk(1) + lgrid%dt
     tau_rk(3) = rph*(tau_rk(1)+tau_rk(2))
+
+#endif
+
+#ifdef RK4_STEPPER
+
+    rk_stages = 14
+
+    rk_coeff(1,1) =  0.0000000000000000_rp
+    rk_coeff(2,1) = -0.7188012108672410_rp
+    rk_coeff(3,1) = -0.7785331173421570_rp
+    rk_coeff(4,1) = -0.0053282796654044_rp
+    rk_coeff(5,1) = -0.8552979934029281_rp
+    rk_coeff(6,1) = -3.9564138245774565_rp
+    rk_coeff(7,1) = -1.5780575380587385_rp
+    rk_coeff(8,1) = -2.0837094552574054_rp
+    rk_coeff(9,1) = -0.7483334182761610_rp
+    rk_coeff(10,1) = -0.7032861106563359_rp
+    rk_coeff(11,1) =  0.0013917096117681_rp
+    rk_coeff(12,1) = -0.0932075369637460_rp
+    rk_coeff(13,1) = -0.9514200470875948_rp
+    rk_coeff(14,1) = -7.1151571693922548_rp
+
+    rk_coeff(1,2) =  0.0367762454319673_rp
+    rk_coeff(2,2) =  0.3136296607553959_rp
+    rk_coeff(3,2) =  0.1531848691869027_rp
+    rk_coeff(4,2) =  0.0030097086818182_rp
+    rk_coeff(5,2) =  0.3326293790646110_rp
+    rk_coeff(6,2) =  0.2440251405350864_rp
+    rk_coeff(7,2) =  0.3718879239592277_rp
+    rk_coeff(8,2) =  0.6204126221582444_rp
+    rk_coeff(9,2) =  0.1524043173028741_rp
+    rk_coeff(10,2) =  0.0760894927419266_rp
+    rk_coeff(11,2) =  0.0077604214040978_rp
+    rk_coeff(12,2) =  0.0024647284755382_rp
+    rk_coeff(13,2) =  0.0780348340049386_rp
+    rk_coeff(14,2) =  5.5059777270269628_rp
+
+    c_rk(1) = 0.0000000000000000_rp
+    c_rk(2) = 0.0367762454319673_rp
+    c_rk(3) = 0.1249685262725025_rp
+    c_rk(4) = 0.2446177702277698_rp
+    c_rk(5) = 0.2476149531070420_rp
+    c_rk(6) = 0.2969311120382472_rp
+    c_rk(7) = 0.3978149645802642_rp
+    c_rk(8) = 0.5270854589440328_rp
+    c_rk(9) = 0.6981269994175695_rp
+    c_rk(10) = 0.8190890835352128_rp
+    c_rk(11) = 0.8527059887098624_rp
+    c_rk(12) = 0.8604711817462826_rp
+    c_rk(13) = 0.8627060376969976_rp
+    c_rk(14) = 0.8734213127600976_rp
+
+    do i = 1, rk_stages
+       tau_rk(i) = lgrid%time + c_rk(i)*lgrid%dt
+       rk_coeff(i,3) = -rp1
+    end do
 
 #endif
 
@@ -14036,16 +14096,41 @@ contains
 
 #endif
 
+#ifdef RK4_STEPPER
+
 #ifdef USE_INTERNAL_BOUNDARIES
+
+        lgrid%b0_x1(i,j,k) = &
+        a1rk*lgrid%b0_x1(i,j,k) + a3rk*tmp*lgrid%fac_x1(i,j,k)
+
+#else
+
+        lgrid%b0_x1(i,j,k) = &
+        a1rk*lgrid%b0_x1(i,j,k) + a3rk*tmp
+
+#endif
+
+        lgrid%b_x1(i,j,k) = &
+        lgrid%b_x1(i,j,k) + a2rk*lgrid%b0_x1(i,j,k)
+
+#else
+
+#ifdef USE_INTERNAL_BOUNDARIES
+
         lgrid%b_x1(i,j,k) = &
         a1rk*lgrid%b0_x1(i,j,k) + &
         a2rk*lgrid%b_x1(i,j,k) + &
         a3rk*tmp*lgrid%fac_x1(i,j,k)
+
 #else
+
         lgrid%b_x1(i,j,k) = &
         a1rk*lgrid%b0_x1(i,j,k) + &
         a2rk*lgrid%b_x1(i,j,k) + &
         a3rk*tmp
+
+#endif
+
 #endif
 
        end do
@@ -14135,16 +14220,41 @@ contains
 
 #endif
 
+#ifdef RK4_STEPPER
+
 #ifdef USE_INTERNAL_BOUNDARIES
+
+        lgrid%b0_x2(i,j,k) = &
+        a1rk*lgrid%b0_x2(i,j,k) + a3rk*tmp*lgrid%fac_x2(i,j,k)
+
+#else
+
+        lgrid%b0_x2(i,j,k) = &
+        a1rk*lgrid%b0_x2(i,j,k) + a3rk*tmp
+
+#endif
+
+        lgrid%b_x2(i,j,k) = &
+        lgrid%b_x2(i,j,k) + a2rk*lgrid%b0_x2(i,j,k)
+
+#else
+
+#ifdef USE_INTERNAL_BOUNDARIES
+
         lgrid%b_x2(i,j,k) = &
         a1rk*lgrid%b0_x2(i,j,k) + &
         a2rk*lgrid%b_x2(i,j,k) + &
         a3rk*tmp*lgrid%fac_x2(i,j,k)
+
 #else
+
         lgrid%b_x2(i,j,k) = &
         a1rk*lgrid%b0_x2(i,j,k) + &
         a2rk*lgrid%b_x2(i,j,k) + &
         a3rk*tmp
+
+#endif
+
 #endif
 
        end do
@@ -14188,16 +14298,41 @@ contains
 
 #endif
 
+#ifdef RK4_STEPPER
+
 #ifdef USE_INTERNAL_BOUNDARIES
+
+        lgrid%b0_x3(i,j,k) = &
+        a1rk*lgrid%b0_x3(i,j,k) + a3rk*tmp*lgrid%fac_x3(i,j,k)
+
+#else
+
+        lgrid%b0_x3(i,j,k) = &
+        a1rk*lgrid%b0_x3(i,j,k) + a3rk*tmp
+
+#endif
+
+        lgrid%b_x3(i,j,k) = &
+        lgrid%b_x3(i,j,k) + a2rk*lgrid%b0_x3(i,j,k)
+
+#else
+
+#ifdef USE_INTERNAL_BOUNDARIES
+
         lgrid%b_x3(i,j,k) = &
         a1rk*lgrid%b0_x3(i,j,k) + &
         a2rk*lgrid%b_x3(i,j,k) + &
         a3rk*tmp*lgrid%fac_x3(i,j,k)
+
 #else
+
         lgrid%b_x3(i,j,k) = &
         a1rk*lgrid%b0_x3(i,j,k) + &
         a2rk*lgrid%b_x3(i,j,k) + &
         a3rk*tmp
+
+#endif
+
 #endif
 
        end do
@@ -14911,12 +15046,27 @@ contains
        do i=lx1,ux1
 
         do iv=1,nvars
+
+#ifdef RK4_STEPPER
+
+         lgrid%state0(iv,i,j,k) = &
+         a1rk*lgrid%state0(iv,i,j,k) + a3rk*lgrid%res(iv,i,j,k)
+
+         lgrid%state(iv,i,j,k) = &
+         lgrid%state(iv,i,j,k) + a2rk*lgrid%state0(iv,i,j,k)
+
+#else
+
          lgrid%state(iv,i,j,k) = &
          a1rk*lgrid%state0(iv,i,j,k) + &
          a2rk*lgrid%state(iv,i,j,k) + &
          a3rk*lgrid%res(iv,i,j,k)
+
+#endif
+
         end do
 
+ 
        end do
       end do
      end do

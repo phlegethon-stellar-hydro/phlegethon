@@ -208,6 +208,7 @@ Choose one of the following time-marching schemes for solving the hyperbolic equ
 | --- | --- |
 | `RK2_STEPPER` | Second-order RK time stepper of [Shu+88](https://ui.adsabs.harvard.edu/abs/1988JCoPh..77..439S/abstract). |
 | `RK3_STEPPER` | Third-order RK time stepper of [Shu+88](https://ui.adsabs.harvard.edu/abs/1988JCoPh..77..439S/abstract). |
+| `RK4_STEPPER` | 14-stage 4th-order RK time stepper of [Niegemann+12](https://ui.adsabs.harvard.edu/abs/2012JCoPh.231..364N/abstract). |
 
 | Option | Meaning |
 | --- | --- |
