@@ -81,7 +81,6 @@ For `GEOMETRY_CUBED_SPHERE`, the following parameters must be defined at compile
 | `USE_NUCLEAR_NETWORK` | Couples a time-dependent nuclear network to the system of conservation laws, in Godunov-split fashion by default (see Sect. 2.13). The network solver is time-implicit. The network has to be used in combination with the option `ADVECT_SPECIES`. The number of reactions (`nreacs_make`) must be defined in the Makefile. Furthermore, the network solver needs the functions `compute_network_rates`, `compute_network_residuals`, `compute_network_jacobian`, and `compute_network_dedt`, all of which must be defined in `app.F90` (see `tests/nuclear-network` for an example of the usage of the nuclear network solver). A python script (`./miscellaneous/create_network/create_network.py`) is provided to automatically generate the Fortran code based on the array of input isotopes, density and temperature conditions, and the timescale of interest. |
 | `THERMAL_DIFFUSION_EXPLICIT` | Enables thermal diffusion solved explicitly in time-unsplit fashion (unstable if the time step is longer than the parabolic CFL criterion, see Sect. 2.10). The cell-centered opacity must be filled in `app.F90` as `lgrid%kappa(i,j,k)`. |
 | `THERMAL_DIFFUSION_STS` | Enables radiative diffusion solved with the RKL2 super time stepper of [Meyer+14](https://ui.adsabs.harvard.edu/abs/2014JCoPh.257..594M/abstract) (see, Sect. 2.10). The cell-centered opacity must be filled in `app.F90` as `lgrid%kappa(i,j,k)`. |
-| `CONSTANT_THERMAL_CONDUCTIVITY` | Keeps the thermal conductivity at each cell center, stored in `lgrid%kappa(i,j,k)`, constant in time. |
 | `USE_EDOT` | Enables time independent heating. The heating rate per unit volume (`lgrid%edot(i,j,k)`) must be provided in `app.F90` at every cell center. |
 | `USERDEF_EDOT` | Allows the user to prescribe an analytical form of the energy source. The array `lgrid%edot(:,:,:)` must be filled over the whole local grid in `subroutine compute_userdef_edot(mgrid,lgrid,tau)`. Here,`tau` specifies the time at which the energy source is evaluated and can be used when the source has an explicit time dependence. This subroutine must be provided by the user in `app.F90`. |
 | `VARIABLE_EDOT` | Makes `USE_EDOT` time-dependent by applying `lgrid%edot` only for `t >= t_start_edot_make`. |
@@ -275,11 +274,13 @@ For `LHLL-type` solvers, if both low-Mach and supersonic flows need to be captur
 | `BALANCE_THERMAL_DIFFUSION` | Balances the thermal diffusion operator using the equilibrium states from the well-balancing method (needs `USE_WB`). |
 | `USE_TIMMES_KAPPA` | Enables the computation of radiative+conductive opacities as a function of density, composition and temperature according to [Timmes+2000](https://ui.adsabs.harvard.edu/abs/2000ApJ...528..913T/abstract) (implementation basde on [cococubed](https://cococubed.com/code_pages/kap.shtml)) |
 | `USERDEF_KAPPA` | Allows the user to prescribe an analytical form of the opacity. The array `lgrid%kappa(:,:,:)` must be filled over the whole local grid (including halo cells) in `subroutine compute_userdef_kappa(mgrid,lgrid,tau)`. Here, `tau` specifies the time at which the opacity is evaluated and can be used when the opacity has an explicit time dependence. This subroutine must be provided by the user in `app.F90`. |
+| `CONSTANT_THERMAL_CONDUCTIVITY` | Keeps the thermal conductivity at each cell center, stored in `lgrid%kappa(i,j,k)`, constant in time. |
 
 #### 10b. DNS options
 
 | Option | Meaning |
 | `EVALUATE_DNS_TIMESTEP` | Adaptively changes the number of substeps in the super time stepper when `DNS_STS` is used. |
+| `CONSTANT_DYNAMIC_VISCOSITY` | Keeps the dynamic viscosity at each cell center, stored in `lgrid%nus(i,j,k)`, constant in time. |
 
 ### 11. Nuclear network options
 

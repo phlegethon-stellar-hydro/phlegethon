@@ -21805,6 +21805,11 @@ subroutine visres_rhs(mgrid,lgrid)
 
   dvx3_dx3 = rp0
 
+#ifdef CONSTANT_DYNAMIC_VISCOSITY
+  rhoL = rp1
+  rhoR = rp1
+#endif
+
   lx1 = mgrid%i1(1)
   lx2 = mgrid%i1(2)
   lx3 = mgrid%i1(3)
@@ -21886,12 +21891,17 @@ subroutine visres_rhs(mgrid,lgrid)
    do j=lx2,ux2
     do i=lx1,ux1+1
 
+     nusL = lgrid%nus(i-1,j,k)   
+     nusR = lgrid%nus(i,j,k)         
+#ifdef CONSTANT_DYNAMIC_VISCOSITY
+     muL = nusL
+     muR = nusR
+#else
      rhoL = lgrid%prim(i_rho,i-1,j,k)
-     nusL = lgrid%nus(i-1,j,k)
      rhoR = lgrid%prim(i_rho,i,j,k)
-     nusR = lgrid%nus(i,j,k)
      muL  = rhoL*nusL
      muR  = rhoR*nusR
+#endif
      mu   = rp2*muL*muR/(muL+muR+em11)
 
 #ifdef GEOMETRY_CARTESIAN_NONUNIFORM
@@ -22029,12 +22039,17 @@ subroutine visres_rhs(mgrid,lgrid)
    do i=lx1,ux1
     do j=lx2,ux2+1
 
+     nusL = lgrid%nus(i,j-1,k)   
+     nusR = lgrid%nus(i,j,k)         
+#ifdef CONSTANT_DYNAMIC_VISCOSITY
+     muL = nusL
+     muR = nusR
+#else
      rhoL = lgrid%prim(i_rho,i,j-1,k)
-     nusL = lgrid%nus(i,j-1,k)
      rhoR = lgrid%prim(i_rho,i,j,k)
-     nusR = lgrid%nus(i,j,k)
      muL  = rhoL*nusL
      muR  = rhoR*nusR
+#endif
      mu   = rp2*muL*muR/(muL+muR+em11)
 
 #ifdef GEOMETRY_CARTESIAN_NONUNIFORM
@@ -22172,12 +22187,17 @@ subroutine visres_rhs(mgrid,lgrid)
    do i=lx1,ux1
     do k=lx3,ux3+1
 
+     nusL = lgrid%nus(i,j,k-1)   
+     nusR = lgrid%nus(i,j,k)         
+#ifdef CONSTANT_DYNAMIC_VISCOSITY
+     muL = nusL
+     muR = nusR
+#else
      rhoL = lgrid%prim(i_rho,i,j,k-1)
-     nusL = lgrid%nus(i,j,k-1)
      rhoR = lgrid%prim(i_rho,i,j,k)
-     nusR = lgrid%nus(i,j,k)
      muL  = rhoL*nusL
      muR  = rhoR*nusR
+#endif
      mu   = rp2*muL*muR/(muL+muR+em11)
 
 #ifdef GEOMETRY_CARTESIAN_NONUNIFORM
@@ -23918,6 +23938,10 @@ end subroutine bcs_dns
 
   real(kind=rp) :: x,y,z,r,tmp
 
+#ifndef CONSTANT_DYNAMIC_VISCOSITY
+  rho = rp1
+#endif
+
   x = rp0
   y = rp0
   z = rp0
@@ -23955,9 +23979,12 @@ end subroutine bcs_dns
      if(lgrid%is_solid(i,j,k)==0) then
 #endif
 
-      rho = lgrid%prim(i_rho,i,j,k)
       nus = lgrid%nus(i,j,k)+em11
       Ddns = nus
+#ifdef CONSTANT_DYNAMIC_VISCOSITY
+      rho = lgrid%prim(i_rho,i,j,k) 
+      Ddns = Ddns/rho
+#endif
 
 #ifdef USE_MHD
       eta = lgrid%eta(i,j,k)
