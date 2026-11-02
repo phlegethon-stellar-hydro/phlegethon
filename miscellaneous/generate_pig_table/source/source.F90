@@ -1221,7 +1221,13 @@ contains
    E0 = 0.0_rp
 
 #ifdef USE_H2
-   V0 = 2.0_rp*Iplj(1,1)+7.17e-12_rp
+#ifdef USE_OPR_EQM
+   V0 = 2.0_rp*Iplj(1,1)+chi_h2
+#else
+   !fixed 3:1 ortho-to-para ratio: ortho-H2 cannot relax to J=0, so the lowest
+   !accessible state lies 0.75*kb*theta_rot above the J=0 ground state
+   V0 = 2.0_rp*Iplj(1,1)+chi_h2-0.75_rp*kb*theta_rot
+#endif
    E0 = 0.5_rp*eos%X(1)*V0
    do iv=2,niso
 #else
@@ -1343,25 +1349,23 @@ contains
     end do
     dZrotodT = 0.5_rp*dZrotodT*theta_rot
 
-    Zrot = Zrote**(0.25_rp)*(3.0_rp*Zroto*exp(theta_rot/T))**(3.0_rp/4.0_rp)
+    !rotational levels referred to J=0, as in the Saha equation and in E0;
+    !the denominator is the mixing entropy of the frozen ortho/para mixture
+    Zrot = Zrote**(0.25_rp)*(3.0_rp*Zroto)**(3.0_rp/4.0_rp) / &
+    (0.25_rp**0.25_rp*0.75_rp**0.75_rp)
 
     Zh2ext = Zh2ext*Zrot 
 
-    Eh2 = Eh2 + kb*0.25_rp*dZrotedT/Zrote + kb*0.75_rp*dZrotodT/Zroto - 0.75_rp*kb*theta_rot 
+    Eh2 = Eh2 + kb*0.25_rp*dZrotedT/Zrote + kb*0.75_rp*dZrotodT/Zroto
 #endif
 
     Zh2 = Zh2*Zh2ext
 
     a1 = (2.0_rp*pi*me*kb*T/h**2)**1.5_rp * &
     exp(-min(chi_h1/(kb*T),250.0_rp))/ne
- 
-#ifdef USE_OPR_EQM
+  
     a2 = 16.0_rp*(pi*mh*kb*T/h**2)**1.5_rp * &
     exp(-min(chi_h2/(kb*T),250.0_rp))/Zh2ext
-#else
-   a2 = 16.0_rp*(pi*mh*kb*T/h**2)**1.5_rp * &
-   exp(-min((chi_h2-0.75_rp*kb*theta_rot)/(kb*T),250.0_rp))/Zh2ext
-#endif
 
     a2 = 1.0_rp/a2
 
