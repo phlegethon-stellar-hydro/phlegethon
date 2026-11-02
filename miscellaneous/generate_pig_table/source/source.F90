@@ -1354,9 +1354,14 @@ contains
 
     a1 = (2.0_rp*pi*me*kb*T/h**2)**1.5_rp * &
     exp(-min(chi_h1/(kb*T),250.0_rp))/ne
-  
+ 
+#ifdef USE_OPR_EQM
     a2 = 16.0_rp*(pi*mh*kb*T/h**2)**1.5_rp * &
     exp(-min(chi_h2/(kb*T),250.0_rp))/Zh2ext
+#else
+   a2 = 16.0_rp*(pi*mh*kb*T/h**2)**1.5_rp * &
+   exp(-min((chi_h2-0.75_rp*kb*theta_rot)/(kb*T),250.0_rp))/Zh2ext
+#endif
 
     a2 = 1.0_rp/a2
 
