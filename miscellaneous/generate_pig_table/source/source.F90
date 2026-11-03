@@ -1045,7 +1045,7 @@ contains
    real(kind=rp) :: nl(niso),nlj(niso,nlev_max)
    integer :: nstages 
    real(kind=rp) :: err1,V0,T,ni,ne,ne0,rho,nkT_logZ,ldb3,res,res0,tmp,log_ne,log_ne0,E0
-   real(kind=rp) :: Eb,nh2,Eh2,Zh2
+   real(kind=rp) :: Eb,nh2,Eh2,Zh2,nestar
 
    rho = eos%var(id_rho)
    T = eos%var(id_T)
@@ -1079,8 +1079,9 @@ contains
     do ir=1,nstages-1 
       res0 = res0 + real(ir,kind=rp)*nlj(iv,ir+1)
     end do
-   end do     
-   res0 = res0-ne0
+   end do    
+
+   res0 = log(res0)-log(ne0)
  
    ne = 0.9_rp*ne0
  
@@ -1093,7 +1094,8 @@ contains
       res = res + real(ir,kind=rp)*nlj(iv,ir+1)
     end do
    end do     
-   res = res-ne
+
+   res = log(res)-log(ne)
 
    !secant method
    log_ne0 = log(ne0)
@@ -1101,9 +1103,7 @@ contains
  
    err1 = 1.0_rp
    
-   cnt = 0
-   
-   do while(err1>thr_ne)
+   do cnt=1,1000  
  
      ne = exp(log_ne)
   
@@ -1117,7 +1117,15 @@ contains
       end do
      end do
 
-     res = res-ne
+     nestar = res
+
+     err1 = abs(nestar/ne-1.0_rp)
+
+     if(err1<thr_ne) then
+      exit
+     endif 
+
+     res = log(res)-log(ne)
  
      tmp = ne
  
@@ -1127,19 +1135,12 @@ contains
      res0 = res
  
      ne = exp(log_ne)
- 
-     cnt = cnt + 1
-
-     if(cnt>1000) then
-      err1 = 0.1_rp*thr_ne
-      write(*,*) ne/nl(1),nlj(1,1:2)/nl(1),nh2/nl(1)
-     else
-      err1 = abs(res)/ne
-     endif 
 
    end do
 
-   call compute_inz_frac(eos,ne,nlj,Eb,Eh2,nh2,Zh2)
+   if(cnt==1001) then
+    write(*,*) 'convergence not reached', ne/nl(1),nlj(1,1:2)/nl(1),nh2/nl(1)
+   endif
  
    !thermodynamics of the mixture
 

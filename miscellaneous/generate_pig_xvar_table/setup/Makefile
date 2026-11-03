@@ -1,4 +1,4 @@
-SRC = ../source
+SRC = ../../generate_pig_table/source
 APPNAME = generate_pig_table
 
 OPTS = Nrho=200
@@ -15,6 +15,8 @@ OPTS += USE_QUAD_PRECISION
 OPTS += USE_H2
 OPTS += X_nint=1
 OPTS += sim_index=1
+OPTS += USE_OPR_EQM
+OPTS += ndigits=15
  
 #--------------------------------#
 

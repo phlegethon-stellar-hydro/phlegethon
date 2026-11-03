@@ -30179,6 +30179,7 @@ end subroutine bcs_dns
      pig_table_var(id_d4fdrho2dT2,i,j)
 
    end do
+
   end do
 
   do j=1,pig_nT
@@ -31484,9 +31485,11 @@ end subroutine bcs_dns
 
   real(kind=rp), intent(out) :: pig_drho, pig_dT, pig_dX
 
+  real(kind=rp) :: tmp1,tmp2,tmp3,tmp4
+
   integer :: i,j,iX
 
-  open(unit=iunit,file=path_to_pig_table,status='old',form='unformatted',access='stream',action='read')
+  open(unit=iunit,file=path_to_pig_table,status='old')
 
   pig_dT = ((pig_lthi)-(pig_ltlo))/real(pig_nT-1,kind=rp)
   pig_drho = ((pig_ldhi)-(pig_ldlo))/real(pig_nrho-1,kind=rp)
@@ -31504,7 +31507,7 @@ end subroutine bcs_dns
    
         pig_rho(i) = 10**((pig_ldlo)+real(i-1,kind=rp)*pig_drho)
    
-        read(iunit) & 
+        read(iunit,*) & 
         pig_table_var(iX,id_f,i,j), &
         pig_table_var(iX,id_dfdrho,i,j), &
         pig_table_var(iX,id_dfdT,i,j), &
@@ -31520,14 +31523,34 @@ end subroutine bcs_dns
    
      do j=1,pig_nT
       do i=1,pig_nrho
-        read(iunit) &
+        read(iunit,*) &
         dpdrho_table_var(iX,id_c,i,j), &
         dpdrho_table_var(iX,id_dcdrho,i,j), &
         dpdrho_table_var(iX,id_dcdT,i,j), &
         dpdrho_table_var(iX,id_d2cdrhodT,i,j)
       end do
      end do
-    
+ 
+     do j=1,pig_nT
+      do i=1,pig_nrho
+        read(iunit,*) &
+        tmp1, &
+        tmp2, &
+        tmp3, &
+        tmp4
+      end do
+     end do
+
+     do j=1,pig_nT
+      do i=1,pig_nrho
+        read(iunit,*) &
+        tmp1, &
+        tmp2, &
+        tmp3, &
+        tmp4
+      end do
+     end do
+
   end do
 
   close(iunit)
