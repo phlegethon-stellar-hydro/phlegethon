@@ -101,10 +101,11 @@ subroutine load_table_pxvar(path_to_table, &
   double precision, dimension(1:NX), intent(out) :: table_X
   double precision, intent(out) :: table_drho, table_dT, table_dX
 
+  double precision :: tmp1,tmp2,tmp3,tmp4
+
   integer :: i,j,iX
 
-  open(unit=21,file=path_to_table,status='old', &
-  form='unformatted', access='stream',action='read')
+  open(unit=21,file=path_to_table,status='old')
 
   table_drho = (LOGRHOMAX-LOGRHOMIN)/real(NRHO-1)
   table_dT = (LOGTMAX-LOGTMIN)/real(NT-1)
@@ -122,7 +123,7 @@ subroutine load_table_pxvar(path_to_table, &
   
        table_rho(i) = 10**(LOGRHOMIN+real(i-1)*table_drho)
   
-       read(21) &
+       read(21,*) &
        table_var(iX,id_f,i,j), &
        table_var(iX,id_dfdrho,i,j), &
        table_var(iX,id_dfdT,i,j), &
@@ -139,7 +140,7 @@ subroutine load_table_pxvar(path_to_table, &
     do j=1,NT
      do i=1,NRHO
   
-       read(21) &
+       read(21,*) &
        table_var(iX,id_c,i,j), &
        table_var(iX,id_dcdrho,i,j), &
        table_var(iX,id_dcdT,i,j), &
@@ -147,7 +148,31 @@ subroutine load_table_pxvar(path_to_table, &
   
      end do
     end do
- 
+
+    do j=1,NT
+     do i=1,NRHO
+
+      read(21,*) &
+      tmp1, &
+      tmp2, &
+      tmp3, &
+      tmp4
+
+     end do
+    end do
+
+    do j=1,NT
+     do i=1,NRHO
+
+      read(21,*) &
+      tmp1, &
+      tmp2, &
+      tmp3, &
+      tmp4
+
+     end do
+    end do
+
   end do
 
   close(21)
