@@ -1081,7 +1081,7 @@ contains
     end do
    end do    
 
-   res0 = log(res0)-log(ne0)
+   res0 = log(max(res0,tiny(res0)))-log(ne0)
  
    ne = 0.9_rp*ne0
  
@@ -1095,7 +1095,7 @@ contains
     end do
    end do     
 
-   res = log(res)-log(ne)
+   res = log(max(res,tiny(res)))-log(ne)
 
    !secant method
    log_ne0 = log(ne0)
@@ -1125,7 +1125,7 @@ contains
       exit
      endif 
 
-     res = log(res)-log(ne)
+     res = log(max(res,tiny(res)))-log(ne)
  
      tmp = ne
  
@@ -1139,6 +1139,8 @@ contains
    end do
 
    if(cnt==1001) then
+    !not converged: ne was advanced by a last secant step, update the composition to it
+    call compute_inz_frac(eos,ne,nlj,Eb,Eh2,nh2,Zh2)
     write(*,*) 'convergence not reached', ne/nl(1),nlj(1,1:2)/nl(1),nh2/nl(1)
    endif
  

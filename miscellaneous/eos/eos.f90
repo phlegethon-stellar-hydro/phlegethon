@@ -123,7 +123,7 @@ subroutine load_table_pxvar(path_to_table, &
   
        table_rho(i) = 10**(LOGRHOMIN+real(i-1)*table_drho)
   
-       read(21) &
+       read(21,*) &
        table_var(iX,id_f,i,j), &
        table_var(iX,id_dfdrho,i,j), &
        table_var(iX,id_dfdT,i,j), &
@@ -140,7 +140,7 @@ subroutine load_table_pxvar(path_to_table, &
     do j=1,NT
      do i=1,NRHO
   
-       read(21) &
+       read(21,*) &
        table_var(iX,id_c,i,j), &
        table_var(iX,id_dcdrho,i,j), &
        table_var(iX,id_dcdT,i,j), &
