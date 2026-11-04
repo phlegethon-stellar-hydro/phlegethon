@@ -1089,6 +1089,9 @@ module source
 #ifdef USE_MHD
     real(kind=rp), allocatable, dimension(:,:,:) :: cm
 #endif
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
+    real(kind=rp), allocatable, dimension(:) :: tphi_x1
+#endif
 #endif
 
 #ifdef GEOMETRY_2D_SPHERICAL
@@ -1578,6 +1581,9 @@ contains
     allocate(lgrid%r_cor(lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+1+ngc,lx3:ux3))
 #ifdef USE_MHD
     allocate(lgrid%cm(lx1:ux1,lx2:ux2,lx3:ux3))
+#endif
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
+    allocate(lgrid%tphi_x1(lx1:ux1+1))
 #endif
 #endif
 
@@ -2388,6 +2394,9 @@ contains
     deallocate(lgrid%r_cor)
 #ifdef USE_MHD
     deallocate(lgrid%cm)
+#endif
+#if defined(DNS_EXPLICIT) || defined(DNS_STS)
+    deallocate(lgrid%tphi_x1)
 #endif
 #endif
 
@@ -21791,6 +21800,12 @@ subroutine visres_rhs(mgrid,lgrid)
   real(kind=rp) :: inv_dx3L,inv_dx3R
 #endif
 #endif
+#ifdef GEOMETRY_2D_CYLINDRICAL
+  real(kind=rp) :: r_f,inv_r,vr_r,divr,rc,rpl,rmi
+#ifdef NONUNIFORM_RADIAL_NODES
+  real(kind=rp) :: inv_dr
+#endif
+#endif
   integer :: lx1,lx2,lx3,ux1,ux2,ux3
   integer :: i,j,k,iv
 
@@ -21914,6 +21929,12 @@ subroutine visres_rhs(mgrid,lgrid)
 #endif
 #endif
 
+#ifdef GEOMETRY_2D_CYLINDRICAL
+#ifdef NONUNIFORM_RADIAL_NODES
+     inv_dx1 = rp1/(lgrid%r(i,j,k)-lgrid%r(i-1,j,k))
+#endif
+#endif
+
      dvx1_dx1 = (lgrid%prim(i_vx1,i,j,k)-lgrid%prim(i_vx1,i-1,j,k))*inv_dx1
      dvx2_dx1 = (lgrid%prim(i_vx2,i,j,k)-lgrid%prim(i_vx2,i-1,j,k))*inv_dx1
 
@@ -21960,12 +21981,29 @@ subroutine visres_rhs(mgrid,lgrid)
 
 #endif
 
+#ifdef GEOMETRY_2D_CYLINDRICAL
+     r_f = lgrid%r_x1(i,j,k)
+     if(r_f > em11) then
+      divr = (lgrid%r(i,j,k)*lgrid%prim(i_vx1,i,j,k) &
+      - lgrid%r(i-1,j,k)*lgrid%prim(i_vx1,i-1,j,k))*inv_dx1/r_f
+      vr_r = rph*(lgrid%prim(i_vx1,i-1,j,k)+lgrid%prim(i_vx1,i,j,k))/r_f
+     else
+      divr = rp2*dvx1_dx1
+      vr_r = dvx1_dx1
+     end if
+     divv = divr + dvx2_dx2 + dvx3_dx3
+#else
      divv = dvx1_dx1 + dvx2_dx2 + dvx3_dx3
+#endif
 
      tau11 = mu*(rp2*dvx1_dx1-tthirds*divv)
      tau12 = mu*(dvx1_dx2+dvx2_dx1)
 #if sdims_make==3
      tau13 = mu*(dvx1_dx3+dvx3_dx1)
+#endif
+
+#ifdef GEOMETRY_2D_CYLINDRICAL
+     lgrid%tphi_x1(i) = mu*(rp2*vr_r-tthirds*divv)
 #endif
 
      lgrid%fx1(i_rhovx1,i) = tau11
@@ -22017,6 +22055,12 @@ subroutine visres_rhs(mgrid,lgrid)
 #endif
 #endif
 
+#ifdef GEOMETRY_2D_CYLINDRICAL
+     lgrid%fx1(i_rhovx1,i) = lgrid%fx1(i_rhovx1,i)*r_f
+     lgrid%fx1(i_rhovx2,i) = lgrid%fx1(i_rhovx2,i)*r_f
+     lgrid%fx1(i_rhoe,i)   = lgrid%fx1(i_rhoe,i)*r_f
+#endif
+
     end do
 
     do i=lx1,ux1
@@ -22025,10 +22069,29 @@ subroutine visres_rhs(mgrid,lgrid)
      inv_dx1 = rp1/(lgrid%coords_x1(1,i+1,j,k)-lgrid%coords_x1(1,i,j,k))
 #endif
 
+#ifdef GEOMETRY_2D_CYLINDRICAL
+
+#ifdef NONUNIFORM_RADIAL_NODES
+     inv_dx1 = rp1/(lgrid%r_x1(i+1,j,k)-lgrid%r_x1(i,j,k))
+#endif
+     inv_r = rp1/lgrid%r(i,j,k)
+
+     do iv=i_rhovx1,i_rhoe
+      lgrid%Mv_jm1(iv,i,j,k) = &
+      (lgrid%fx1(iv,i+1)-lgrid%fx1(iv,i))*inv_dx1*inv_r
+     end do
+
+     lgrid%Mv_jm1(i_rhovx1,i,j,k) = lgrid%Mv_jm1(i_rhovx1,i,j,k) &
+     - rph*(lgrid%tphi_x1(i)+lgrid%tphi_x1(i+1))*inv_r
+
+#else
+
      do iv=i_rhovx1,i_rhoe
       lgrid%Mv_jm1(iv,i,j,k) = &
       (lgrid%fx1(iv,i+1)-lgrid%fx1(iv,i))*inv_dx1
      end do
+
+#endif
 
     end do
 
@@ -22062,6 +22125,12 @@ subroutine visres_rhs(mgrid,lgrid)
 #endif
 #endif
 
+#ifdef GEOMETRY_2D_CYLINDRICAL
+#ifdef NONUNIFORM_RADIAL_NODES
+     inv_dr = rp1/(lgrid%r(i+1,j,k)-lgrid%r(i-1,j,k))
+#endif
+#endif
+
      dvx2_dx2 = (lgrid%prim(i_vx2,i,j,k)-lgrid%prim(i_vx2,i,j-1,k))*inv_dx2
      dvx1_dx2 = (lgrid%prim(i_vx1,i,j,k)-lgrid%prim(i_vx1,i,j-1,k))*inv_dx2
 
@@ -22071,6 +22140,15 @@ subroutine visres_rhs(mgrid,lgrid)
               + (lgrid%prim(i_vx2,i+1,j,k)-lgrid%prim(i_vx2,i-1,j,k))*inv_dx1R )
      dvx1_dx1 = rph*( (lgrid%prim(i_vx1,i+1,j-1,k)-lgrid%prim(i_vx1,i-1,j-1,k))*inv_dx1L &
               + (lgrid%prim(i_vx1,i+1,j,k)-lgrid%prim(i_vx1,i-1,j,k))*inv_dx1R )
+
+#elif defined(GEOMETRY_2D_CYLINDRICAL) && defined(NONUNIFORM_RADIAL_NODES)
+
+     dvx2_dx1 = rph*inv_dr* &
+              ( (lgrid%prim(i_vx2,i+1,j-1,k)-lgrid%prim(i_vx2,i-1,j-1,k)) &
+              + (lgrid%prim(i_vx2,i+1,j,k)-lgrid%prim(i_vx2,i-1,j,k)) )
+     dvx1_dx1 = rph*inv_dr* &
+              ( (lgrid%prim(i_vx1,i+1,j-1,k)-lgrid%prim(i_vx1,i-1,j-1,k)) &
+              + (lgrid%prim(i_vx1,i+1,j,k)-lgrid%prim(i_vx1,i-1,j,k)) )
 
 #else
 
@@ -22107,7 +22185,16 @@ subroutine visres_rhs(mgrid,lgrid)
 
 #endif
 
+#ifdef GEOMETRY_2D_CYLINDRICAL
+     rc  = lgrid%r(i,j,k)
+     rpl = lgrid%r(i+1,j,k)
+     rmi = lgrid%r(i-1,j,k)
+     divr = rph*( (rpl*lgrid%prim(i_vx1,i+1,j-1,k)-rmi*lgrid%prim(i_vx1,i-1,j-1,k)) &
+     + (rpl*lgrid%prim(i_vx1,i+1,j,k)-rmi*lgrid%prim(i_vx1,i-1,j,k)) )/((rpl-rmi)*rc)
+     divv = divr + dvx2_dx2 + dvx3_dx3
+#else
      divv = dvx1_dx1 + dvx2_dx2 + dvx3_dx3
+#endif
 
      tau21 = mu*(dvx2_dx1+dvx1_dx2)
      tau22 = mu*(rp2*dvx2_dx2-tthirds*divv)
@@ -23989,7 +24076,13 @@ end subroutine bcs_dns
 #ifdef USE_MHD
       eta = lgrid%eta(i,j,k)
 #endif
-       
+      
+#ifdef GEOMETRY_2D_CYLINDRICAL
+#ifdef NONUNIFORM_RADIAL_NODES
+      inv_dx1 = rp1/(lgrid%coords_r1(1,i+1,j,k)-lgrid%coords_r1(1,i,j,k))
+#endif
+#endif
+
 #ifdef GEOMETRY_CARTESIAN_NONUNIFORM
       inv_dx1 = rp1/(lgrid%coords_x1(1,i+1,j,k)-lgrid%coords_x1(1,i,j,k))
       inv_dx2 = rp1/(lgrid%coords_x2(2,i,j+1,k)-lgrid%coords_x2(2,i,j,k))
