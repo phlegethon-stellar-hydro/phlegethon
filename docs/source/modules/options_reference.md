@@ -279,6 +279,7 @@ For `LHLL-type` solvers, if both low-Mach and supersonic flows need to be captur
 #### 10b. DNS options
 
 | Option | Meaning |
+| --- | --- |
 | `EVALUATE_DNS_TIMESTEP` | Adaptively changes the number of substeps in the super time stepper when `DNS_STS` is used. |
 | `CONSTANT_DYNAMIC_VISCOSITY` | Keeps the dynamic viscosity at each cell center, stored in `lgrid%nus(i,j,k)`, constant in time. |
 

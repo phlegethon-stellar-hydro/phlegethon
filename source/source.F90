@@ -24076,7 +24076,7 @@ end subroutine bcs_dns
 #ifdef USE_MHD
       eta = lgrid%eta(i,j,k)
 #endif
-      
+
 #ifdef GEOMETRY_2D_CYLINDRICAL
 #ifdef NONUNIFORM_RADIAL_NODES
       inv_dx1 = rp1/(lgrid%coords_r1(1,i+1,j,k)-lgrid%coords_r1(1,i,j,k))
