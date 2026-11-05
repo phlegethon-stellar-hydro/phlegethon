@@ -134,6 +134,14 @@ class Udo:
         last_step = self.idx_probes[-1]
         nvars = nvalues[first_step]//(first_step+1)
 
+        first_file_ok = nvars > 0
+        for step in self.idx_probes:
+            if first_file_ok and (nvalues[step] % nvars != 0 or nvalues[step]//nvars > step+1):
+                first_file_ok = False
+        if not first_file_ok:
+            raise ValueError('udo files in %s are inconsistent: the first file does not start at '
+                             'step 0 (probably overwritten by a restart)'%(dire))
+
         self.nrows = {}
         for step in self.idx_probes:
             self.nrows[step] = nvalues[step]//nvars
