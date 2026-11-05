@@ -33,7 +33,7 @@ Some of the options refer to sections, equations, or tables of the [instrument p
 | `ddx1_make=64`  | Number of local domains in the `x1` direction. |
 | `ddx2_make=64`  | Number of local domains in the `x2` direction. |
 | `ddx3_make=64`  | Number of local domains in the `x3` direction. |
-| `ngc_make=2`  | Number of ghost cells (see Sect. 2.1). |
+| `ngc_make=2`  | Number of ghost cells (see Sect. 2.5). |
 | `nas_make=15`  | Number of active/passive scalars. |
 | `nspecies_make=12`  | Number of species participating in a nuclear reaction network (`nspecies_make<=nas_make`). |
 | `nreacs_make=38`  | Number of reactions in the nuclear network. |
@@ -224,6 +224,7 @@ Choose one of the following spatial reconstruction methods (see Sect. 2.5)
 | `LIM2ND_REC`| Second-order linear reconstruction with [van Leer](https://ui.adsabs.harvard.edu/abs/1997JCoPh.135..229V/abstract) slope limiting. |
 | `PPH_REC`| Unlimited parabolic reconstruction for all variables except active scalars, for which limited parabolic reconstruction is used, based on [Leidi+24](https://ui.adsabs.harvard.edu/abs/2024A%26A...686A..34L/abstract). |
 | `LIM5TH_REC`| Limited fifth-order reconstruction, based on [Leidi+24](https://ui.adsabs.harvard.edu/abs/2024A%26A...686A..34L/abstract). |
+| `LIM7TH_REC`| Limited seventh-order reconstruction, using the same slope limiter of `LIM5TH_REC`. |
 
 The option `USE_SHOCK_FLATTENING` will enable the shock-flattening procedure described in Sect. 2.7 (i.e., switch to a two-wave HLL Riemann solver and minmod slope-limited reconstruction in the presence of a shock). For this option to be used, the shock-flattening parameter needs to be defined by the user, e.g., `eps_sf_make=0.1`) as well as at least 3 ghost cells. (e.g. `ngc_make=3`). This is such that the shock flattener will be activated if the relative jump in pressure at a certain cell location is larger than `eps_sf_make`.
 

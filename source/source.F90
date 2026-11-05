@@ -869,9 +869,12 @@ module source
  rp60 = 60.0_rp, &
  rp91 = 91.0_rp, &
  rp96 = 96.0_rp, &
+ rp101 = 101.0_rp, &
  rp120 = 120.0_rp, &
  rp180 = 180.0_rp, &
  rp189 = 189.0_rp, &
+ rp214 = 214.0_rp, &
+ rp319 = 319.0_rp, &
  rp329 = 329.0_rp, &
  othird = 1.0_rp/3.0_rp, &
  tthirds = 2.0_rp/3.0_rp, &
@@ -9543,6 +9546,71 @@ contains
 
 #endif
 
+#ifdef LIM7TH_REC
+
+       do i=lx1-1,ux1+1
+
+        do iv=1,nvars
+         
+         qmmm = lgrid%prim(iv,i-3,j,k)
+         qmm = lgrid%prim(iv,i-2,j,k)
+         qm = lgrid%prim(iv,i-1,j,k)
+         qc = lgrid%prim(iv,i,j,k)
+         qp = lgrid%prim(iv,i+1,j,k)
+         qpp = lgrid%prim(iv,i+2,j,k)
+         qppp = lgrid%prim(iv,i+3,j,k)
+         
+         tmp = rp319*qc
+         am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+         ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
+
+         mn = min(qm,qc)
+         mx = max(qm,qc)
+
+         if (am<mn) am = mn
+         if (am>mx) am = mx
+
+         mn = min(qc,qp)
+         mx = max(qc,qp)
+
+         if (ap<mn) ap = mn
+         if (ap>mx) ap = mx
+
+         am = am - qc
+         ap = ap - qc
+
+         if (ap*am>=rp0) then
+          ap = rp0
+          am = rp0
+         else
+          if (abs(ap)>=rp2*abs(am)) then
+           ap = -rp2*am
+          else if (abs(am)>=rp2*abs(ap)) then
+           am = -rp2*ap
+          end if
+         end if
+
+         qLbuf(iv) = am + qc
+         qRbuf(iv) = ap + qc
+
+        end do
+
+        if(i>=lx1) then
+         do iv=1,nvars
+          lgrid%qRx1(iv,i) = qLbuf(iv)
+         end do
+        endif
+
+        if(i<=ux1) then
+         do iv=1,nvars
+          lgrid%qLx1(iv,i+1) = qRbuf(iv)
+         end do
+        endif
+
+       end do
+
+#endif
+
 #ifdef USE_MHD
 
 #ifdef LIM2ND_REC
@@ -9634,6 +9702,71 @@ contains
          tmp = rp329*qc
          am = (-rp21*qmm + rp189*qm + tmp - rp91*qp + rp14*qpp)*o420
          ap = (rp14*qmm - rp91*qm + tmp + rp189*qp - rp21*qpp)*o420
+
+         mn = min(qm,qc)
+         mx = max(qm,qc)
+
+         if (am<mn) am = mn
+         if (am>mx) am = mx
+
+         mn = min(qc,qp)
+         mx = max(qc,qp)
+
+         if (ap<mn) ap = mn
+         if (ap>mx) ap = mx
+
+         am = am - qc
+         ap = ap - qc
+
+         if (ap*am>=rp0) then
+          ap = rp0
+          am = rp0
+         else
+          if (abs(ap)>=rp2*abs(am)) then
+           ap = -rp2*am
+          else if (abs(am)>=rp2*abs(ap)) then
+           am = -rp2*ap
+          end if
+         end if
+
+         bLbuf(iv) = am + qc
+         bRbuf(iv) = ap + qc
+
+        end do
+
+        if(i>=lx1) then
+         do iv=2,sdims
+          lgrid%bRx1(iv,i) = bLbuf(iv)
+         end do
+        endif
+
+        if(i<=ux1) then
+         do iv=2,sdims
+          lgrid%bLx1(iv,i+1) = bRbuf(iv)
+         end do
+        endif
+
+       end do
+
+#endif
+
+#ifdef LIM7TH_REC
+ 
+       do i=lx1-1,ux1+1
+
+        do iv=2,sdims
+
+         qmmm = lgrid%b_cc(iv,i-3,j,k)
+         qmm = lgrid%b_cc(iv,i-2,j,k)
+         qm = lgrid%b_cc(iv,i-1,j,k)
+         qc = lgrid%b_cc(iv,i,j,k)
+         qp = lgrid%b_cc(iv,i+1,j,k)
+         qpp = lgrid%b_cc(iv,i+2,j,k)
+         qppp = lgrid%b_cc(iv,i+3,j,k)
+         
+         tmp = rp319*qc
+         am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+         ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
 
          mn = min(qm,qc)
          mx = max(qm,qc)
@@ -9888,6 +10021,117 @@ contains
         tmp = rp329*qc
         am = (-rp21*qmm + rp189*qm + tmp - rp91*qp + rp14*qpp)*o420
         ap = (rp14*qmm - rp91*qm + tmp + rp189*qp - rp21*qpp)*o420
+
+        mn = min(qm,qc)
+        mx = max(qm,qc)
+
+        if (am<mn) am = mn
+        if (am>mx) am = mx
+
+        mn = min(qc,qp)
+        mx = max(qc,qp)
+
+        if (ap<mn) ap = mn
+        if (ap>mx) ap = mx
+
+        am = am - qc
+        ap = ap - qc
+
+        if (ap*am>=rp0) then
+         ap = rp0
+         am = rp0
+        else
+         if (abs(ap)>=rp2*abs(am)) then
+          ap = -rp2*am
+         end if
+         if (abs(am)>=rp2*abs(ap)) then
+          am = -rp2*ap
+         end if
+        end if
+
+        eosLbuf = am + qc
+        eosRbuf = ap + qc
+
+        if(i>=lx1) then
+          lgrid%ru%gammafR(1)%val(i_gammac,i) = eosLbuf
+        endif
+
+        if(i<=ux1) then
+          lgrid%ru%gammafL(1)%val(i_gammac,i+1) = eosRbuf
+        endif
+
+       end do
+
+#endif
+
+#ifdef LIM7TH_REC
+
+       do i=lx1-1,ux1+1
+
+        qmmm = lgrid%gammaf(i_gammae,i-3,j,k)
+        qmm = lgrid%gammaf(i_gammae,i-2,j,k)
+        qm  = lgrid%gammaf(i_gammae,i-1,j,k)
+        qc  = lgrid%gammaf(i_gammae,i,j,k)
+        qp  = lgrid%gammaf(i_gammae,i+1,j,k)
+        qpp = lgrid%gammaf(i_gammae,i+2,j,k)
+        qppp = lgrid%gammaf(i_gammae,i+3,j,k)
+        
+        tmp = rp319*qc
+        am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+        ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
+
+        mn = min(qm,qc)
+        mx = max(qm,qc)
+
+        if (am<mn) am = mn
+        if (am>mx) am = mx
+
+        mn = min(qc,qp)
+        mx = max(qc,qp)
+
+        if (ap<mn) ap = mn
+        if (ap>mx) ap = mx
+
+        am = am - qc
+        ap = ap - qc
+
+        if (ap*am>=rp0) then
+         ap = rp0
+         am = rp0
+        else
+         if (abs(ap)>=rp2*abs(am)) then
+          ap = -rp2*am
+         else if (abs(am)>=rp2*abs(ap)) then
+          am = -rp2*ap
+         end if
+        end if
+
+        eosLbuf = am + qc
+        eosRbuf = ap + qc
+
+        if(i>=lx1) then
+          lgrid%ru%gammafR(1)%val(i_gammae,i) = eosLbuf
+        endif
+
+        if(i<=ux1) then
+          lgrid%ru%gammafL(1)%val(i_gammae,i+1) = eosRbuf
+        endif
+
+       end do
+
+       do i=lx1-1,ux1+1
+
+        qmmm = lgrid%gammaf(i_gammac,i-3,j,k)
+        qmm = lgrid%gammaf(i_gammac,i-2,j,k)
+        qm  = lgrid%gammaf(i_gammac,i-1,j,k)
+        qc  = lgrid%gammaf(i_gammac,i,j,k)
+        qp  = lgrid%gammaf(i_gammac,i+1,j,k)
+        qpp = lgrid%gammaf(i_gammac,i+2,j,k)
+        qppp = lgrid%gammaf(i_gammac,i+3,j,k)
+        
+        tmp = rp319*qc
+        am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+        ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
 
         mn = min(qm,qc)
         mx = max(qm,qc)
@@ -10687,6 +10931,71 @@ contains
 
 #endif
 
+#ifdef LIM7TH_REC
+
+       do j=lx2-1,ux2+1
+
+        do iv=1,nvars
+
+         qmmm = lgrid%prim(iv,i,j-3,k)
+         qmm = lgrid%prim(iv,i,j-2,k)
+         qm = lgrid%prim(iv,i,j-1,k)
+         qc = lgrid%prim(iv,i,j,k)
+         qp = lgrid%prim(iv,i,j+1,k)
+         qpp = lgrid%prim(iv,i,j+2,k)
+         qppp = lgrid%prim(iv,i,j+3,k)
+         
+         tmp = rp319*qc
+         am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+         ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
+
+         mn = min(qm,qc)
+         mx = max(qm,qc)
+
+         if (am<mn) am = mn
+         if (am>mx) am = mx
+
+         mn = min(qc,qp)
+         mx = max(qc,qp)
+
+         if (ap<mn) ap = mn
+         if (ap>mx) ap = mx
+
+         am = am - qc
+         ap = ap - qc
+
+         if (ap*am>=rp0) then
+          ap = rp0
+          am = rp0
+         else
+          if (abs(ap)>=rp2*abs(am)) then
+           ap = -rp2*am
+          else if (abs(am)>=rp2*abs(ap)) then
+           am = -rp2*ap
+          end if
+         end if
+
+         qLbuf(iv) = am + qc
+         qRbuf(iv) = ap + qc
+
+        end do
+
+        if(j>=lx2) then
+         do iv=1,nvars
+          lgrid%qRx2(iv,j) = qLbuf(iv)
+         end do
+        endif
+
+        if(j<=ux2) then
+         do iv=1,nvars
+          lgrid%qLx2(iv,j+1) = qRbuf(iv)
+         end do
+        endif
+
+       end do
+
+#endif
+
 #ifdef USE_MHD
 
 #ifdef LIM2ND_REC
@@ -10843,6 +11152,114 @@ contains
         tmp = rp329*qc
         am = (-rp21*qmm + rp189*qm + tmp - rp91*qp + rp14*qpp)*o420
         ap = (rp14*qmm - rp91*qm + tmp + rp189*qp - rp21*qpp)*o420
+
+        mn = min(qm,qc)
+        mx = max(qm,qc)
+
+        if (am<mn) am = mn
+        if (am>mx) am = mx
+
+        mn = min(qc,qp)
+        mx = max(qc,qp)
+
+        if (ap<mn) ap = mn
+        if (ap>mx) ap = mx
+
+        am = am - qc
+        ap = ap - qc
+
+        if (ap*am>=rp0) then
+         ap = rp0
+         am = rp0
+        else
+         if (abs(ap)>=rp2*abs(am)) then
+          ap = -rp2*am
+         else if (abs(am)>=rp2*abs(ap)) then
+          am = -rp2*ap
+         end if
+        end if
+
+        bLbuf(3) = am + qc
+        bRbuf(3) = ap + qc
+
+#endif
+
+        if(j>=lx2) then
+         lgrid%bRx2(1,j) = bLbuf(1)
+#if sdims_make==3
+         lgrid%bRx2(3,j) = bLbuf(3)
+#endif
+        endif
+
+        if(j<=ux2) then
+         lgrid%bLx2(1,j+1) = bRbuf(1)
+#if sdims_make==3
+         lgrid%bLx2(3,j+1) = bRbuf(3)
+#endif
+        endif
+
+       end do
+ 
+#endif
+
+#ifdef LIM7TH_REC
+
+       do j=lx2-1,ux2+1
+
+        qmmm = lgrid%b_cc(1,i,j-3,k)
+        qmm = lgrid%b_cc(1,i,j-2,k)
+        qm = lgrid%b_cc(1,i,j-1,k)
+        qc = lgrid%b_cc(1,i,j,k)
+        qp = lgrid%b_cc(1,i,j+1,k)
+        qpp = lgrid%b_cc(1,i,j+2,k)
+        qppp = lgrid%b_cc(1,i,j+3,k)
+        
+        tmp = rp319*qc
+        am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+        ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
+
+        mn = min(qm,qc)
+        mx = max(qm,qc)
+
+        if (am<mn) am = mn
+        if (am>mx) am = mx
+
+        mn = min(qc,qp)
+        mx = max(qc,qp)
+
+        if (ap<mn) ap = mn
+        if (ap>mx) ap = mx
+
+        am = am - qc
+        ap = ap - qc
+
+        if (ap*am>=rp0) then
+         ap = rp0
+         am = rp0
+        else
+         if (abs(ap)>=rp2*abs(am)) then
+          ap = -rp2*am
+         else if (abs(am)>=rp2*abs(ap)) then
+          am = -rp2*ap
+         end if
+        end if
+
+        bLbuf(1) = am + qc
+        bRbuf(1) = ap + qc
+
+#if sdims_make==3
+
+        qmmm = lgrid%b_cc(3,i,j-3,k)
+        qmm = lgrid%b_cc(3,i,j-2,k)
+        qm = lgrid%b_cc(3,i,j-1,k)
+        qc = lgrid%b_cc(3,i,j,k)
+        qp = lgrid%b_cc(3,i,j+1,k)
+        qpp = lgrid%b_cc(3,i,j+2,k)
+        qppp = lgrid%b_cc(3,i,j+3,k)
+        
+        tmp = rp319*qc
+        am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+        ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
 
         mn = min(qm,qc)
         mx = max(qm,qc)
@@ -11229,6 +11646,117 @@ contains
         tmp = rp329*qc
         am = (-rp21*qmm + rp189*qm + tmp - rp91*qp + rp14*qpp)*o420
         ap = (rp14*qmm - rp91*qm + tmp + rp189*qp - rp21*qpp)*o420
+
+        mn = min(qm,qc)
+        mx = max(qm,qc)
+
+        if (am<mn) am = mn
+        if (am>mx) am = mx
+
+        mn = min(qc,qp)
+        mx = max(qc,qp)
+
+        if (ap<mn) ap = mn
+        if (ap>mx) ap = mx
+
+        am = am - qc
+        ap = ap - qc
+
+        if (ap*am>=rp0) then
+         ap = rp0
+         am = rp0
+        else
+         if (abs(ap)>=rp2*abs(am)) then
+          ap = -rp2*am
+         end if
+         if (abs(am)>=rp2*abs(ap)) then
+          am = -rp2*ap
+         end if
+        end if
+
+        eosLbuf = am + qc
+        eosRbuf = ap + qc
+
+        if(j>=lx2) then
+          lgrid%ru%gammafR(2)%val(i_gammac,j) = eosLbuf
+        endif
+
+        if(j<=ux2) then
+          lgrid%ru%gammafL(2)%val(i_gammac,j+1) = eosRbuf
+        endif
+
+       end do
+
+#endif
+
+#ifdef LIM7TH_REC
+
+       do j=lx2-1,ux2+1
+
+        qmmm = lgrid%gammaf(i_gammae,i,j-3,k)
+        qmm = lgrid%gammaf(i_gammae,i,j-2,k)
+        qm  = lgrid%gammaf(i_gammae,i,j-1,k)
+        qc  = lgrid%gammaf(i_gammae,i,j,k)
+        qp  = lgrid%gammaf(i_gammae,i,j+1,k)
+        qpp = lgrid%gammaf(i_gammae,i,j+2,k)
+        qppp = lgrid%gammaf(i_gammae,i,j+3,k)
+        
+        tmp = rp319*qc
+        am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+        ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
+
+        mn = min(qm,qc)
+        mx = max(qm,qc)
+
+        if (am<mn) am = mn
+        if (am>mx) am = mx
+
+        mn = min(qc,qp)
+        mx = max(qc,qp)
+
+        if (ap<mn) ap = mn
+        if (ap>mx) ap = mx
+
+        am = am - qc
+        ap = ap - qc
+
+        if (ap*am>=rp0) then
+         ap = rp0
+         am = rp0
+        else
+         if (abs(ap)>=rp2*abs(am)) then
+          ap = -rp2*am
+         else if (abs(am)>=rp2*abs(ap)) then
+          am = -rp2*ap
+         end if
+        end if
+
+        eosLbuf = am + qc
+        eosRbuf = ap + qc
+
+        if(j>=lx2) then
+          lgrid%ru%gammafR(2)%val(i_gammae,j) = eosLbuf
+        endif
+
+        if(j<=ux2) then
+          lgrid%ru%gammafL(2)%val(i_gammae,j+1) = eosRbuf
+        endif
+
+       end do
+
+       do j=lx2-1,ux2+1
+
+        qmmm = lgrid%gammaf(i_gammac,i,j-3,k)
+        qmm = lgrid%gammaf(i_gammac,i,j-2,k)
+        qm  = lgrid%gammaf(i_gammac,i,j-1,k)
+        qc  = lgrid%gammaf(i_gammac,i,j,k)
+        qp  = lgrid%gammaf(i_gammac,i,j+1,k)
+        qpp = lgrid%gammaf(i_gammac,i,j+2,k)
+        qppp = lgrid%gammaf(i_gammac,i,j+3,k)
+        
+        tmp = rp319*qc
+        am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+        ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
 
         mn = min(qm,qc)
         mx = max(qm,qc)
@@ -11947,6 +12475,71 @@ contains
 
 #endif
 
+#ifdef LIM7TH_REC
+
+       do k=lx3-1,ux3+1
+
+        do iv=1,nvars
+
+         qmmm = lgrid%prim(iv,i,j,k-3)
+         qmm = lgrid%prim(iv,i,j,k-2)
+         qm = lgrid%prim(iv,i,j,k-1)
+         qc = lgrid%prim(iv,i,j,k)
+         qp = lgrid%prim(iv,i,j,k+1)
+         qpp = lgrid%prim(iv,i,j,k+2)
+         qppp = lgrid%prim(iv,i,j,k+3)
+         
+         tmp = rp319*qc
+         am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+         ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
+
+         mn = min(qm,qc)
+         mx = max(qm,qc)
+
+         if (am<mn) am = mn
+         if (am>mx) am = mx
+
+         mn = min(qc,qp)
+         mx = max(qc,qp)
+
+         if (ap<mn) ap = mn
+         if (ap>mx) ap = mx
+
+         am = am - qc
+         ap = ap - qc
+
+         if (ap*am>=rp0) then
+          ap = rp0
+          am = rp0
+         else
+          if (abs(ap)>=rp2*abs(am)) then
+           ap = -rp2*am
+          else if (abs(am)>=rp2*abs(ap)) then
+           am = -rp2*ap
+          end if
+         end if
+
+         qLbuf(iv) = am + qc
+         qRbuf(iv) = ap + qc
+
+        end do
+
+        if(k>=lx3) then
+         do iv=1,nvars
+          lgrid%qRx3(iv,k) = qLbuf(iv)
+         end do
+        endif
+
+        if(k<=ux3) then
+         do iv=1,nvars
+          lgrid%qLx3(iv,k+1) = qRbuf(iv)
+         end do
+        endif
+
+       end do
+
+#endif
+
 #ifdef USE_MHD
 
 #ifdef LIM2ND_REC
@@ -12038,6 +12631,71 @@ contains
          tmp = rp329*qc
          am = (-rp21*qmm + rp189*qm + tmp - rp91*qp + rp14*qpp)*o420
          ap = (rp14*qmm - rp91*qm + tmp + rp189*qp - rp21*qpp)*o420
+
+         mn = min(qm,qc)
+         mx = max(qm,qc)
+
+         if (am<mn) am = mn
+         if (am>mx) am = mx
+
+         mn = min(qc,qp)
+         mx = max(qc,qp)
+
+         if (ap<mn) ap = mn
+         if (ap>mx) ap = mx
+
+         am = am - qc
+         ap = ap - qc
+
+         if (ap*am>=rp0) then
+          ap = rp0
+          am = rp0
+         else
+          if (abs(ap)>=rp2*abs(am)) then
+           ap = -rp2*am
+          else if (abs(am)>=rp2*abs(ap)) then
+           am = -rp2*ap
+          end if
+         end if
+
+         bLbuf(iv) = am + qc
+         bRbuf(iv) = ap + qc
+
+        end do
+
+        if(k>=lx3) then
+         do iv=1,2
+          lgrid%bRx3(iv,k) = bLbuf(iv)
+         end do
+        endif
+
+        if(k<=ux3) then
+         do iv=1,2
+          lgrid%bLx3(iv,k+1) = bRbuf(iv)
+         end do
+        endif
+
+       end do
+
+#endif
+
+#ifdef LIM7TH_REC
+
+       do k=lx3-1,ux3+1
+
+        do iv=1,2
+
+         qmmm = lgrid%b_cc(iv,i,j,k-3)
+         qmm = lgrid%b_cc(iv,i,j,k-2)
+         qm = lgrid%b_cc(iv,i,j,k-1)
+         qc = lgrid%b_cc(iv,i,j,k)
+         qp = lgrid%b_cc(iv,i,j,k+1)
+         qpp = lgrid%b_cc(iv,i,j,k+2)
+         qppp = lgrid%b_cc(iv,i,j,k+3)
+         
+         tmp = rp319*qc
+         am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+         ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
 
          mn = min(qm,qc)
          mx = max(qm,qc)
@@ -12434,6 +13092,117 @@ contains
         tmp = rp329*qc
         am = (-rp21*qmm + rp189*qm + tmp - rp91*qp + rp14*qpp)*o420
         ap = (rp14*qmm - rp91*qm + tmp + rp189*qp - rp21*qpp)*o420
+
+        mn = min(qm,qc)
+        mx = max(qm,qc)
+
+        if (am<mn) am = mn
+        if (am>mx) am = mx
+
+        mn = min(qc,qp)
+        mx = max(qc,qp)
+
+        if (ap<mn) ap = mn
+        if (ap>mx) ap = mx
+
+        am = am - qc
+        ap = ap - qc
+
+        if (ap*am>=rp0) then
+         ap = rp0
+         am = rp0
+        else
+         if (abs(ap)>=rp2*abs(am)) then
+          ap = -rp2*am
+         end if
+         if (abs(am)>=rp2*abs(ap)) then
+          am = -rp2*ap
+         end if
+        end if
+
+        eosLbuf = am + qc
+        eosRbuf = ap + qc
+
+        if(k>=lx3) then
+          lgrid%ru%gammafR(3)%val(i_gammac,k) = eosLbuf
+        endif
+
+        if(k<=ux3) then
+          lgrid%ru%gammafL(3)%val(i_gammac,k+1) = eosRbuf
+        endif
+
+       end do
+
+#endif
+
+#ifdef LIM7TH_REC
+
+       do k=lx3-1,ux3+1
+
+        qmmm = lgrid%gammaf(i_gammae,i,j,k-3)
+        qmm = lgrid%gammaf(i_gammae,i,j,k-2)
+        qm  = lgrid%gammaf(i_gammae,i,j,k-1)
+        qc  = lgrid%gammaf(i_gammae,i,j,k)
+        qp  = lgrid%gammaf(i_gammae,i,j,k+1)
+        qpp = lgrid%gammaf(i_gammae,i,j,k+2)
+        qppp = lgrid%gammaf(i_gammae,i,j,k+3)
+        
+        tmp = rp319*qc
+        am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+        ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
+
+        mn = min(qm,qc)
+        mx = max(qm,qc)
+
+        if (am<mn) am = mn
+        if (am>mx) am = mx
+
+        mn = min(qc,qp)
+        mx = max(qc,qp)
+
+        if (ap<mn) ap = mn
+        if (ap>mx) ap = mx
+
+        am = am - qc
+        ap = ap - qc
+
+        if (ap*am>=rp0) then
+         ap = rp0
+         am = rp0
+        else
+         if (abs(ap)>=rp2*abs(am)) then
+          ap = -rp2*am
+         else if (abs(am)>=rp2*abs(ap)) then
+          am = -rp2*ap
+         end if
+        end if
+
+        eosLbuf = am + qc
+        eosRbuf = ap + qc
+
+        if(k>=lx3) then
+          lgrid%ru%gammafR(3)%val(i_gammae,k) = eosLbuf
+        endif
+
+        if(k<=ux3) then
+          lgrid%ru%gammafL(3)%val(i_gammae,k+1) = eosRbuf
+        endif
+
+       end do
+
+       do k=lx3-1,ux3+1
+
+        qmmm = lgrid%gammaf(i_gammac,i,j,k-3)
+        qmm = lgrid%gammaf(i_gammac,i,j,k-2)
+        qm  = lgrid%gammaf(i_gammac,i,j,k-1)
+        qc  = lgrid%gammaf(i_gammac,i,j,k)
+        qp  = lgrid%gammaf(i_gammac,i,j,k+1)
+        qpp = lgrid%gammaf(i_gammac,i,j,k+2)
+        qppp = lgrid%gammaf(i_gammac,i,j,k+3)
+        
+        tmp = rp319*qc
+        am = (rp4*qmmm - rp38*qmm + rp214*qm + tmp - rp101*qp + rp25*qpp - rp3*qppp)*o420
+        ap = (-rp3*qmmm + rp25*qmm - rp101*qm + tmp + rp214*qp - rp38*qpp + rp4*qppp)*o420
 
         mn = min(qm,qc)
         mx = max(qm,qc)
