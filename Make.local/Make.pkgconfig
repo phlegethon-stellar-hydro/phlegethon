@@ -1,9 +1,6 @@
 # Phlegethon Build Configuration - pkg-config (Default)
 # ======================================================
 # Auto-detects HDF5 using pkg-config with intelligent fallbacks
-#
-# Usage: Copy this file to ../Makefile.config
-#        cp Make.local/Make.pkgconfig ../Makefile.config
 
 PKG_CONFIG ?= pkg-config
 HAVE_PKGCONFIG := $(shell command -v $(PKG_CONFIG) >/dev/null 2>&1 && echo yes)

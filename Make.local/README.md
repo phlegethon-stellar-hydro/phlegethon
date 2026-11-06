@@ -85,10 +85,7 @@ Hardcoded paths for HITS Genoa cluster:
    $(info ----------------------------------------)
    ```
 
-3. Use it:
-   ```bash
-   cp Make.myhost ../Makefile.config
-   ```
+3. Use it by editing `../Makefile.config` before building
 
 ### For a Cluster or HPC System
 
