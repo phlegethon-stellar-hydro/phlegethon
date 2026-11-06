@@ -125,9 +125,77 @@ class Udo:
 
         self.idx_probes = np.array(sorted(idx_probes))
 
+        nvalues = {}
+        for step in self.idx_probes:
+            path = os.path.join(dire, 'udo_%d.dat'%(step))
+            nvalues[step] = os.path.getsize(path)//8
+
+        first_step = self.idx_probes[0]
+        last_step = self.idx_probes[-1]
+        nvars = nvalues[first_step]//(first_step+1)
+
+        first_file_ok = nvars > 0
+        for step in self.idx_probes:
+            if first_file_ok and (nvalues[step] % nvars != 0 or nvalues[step]//nvars > step+1):
+                first_file_ok = False
+        if not first_file_ok:
+            raise ValueError('udo files in %s are inconsistent: the first file does not start at '
+                             'step 0 (probably overwritten by a restart)'%(dire))
+
+        self.nrows = {}
+        for step in self.idx_probes:
+            self.nrows[step] = nvalues[step]//nvars
+
+        self.segments = None
+        normal_layout = True
+        idx_pvs = 0
+        for step in self.idx_probes:
+            if nvalues[step] != (step+1-idx_pvs)*nvars:
+                normal_layout = False
+            idx_pvs = step+1
+        if normal_layout:
+            return
+
+        self.segments = [(last_step, self.nrows[last_step])]
+        current = last_step
+        while current > first_step:
+
+            step_before = current - self.nrows[current]
+
+            next_file = None
+            for step in self.idx_probes:
+                file_start = step - self.nrows[step] + 1
+                if file_start <= step_before <= step:
+                    next_file = step
+                    break
+
+            if next_file is None:
+                for step in self.idx_probes:
+                    if step < step_before:
+                        next_file = step
+                print('WARNING: no udo data for the steps %d ... %d, they are missing '
+                      'in the time series'%(next_file+1, step_before))
+
+            file_start = next_file - self.nrows[next_file] + 1
+            rows_to_use = step_before - file_start + 1
+            if rows_to_use > self.nrows[next_file]:
+                rows_to_use = self.nrows[next_file]
+
+            self.segments.append((next_file, rows_to_use))
+            current = next_file
+
+        self.segments.reverse()
+
     def time_series(self,idx_var):
 
         signal = []
+
+        if self.segments is not None:
+          for step, rows_to_use in self.segments:
+            pp_path = os.path.join(self.dir, 'udo_%d.dat'%(step))
+            pp = read_data(pp_path,self.nrows[step])
+            signal.extend(pp[:rows_to_use,idx_var])
+          return np.array(signal)
 
         idx_pvs = 0
         for index in self.idx_probes:
