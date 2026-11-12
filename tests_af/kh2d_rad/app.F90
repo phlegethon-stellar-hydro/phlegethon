@@ -8,8 +8,20 @@ program test
  real(kind=rp) :: x1l,x1u,x2l,x2u,x3l,x3u,gamma_ad,mu
  real(kind=rp) :: x,y,eta,mach0,rho0,vx1,vx2,rhoe0,cs0,T0
 
+#ifdef ADVECT_YE_IABAR
+ real(kind=rp) :: Ye0, inv_abar0, Ye_loc, inv_abar_loc
+#endif
+
  gamma_ad = 1.4_rp
+#ifdef ADVECT_YE_IABAR
+ !Ye0 = 0.45_rp
+ Ye0 = 0.5_rp
+ !inv_abar0 = 1.0_rp
+ inv_abar0 = 0.95_rp
+ mu = 1.0_rp/(Ye0 + inv_abar0)
+#else
  mu = 1.0_rp
+#endif
 
  mach0 = 0.1_rp
  rho0 = 1.0_rp
@@ -49,6 +61,14 @@ program test
      lgrid%q_cor(i_rhovx2,i,j) = rho0*vx2
      lgrid%q_cor(i_rho,i,j) = rho0
      lgrid%q_cor(i_rhoe,i,j) = (rho0*CONST_RGAS*T0)/(mu*(lgrid%gm-1.0_rp)) + CONST_RAD*(T0**4) + 0.5_rp*rho0*(vx1**2+vx2**2)
+#ifdef ADVECT_YE_IABAR
+     !Ye_loc = Ye0 + 0.05_rp * eta
+     inv_abar_loc = inv_abar0 + 0.05_rp * eta 
+     lgrid%q_cor(i_rhoye,i,j) = rho0*Ye0
+     !lgrid%q_cor(i_rhoiabar,i,j) = rho0*inv_abar0
+     !lgrid%q_cor(i_rhoye,i,j) = rho0*Ye_loc
+     lgrid%q_cor(i_rhoiabar,i,j) = rho0*inv_abar_loc
+#endif
 
   end do
  end do
@@ -77,6 +97,15 @@ program test
      lgrid%q_x1(i_rho,i,j) = rho0
      lgrid%q_x1(i_rhoe,i,j) = (rho0*CONST_RGAS*T0)/(mu*(lgrid%gm-1.0_rp)) + CONST_RAD*(T0**4) + 0.5_rp*rho0*(vx1**2+vx2**2)
 
+#ifdef ADVECT_YE_IABAR
+     !Ye_loc = Ye0 + 0.05_rp * eta
+     inv_abar_loc = inv_abar0 + 0.05_rp * eta 
+     lgrid%q_x1(i_rhoye,i,j) = rho0*Ye0
+     !lgrid%q_x1(i_rhoye,i,j) = rho0*Ye_loc
+     !lgrid%q_x1(i_rhoiabar,i,j) = rho0*inv_abar0
+     lgrid%q_x1(i_rhoiabar,i,j) = rho0*inv_abar_loc
+#endif
+
   end do
  end do
 
@@ -103,6 +132,15 @@ program test
      lgrid%q_x2(i_rhovx2,i,j) = rho0*vx2
      lgrid%q_x2(i_rho,i,j) = rho0
      lgrid%q_x2(i_rhoe,i,j) = (rho0*CONST_RGAS*T0)/(mu*(lgrid%gm-1.0_rp)) + CONST_RAD*(T0**4) + 0.5_rp*rho0*(vx1**2+vx2**2)
+
+#ifdef ADVECT_YE_IABAR
+     !Ye_loc = Ye0 + 0.05_rp * eta
+     inv_abar_loc = inv_abar0 + 0.05_rp * eta 
+     lgrid%q_x2(i_rhoye,i,j) = rho0*Ye0
+     !lgrid%q_x2(i_rhoye,i,j) = rho0*Ye_loc
+     !lgrid%q_x2(i_rhoiabar,i,j) = rho0*inv_abar0
+     lgrid%q_x2(i_rhoiabar,i,j) = rho0*inv_abar_loc
+#endif
 
   end do
  end do
@@ -146,7 +184,7 @@ program test
     real(kind=rp), intent(in) :: rho, rhoe, vx1, vx2, gm, mu, T
     real(kind=rp), intent(out) :: cs   
     real(kind=rp) :: T3, T4, gmm1, inv_rho, rhoeint, p
-    real(kind=rp) :: dPdrho_T, dPdT_rho, deintdT_rho 
+    real(kind=rp) :: P_rho, P_T, Eps_T 
 
     gmm1 = (gm - 1.0_rp)
     inv_rho = 1.0_rp/rho
@@ -165,10 +203,10 @@ program test
           T4 = T3*T
           p = (rho*CONST_RGAS*T/mu) + CONST_RAD*1.0_rp/3.0_rp*T4  
           
-          dPdrho_T = CONST_RGAS*T/mu
-          dPdT_rho = (rho*CONST_RGAS/mu) + CONST_RAD*T3*4.0_rp/3.0_rp
-          deintdT_rho = CONST_RGAS/(mu*gmm1) + 4.0_rp*CONST_RAD*T3*inv_rho
-          cs = sqrt( dPdrho_T + (dPdT_rho**2)*T*(inv_rho**2)*(1.0_rp/deintdT_rho) )
+          P_rho = CONST_RGAS*T/mu
+          P_T = (rho*CONST_RGAS/mu) + CONST_RAD*T3*4.0_rp/3.0_rp
+          Eps_T = (CONST_RGAS*rho)/(mu*gmm1) + 4.0_rp*CONST_RAD*T3
+          cs = sqrt( P_rho + (P_T**2)*T*(inv_rho)*(1.0_rp/Eps_T) )
 
       case default
           continue
