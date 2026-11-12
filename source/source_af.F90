@@ -238,6 +238,11 @@ integer, parameter :: eos_type = &
     Sgrav_cc,Sgrav_x1,Sgrav_x2,Sgrav_cor,Sgravbar_cc
 #endif
 
+#ifdef USE_EDOT
+    real(kind=rp), allocatable, dimension(:,:) :: &
+    edot_cc,edot_x1,edot_x2,edot_cor,edotbar_cc
+#endif
+
  end type locgrid
  
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -364,6 +369,14 @@ contains
     allocate(lgrid%Sgravbar_cc(i_rhovx1:i_rhoe,lx1:ux1,lx2:ux2))
 #endif
 
+#ifdef USE_EDOT
+    allocate(lgrid%edot_cc(lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc))
+    allocate(lgrid%edot_x1(lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+ngc))
+    allocate(lgrid%edot_x2(lx1-ngc:ux1+ngc,lx2-ngc:ux2+1+ngc))
+    allocate(lgrid%edot_cor(lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+1+ngc))
+    allocate(lgrid%edotbar_cc(lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+1+ngc))
+#endif
+
     call create_geometry(lgrid,mgrid)
 
     lgrid%time = rp0
@@ -426,6 +439,14 @@ contains
     deallocate(lgrid%Sgrav_x2)
     deallocate(lgrid%Sgrav_cor)
     deallocate(lgrid%Sgravbar_cc)
+#endif
+
+#ifdef USE_EDOT
+    deallocate(lgrid%edot_cc)
+    deallocate(lgrid%edot_x1)
+    deallocate(lgrid%edot_x2)
+    deallocate(lgrid%edot_cor)
+    deallocate(lgrid%edotbar_cc)
 #endif
 
  end subroutine finalize_simulation
@@ -504,6 +525,14 @@ contains
         (lgrid%q_cor(iv,i,j)+lgrid%q_cor(iv,i+1,j)+lgrid%q_cor(iv,i,j+1)+lgrid%q_cor(iv,i+1,j+1)) &
         ) / rp36
        end do
+
+#ifdef USE_EDOT
+       lgrid%edot_cc(i,j) = & 
+       ( rp16*lgrid%edot_cc(i,j) + &
+       rp4*(lgrid%edot_x1(i,j)+lgrid%edot_x1(i+1,j)+lgrid%edot_x2(i,j)+lgrid%edot_x2(i,j+1)) + &
+       (lgrid%edot_cor(i,j)+lgrid%edot_cor(i+1,j)+lgrid%edot_cor(i,j+1)+lgrid%edot_cor(i+1,j+1)) &
+       ) / rp36
+#endif
 
      end do
     end do
@@ -2048,6 +2077,42 @@ contains
     
         end do
                            
+      end do
+     end do
+
+#endif
+
+#ifdef USE_EDOT
+
+     do j=lx2,ux2
+      do i=lx1,ux1
+
+         lgrid%res_cc(i_rhoe,i,j) = lgrid%res_cc(i_rhoe,i,j) - lgrid%edotbar_cc(i,j)
+
+      end do
+     end do
+
+     do j=lx2,ux2
+      do i=lx1,ux1+1
+
+         lgrid%res_x1(i_rhoe,i,j) = lgrid%res_x1(i_rhoe,i,j) - lgrid%edot_x1(i,j)
+
+      end do
+     end do
+
+     do j=lx2,ux2+1
+      do i=lx1,ux1
+
+         lgrid%res_x2(i_rhoe,i,j) = lgrid%res_x2(i_rhoe,i,j) - lgrid%edot_x2(i,j)
+
+      end do
+     end do
+
+     do j=lx2,ux2+1
+      do i=lx1,ux1+1
+
+         lgrid%res_cor(i_rhoe,i,j) = lgrid%res_cor(i_rhoe,i,j) - lgrid%edot_cor(i,j)
+
       end do
      end do
 
