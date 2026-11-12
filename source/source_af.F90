@@ -675,7 +675,6 @@ contains
 #ifdef USE_GRAVITY
     real(kind=rp) :: rhovx1,rhovx2,gx1,gx2
 #endif
-    real(rp) :: rho_cc, rhovx1_cc, rhovx2_cc
 
     vn_cc = rp0
     v1_cc = rp0

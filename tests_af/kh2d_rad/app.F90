@@ -9,14 +9,12 @@ program test
  real(kind=rp) :: x,y,eta,mach0,rho0,vx1,vx2,rhoe0,cs0,T0
 
 #ifdef ADVECT_YE_IABAR
- real(kind=rp) :: Ye0, inv_abar0, Ye_loc, inv_abar_loc
+ real(kind=rp) :: Ye0, inv_abar0, inv_abar_loc
 #endif
 
  gamma_ad = 1.4_rp
 #ifdef ADVECT_YE_IABAR
- !Ye0 = 0.45_rp
  Ye0 = 0.5_rp
- !inv_abar0 = 1.0_rp
  inv_abar0 = 0.95_rp
  mu = 1.0_rp/(Ye0 + inv_abar0)
 #else
@@ -62,11 +60,8 @@ program test
      lgrid%q_cor(i_rho,i,j) = rho0
      lgrid%q_cor(i_rhoe,i,j) = (rho0*CONST_RGAS*T0)/(mu*(lgrid%gm-1.0_rp)) + CONST_RAD*(T0**4) + 0.5_rp*rho0*(vx1**2+vx2**2)
 #ifdef ADVECT_YE_IABAR
-     !Ye_loc = Ye0 + 0.05_rp * eta
      inv_abar_loc = inv_abar0 + 0.05_rp * eta 
      lgrid%q_cor(i_rhoye,i,j) = rho0*Ye0
-     !lgrid%q_cor(i_rhoiabar,i,j) = rho0*inv_abar0
-     !lgrid%q_cor(i_rhoye,i,j) = rho0*Ye_loc
      lgrid%q_cor(i_rhoiabar,i,j) = rho0*inv_abar_loc
 #endif
 
@@ -98,11 +93,8 @@ program test
      lgrid%q_x1(i_rhoe,i,j) = (rho0*CONST_RGAS*T0)/(mu*(lgrid%gm-1.0_rp)) + CONST_RAD*(T0**4) + 0.5_rp*rho0*(vx1**2+vx2**2)
 
 #ifdef ADVECT_YE_IABAR
-     !Ye_loc = Ye0 + 0.05_rp * eta
      inv_abar_loc = inv_abar0 + 0.05_rp * eta 
      lgrid%q_x1(i_rhoye,i,j) = rho0*Ye0
-     !lgrid%q_x1(i_rhoye,i,j) = rho0*Ye_loc
-     !lgrid%q_x1(i_rhoiabar,i,j) = rho0*inv_abar0
      lgrid%q_x1(i_rhoiabar,i,j) = rho0*inv_abar_loc
 #endif
 
@@ -134,11 +126,8 @@ program test
      lgrid%q_x2(i_rhoe,i,j) = (rho0*CONST_RGAS*T0)/(mu*(lgrid%gm-1.0_rp)) + CONST_RAD*(T0**4) + 0.5_rp*rho0*(vx1**2+vx2**2)
 
 #ifdef ADVECT_YE_IABAR
-     !Ye_loc = Ye0 + 0.05_rp * eta
      inv_abar_loc = inv_abar0 + 0.05_rp * eta 
      lgrid%q_x2(i_rhoye,i,j) = rho0*Ye0
-     !lgrid%q_x2(i_rhoye,i,j) = rho0*Ye_loc
-     !lgrid%q_x2(i_rhoiabar,i,j) = rho0*inv_abar0
      lgrid%q_x2(i_rhoiabar,i,j) = rho0*inv_abar_loc
 #endif
 
@@ -168,6 +157,12 @@ program test
      lgrid%q_cc(i_rhovx2,i,j) = rho0*vx2
      lgrid%q_cc(i_rho,i,j) = rho0
      lgrid%q_cc(i_rhoe,i,j) = (rho0*CONST_RGAS*T0)/(mu*(lgrid%gm-1.0_rp)) + CONST_RAD*(T0**4) + 0.5_rp*rho0*(vx1**2+vx2**2)
+
+#ifdef ADVECT_YE_IABAR
+     inv_abar_loc = inv_abar0 + 0.05_rp * eta
+     lgrid%q_cc(i_rhoye,i,j) = rho0*Ye0
+     lgrid%q_cc(i_rhoiabar,i,j) = rho0*inv_abar_loc
+#endif
 
   end do
  end do

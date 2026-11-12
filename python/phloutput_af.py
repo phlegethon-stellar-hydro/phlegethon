@@ -137,6 +137,8 @@ class h5grid:
         self.i_rhovx1 = 1
         self.i_rhovx2 = 2
         self.i_rhoe = self.i_rhovx2 + 1
+        self.i_rhoye = self.i_rhovx2 + 2
+        self.i_rhoiabar = self.i_rhovx2 + 3
 
    def coords(self):
         return self.vec3d(self.grid0['coords'])
@@ -162,6 +164,12 @@ class h5grid:
        rhoe = self.rhoe()
        rhoeint = rhoe-0.5*rho*np.sum(vel**2,axis=0)
        return (self.gamma_gas-1.0)*rhoeint
+
+   def abar(self):
+       return self.rho()/self.vec2d(self.grid['qbar_cc'][:,:,self.i_rhoiabar])
+
+   def ye(self):
+       return self.vec2d(self.grid['qbar_cc'][:,:,self.i_rhoye])/self.rho()
 
    def sound(self):
        return np.sqrt(self.gamma_gas*self.P()/self.rho())
