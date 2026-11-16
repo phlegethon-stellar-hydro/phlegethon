@@ -2713,6 +2713,13 @@ contains
     real(rp) :: rho_cc, rhovx1_cc, rhovx2_cc
     real(rp) :: rhophi_bar, ehyd_bar
 
+    real(kind=rp) :: n1_x1, n2_x1, n1_x2, n2_x2
+    real(kind=rp) :: vn_cc, v1_cc, v2_cc
+    real(kind=rp) :: vn_cor, v1_cor, v2_cor
+    real(kind=rp) :: vn_x1, v1_x1, v2_x1
+    real(kind=rp) :: vn_x2, v1_x2, v2_x2
+
+
     lx1 = mgrid%i1(1)
     ux1 = mgrid%i2(1)
     lx2 = mgrid%i1(2)
@@ -2751,6 +2758,359 @@ contains
     call communicate_array(mgrid,nvars,lx1,ux1+1,lx2,ux2+1,ngc,lgrid%q_cor_bg,offset,.false.)
 
     !---------------------------------------------------------------------------------------!
+
+  !---------------------------------------------------------------------------------------!
+     ! apply boundary conditions
+    
+     n1_x1 = rp1
+     n2_x1 = rp0
+
+     n1_x2 = rp0
+     n2_x2 = rp1
+
+     ! Reflective Boundary conditions
+     
+#ifdef X1L_REFLECTIVE
+
+     if (mgrid%coords_dd(1) == 0) then
+
+        do j=lx2,ux2
+           do i=lx1-ngc,lx1-1
+           
+              ik = 1 - i
+
+              do iv = 1, nvars
+                 lgrid%qbar_cc_bg(iv,i,j) = lgrid%qbar_cc_bg(iv,ik,j)
+              end do
+
+              v1_cc = lgrid%qbar_cc_bg(i_vx1, ik, j)
+              v2_cc = lgrid%qbar_cc_bg(i_vx2, ik, j)
+              vn_cc = v1_cc*n1_x1 + v2_cc*n2_x1
+
+              lgrid%qbar_cc_bg(i_vx1,i,j) = v1_cc - rp2 * vn_cc * n1_x1
+              lgrid%qbar_cc_bg(i_vx2,i,j) = v2_cc - rp2 * vn_cc * n2_x1
+              
+           end do
+        end do
+        
+        do j=lx2,ux2+1
+           do i=lx1-ngc,lx1-1
+           
+              ik = 2 - i
+
+              do iv = 1, nvars
+                 lgrid%q_cor_bg(iv,i,j) = lgrid%q_cor_bg(iv,ik,j)
+              end do
+
+              v1_cor = lgrid%q_cor_bg(i_vx1, ik, j)
+              v2_cor = lgrid%q_cor_bg(i_vx2, ik, j)
+              vn_cor = v1_cor*n1_x1 + v2_cor*n2_x1
+
+              lgrid%q_cor_bg(i_vx1,i,j) = v1_cor - rp2 * vn_cor * n1_x1
+              lgrid%q_cor_bg(i_vx2,i,j) = v2_cor - rp2 * vn_cor * n2_x1
+              
+           end do
+        end do
+
+        do j=lx2,ux2
+           do i=lx1-ngc,lx1-1
+           
+              ik = 2 - i
+
+              do iv = 1, nvars
+                 lgrid%q_x1_bg(iv,i,j) = lgrid%q_x1_bg(iv,ik,j)
+              end do
+
+              v1_x1 = lgrid%q_x1_bg(i_vx1, ik, j)
+              v2_x1 = lgrid%q_x1_bg(i_vx2, ik, j)
+              vn_x1 = v1_x1*n1_x1 + v2_x1*n2_x1
+
+              lgrid%q_x1_bg(i_vx1,i,j) = v1_x1 - rp2 * vn_x1 * n1_x1
+              lgrid%q_x1_bg(i_vx2,i,j) = v2_x1 - rp2 * vn_x1 * n2_x1
+              
+           end do
+        end do
+
+        do j=lx2,ux2+1
+           do i=lx1-ngc,lx1-1
+           
+              ik = 1 - i
+
+              do iv = 1, nvars
+                 lgrid%q_x2_bg(iv,i,j) = lgrid%q_x2_bg(iv,ik,j)
+              end do
+
+              v1_x2 = lgrid%q_x2_bg(i_vx1, ik, j)
+              v2_x2 = lgrid%q_x2_bg(i_vx2, ik, j)
+              vn_x2 = v1_x2*n1_x1 + v2_x2*n2_x1
+
+              lgrid%q_x2_bg(i_vx1,i,j) = v1_x2 - rp2 * vn_x2 * n1_x1
+              lgrid%q_x2_bg(i_vx2,i,j) = v2_x2 - rp2 * vn_x2 * n2_x1
+              
+           end do
+        end do
+
+     end if
+
+#endif
+
+#ifdef X1U_REFLECTIVE
+
+     if (mgrid%coords_dd(1) == mgrid%bricks(1)-1) then
+
+        do j=lx2,ux2
+           do i=ux1+1,ux1+ngc
+              ik= ux1 - (i-ux1-1)
+
+              do iv = 1, nvars
+                 lgrid%qbar_cc_bg(iv,i,j) = lgrid%qbar_cc_bg(iv,ik,j)
+              end do
+
+              v1_cc = lgrid%qbar_cc_bg(i_vx1, ik, j)
+              v2_cc = lgrid%qbar_cc_bg(i_vx2, ik, j)
+              vn_cc = v1_cc * n1_x1 + v2_cc * n2_x1
+              lgrid%qbar_cc_bg(i_vx1,i,j) = v1_cc - rp2 * vn_cc * n1_x1
+              lgrid%qbar_cc_bg(i_vx2,i,j) = v2_cc - rp2 * vn_cc * n2_x1
+
+           end do
+        end do
+
+        do j=lx2,ux2+1
+           do i=ux1+2,ux1+1+ngc
+              ik= ux1 - (i-ux1-2)
+
+              do iv = 1, nvars
+                 lgrid%q_cor_bg(iv,i,j) = lgrid%q_cor_bg(iv,ik,j)
+              end do
+
+              v1_cor = lgrid%q_cor_bg(i_vx1, ik, j)
+              v2_cor =lgrid%q_cor_bg(i_vx2, ik, j)
+              vn_cor = v1_cor * n1_x1 + v2_cor * n2_x1
+              lgrid%q_cor_bg(i_vx1,i,j) = v1_cor - rp2 * vn_cor * n1_x1
+              lgrid%q_cor_bg(i_vx2,i,j) = v2_cor - rp2 * vn_cor * n2_x1
+              
+           end do
+        end do
+
+        do j=lx2,ux2
+           do i=ux1+2,ux1+1+ngc
+           
+              ik= ux1 - (i-ux1-2)
+
+              do iv = 1, nvars
+                 lgrid%q_x1_bg(iv,i,j) = lgrid%q_x1_bg(iv,ik,j)
+              end do
+
+              v1_x1 = lgrid%q_x1_bg(i_vx1, ik, j)
+              v2_x1 = lgrid%q_x1_bg(i_vx2, ik, j)
+              vn_x1 = v1_x1 * n1_x1 + v2_x1 * n2_x1
+              lgrid%q_x1_bg(i_vx1,i,j) = v1_x1 - rp2 * vn_x1 * n1_x1
+              lgrid%q_x1_bg(i_vx2,i,j) = v2_x1 - rp2 * vn_x1 * n2_x1
+              
+           end do
+        end do
+
+        do j=lx2,ux2+1
+           do i=ux1+1,ux1+ngc
+              ik= ux1 - (i-ux1-1)
+
+              do iv = 1, nvars
+                 lgrid%q_x2_bg(iv,i,j) = lgrid%q_x2_bg(iv,ik,j)
+              end do
+
+              v1_x2 = lgrid%q_x2_bg(i_vx1, ik, j)
+              v2_x2 = lgrid%q_x2_bg(i_vx2, ik, j)
+              vn_x2 = v1_x2 * n1_x1 + v2_x2 * n2_x1
+              lgrid%q_x2_bg(i_vx1,i,j) = v1_x2 - rp2 * vn_x2 * n1_x1
+              lgrid%q_x2_bg(i_vx2,i,j) = v2_x2 - rp2 * vn_x2 * n2_x1
+              
+           end do
+        end do
+     end if
+     
+#endif
+
+#ifdef X2L_REFLECTIVE
+
+     if (mgrid%coords_dd(2) == 0) then
+
+        do j=lx2-ngc,lx2-1
+           do i=lx1,ux1
+           
+              ik =  1 - j
+
+              do iv = 1, nvars
+                 lgrid%qbar_cc_bg(iv,i,j) = lgrid%qbar_cc_bg(iv,i,ik)
+              end do
+
+              v1_cc = lgrid%qbar_cc_bg(i_vx1, i, ik)
+              v2_cc = lgrid%qbar_cc_bg(i_vx2, i, ik)
+
+              vn_cc = v1_cc * n1_x2 + v2_cc * n2_x2
+
+              lgrid%qbar_cc_bg(i_vx1,i,j) = v1_cc - rp2 * vn_cc * n1_x2
+              lgrid%qbar_cc_bg(i_vx2,i,j) = v2_cc - rp2 * vn_cc * n2_x2
+              
+           end do
+        end do
+
+        do j=lx2-ngc,lx2-1
+           do i=lx1,ux1+1
+           
+              ik =  2 - j
+
+              do iv = 1, nvars
+                 lgrid%q_cor_bg(iv,i,j) = lgrid%q_cor_bg(iv,i,ik)
+              end do
+
+              v1_cor = lgrid%q_cor_bg(i_vx1, i, ik)
+              v2_cor = lgrid%q_cor_bg(i_vx2, i, ik)
+
+              vn_cor = v1_cor * n1_x2 + v2_cor * n2_x2
+
+              lgrid%q_cor_bg(i_vx1,i,j) = v1_cor - rp2 * vn_cor * n1_x2
+              lgrid%q_cor_bg(i_vx2,i,j) = v2_cor - rp2 * vn_cor * n2_x2
+              
+           end do
+        end do
+
+        do j=lx2-ngc,lx2-1
+           do i=lx1,ux1+1
+           
+              ik =  1 - j
+
+              do iv = 1, nvars
+                 lgrid%q_x1_bg(iv,i,j) = lgrid%q_x1_bg(iv,i,ik)
+              end do
+              
+              v1_x1 = lgrid%q_x1_bg(i_vx1, i, ik)
+              v2_x1 = lgrid%q_x1_bg(i_vx2, i, ik)
+
+              vn_x1 = v1_x1 * n1_x2 + v2_x1 * n2_x2
+
+              lgrid%q_x1_bg(i_vx1,i,j) = v1_x1 - rp2 * vn_x1 * n1_x2
+              lgrid%q_x1_bg(i_vx2,i,j) = v2_x1 - rp2 * vn_x1 * n2_x2
+              
+           end do
+        end do
+
+
+        do j=lx2-ngc,lx2-1
+           do i=lx1,ux1
+           
+              ik =  2 - j
+
+              do iv = 1, nvars
+                 lgrid%q_x2_bg(iv,i,j) = lgrid%q_x2_bg(iv,i,ik)
+              end do
+
+              v1_x2 = lgrid%q_x2_bg(i_vx1, i, ik)
+              v2_x2 = lgrid%q_x2_bg(i_vx2, i, ik)
+
+              vn_x2 = v1_x2 * n1_x2 + v2_x2 * n2_x2
+
+              lgrid%q_x2_bg(i_vx1,i,j) = v1_x2 - rp2 * vn_x2 * n1_x2
+              lgrid%q_x2_bg(i_vx2,i,j) = v2_x2 - rp2 * vn_x2 * n2_x2
+              
+           end do
+        end do
+
+     end if
+
+#endif
+
+#ifdef X2U_REFLECTIVE
+
+     if (mgrid%coords_dd(2) == mgrid%bricks(2)-1) then
+
+        do j=ux2+1,ux2+ngc
+           do i=lx1,ux1
+
+              ik= ux2 - (j-ux2-1)
+
+              do iv = 1, nvars
+                 lgrid%qbar_cc_bg(iv,i,j) = lgrid%qbar_cc_bg(iv,i,ik)
+              end do
+
+              v1_cc = lgrid%qbar_cc_bg(i_vx1, i, ik)
+              v2_cc = lgrid%qbar_cc_bg(i_vx2, i, ik)
+              
+              vn_cc = v1_cc * n1_x2 + v2_cc * n2_x2
+              
+              lgrid%qbar_cc_bg(i_vx1,i,j) = v1_cc - rp2 * vn_cc * n1_x2
+              lgrid%qbar_cc_bg(i_vx2,i,j) = v2_cc - rp2 * vn_cc * n2_x2
+              
+           end do
+        end do
+
+        do j=ux2+2,ux2+1+ngc
+           do i=lx1,ux1+1
+
+              ik= ux2 - (j-ux2-2)
+
+              do iv = 1, nvars
+                 lgrid%q_cor_bg(iv,i,j) = lgrid%q_cor_bg(iv,i,ik)
+              end do
+
+              v1_cor =  lgrid%q_cor_bg(i_vx1, i, ik)
+              v2_cor =  lgrid%q_cor_bg(i_vx2, i, ik)
+              
+              vn_cor = v1_cor * n1_x2 + v2_cor * n2_x2
+              
+              lgrid%q_cor_bg(i_vx1,i,j) = v1_cor - rp2 * vn_cor * n1_x2
+              lgrid%q_cor_bg(i_vx2,i,j) = v2_cor - rp2 * vn_cor * n2_x2
+              
+           end do
+        end do
+
+        do j=ux2+1,ux2+ngc
+           do i=lx1,ux1+1
+
+              ik= ux2 - (j-ux2-1)
+
+              do iv = 1, nvars
+                 lgrid%q_x1_bg(iv,i,j) =  lgrid%q_x1_bg(iv,i,ik)
+              end do
+
+              v1_x1 =  lgrid%q_x1_bg(i_vx1, i, ik)
+              v2_x1 =  lgrid%q_x1_bg(i_vx2, i, ik)
+              
+              vn_x1 = v1_x1 * n1_x2 + v2_x1 * n2_x2
+              
+              lgrid%q_x1_bg(i_vx1,i,j) = v1_x1 - rp2 * vn_x1 * n1_x2
+              lgrid%q_x1_bg(i_vx2,i,j) = v2_x1 - rp2 * vn_x1 * n2_x2
+              
+           end do
+        end do
+
+        do j=ux2+2,ux2+1+ngc
+           do i=lx1,ux1
+
+              ik= ux2 - (j-ux2-2)
+
+              do iv = 1, nvars
+                 lgrid%q_x2_bg(iv,i,j) =  lgrid%q_x2_bg(iv,i,ik)
+              end do
+
+              v1_x2 =  lgrid%q_x2_bg(i_vx1, i, ik)
+              v2_x2 =  lgrid%q_x2_bg(i_vx2, i, ik)
+              
+              vn_x2 = v1_x2 * n1_x2 + v2_x2 * n2_x2
+              
+              lgrid%q_x2_bg(i_vx1,i,j) = v1_x2 - rp2 * vn_x2 * n1_x2
+              lgrid%q_x2_bg(i_vx2,i,j) = v2_x2 - rp2 * vn_x2 * n2_x2
+              
+           end do
+        end do
+        
+     end if
+     
+#endif
+
+
+
+
+
 
     ! compute cell-centered background point values
 
