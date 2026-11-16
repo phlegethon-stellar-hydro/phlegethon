@@ -308,7 +308,7 @@ program test
    end do
   end do
 
-  ! 5. Calculate accurate cell averages for the background
+  ! 5. Calculate cell averages for the background
   do j=lbound(lgrid%qbar_cc_bg,3),ubound(lgrid%qbar_cc_bg,3)
    do i=lbound(lgrid%qbar_cc_bg,2),ubound(lgrid%qbar_cc_bg,2)
      do iv=1,nvars

@@ -102,6 +102,17 @@ integer, parameter :: eos_type = &
 #endif
 
 
+!parameter required for grid alignment fix
+#ifdef GRID_ALIGNMENT_FIX
+real(kind=rp), parameter :: ga_par = &
+#ifdef ga_par
+  ga_par_make
+#else
+  750.0_rp
+#endif
+#endif
+
+
  integer, parameter :: master_rank=0
  integer, parameter :: filename_size=256
  integer, parameter :: iunit=21
@@ -262,6 +273,15 @@ integer, parameter :: eos_type = &
     edot_cc,edot_x1,edot_x2,edot_cor,edotbar_cc
 #endif
 
+#ifdef WB_DEVIATION
+! Stationary background arrays for the deviation method
+    real(kind=rp), allocatable, dimension(:,:,:) :: &
+    qbar_cc_bg, q_cc_bg, q_x1_bg, q_x2_bg, q_cor_bg
+
+    real(kind=rp), allocatable, dimension(:,:,:) :: &
+    res_cc_bg, res_x1_bg, res_x2_bg, res_cor_bg
+#endif
+
  end type locgrid
  
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -380,6 +400,9 @@ contains
     allocate(lgrid%res_x1(1:nvars,lx1:ux1+1,lx2:ux2))
     allocate(lgrid%res_x2(1:nvars,lx1:ux1,lx2:ux2+1))
     allocate(lgrid%res_cor(1:nvars,lx1:ux1+1,lx2:ux2+1))
+    
+
+
 
     allocate(lgrid%qbar0_cc(1:nvars,lx1:ux1,lx2:ux2))  
     allocate(lgrid%q0_x1(1:nvars,lx1:ux1+1,lx2:ux2))
@@ -397,6 +420,19 @@ contains
     allocate(lgrid%Sgrav_x2(i_rhovx1:i_rhoe,lx1:ux1,lx2:ux2+1))
     allocate(lgrid%Sgrav_cor(i_rhovx1:i_rhoe,lx1:ux1+1,lx2:ux2+1))
     allocate(lgrid%Sgravbar_cc(i_rhovx1:i_rhoe,lx1:ux1,lx2:ux2))
+#endif
+
+#ifdef WB_DEVIATION
+    allocate(lgrid%q_cc_bg(1:nvars,lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc))   
+    allocate(lgrid%qbar_cc_bg(1:nvars,lx1-ngc:ux1+ngc,lx2-ngc:ux2+ngc))
+    allocate(lgrid%q_x1_bg(1:nvars,lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+ngc))
+    allocate(lgrid%q_x2_bg(1:nvars,lx1-ngc:ux1+ngc,lx2-ngc:ux2+1+ngc))
+    allocate(lgrid%q_cor_bg(1:nvars,lx1-ngc:ux1+1+ngc,lx2-ngc:ux2+1+ngc))
+
+    allocate(lgrid%res_cc_bg(1:nvars,lx1:ux1,lx2:ux2))  
+    allocate(lgrid%res_x1_bg(1:nvars,lx1:ux1+1,lx2:ux2))
+    allocate(lgrid%res_x2_bg(1:nvars,lx1:ux1,lx2:ux2+1))
+    allocate(lgrid%res_cor_bg(1:nvars,lx1:ux1+1,lx2:ux2+1))
 #endif
 
 #ifdef USE_EDOT
@@ -472,6 +508,20 @@ contains
     deallocate(lgrid%Sgrav_x2)
     deallocate(lgrid%Sgrav_cor)
     deallocate(lgrid%Sgravbar_cc)
+#endif
+
+#ifdef WB_DEVIATION
+    deallocate(lgrid%q_cc_bg)  
+    deallocate(lgrid%qbar_cc_bg)
+    deallocate(lgrid%q_x1_bg)
+    deallocate(lgrid%q_x2_bg)
+    deallocate(lgrid%q_cor_bg)
+
+    deallocate(lgrid%res_cc_bg)
+    deallocate(lgrid%res_x1_bg)
+    deallocate(lgrid%res_x2_bg)
+    deallocate(lgrid%res_cor_bg)
+
 #endif
 
 #ifdef USE_EDOT
@@ -1355,6 +1405,7 @@ contains
        inv_rho = rp1/rho
        vx1 = lgrid%q_x1(i_rhovx1,i,j)*inv_rho
        vx2 = lgrid%q_x1(i_rhovx2,i,j)*inv_rho
+       v2 = vx1*vx1+vx2*vx2
        rhoe = lgrid%q_x1(i_rhoe,i,j)
 
 #ifdef ADVECT_YE_IABAR
@@ -1448,10 +1499,24 @@ contains
         end do
        end do
 
+
+#ifndef GRID_ALIGNMENT_FIX       
        lammat(i_rho,i_rho) = max(rp0,l1)
        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
        lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = max(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 + max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3+ max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
 
 #ifdef ADVECT_YE_IABAR
        lammat(i_rhoye,i_rhoye) = max(rp0,l5)
@@ -1524,10 +1589,24 @@ contains
         end do
        end do
  
+#ifndef GRID_ALIGNMENT_FIX 
        lammat(i_rho,i_rho) = min(rp0,l1)
        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
        lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = min(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 - max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3 - max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
 
 #ifdef ADVECT_YE_IABAR
        lammat(i_rhoye,i_rhoye) = min(rp0,l5)
@@ -1706,10 +1785,24 @@ contains
         end do
        end do
 
+#ifndef GRID_ALIGNMENT_FIX       
        lammat(i_rho,i_rho) = max(rp0,l1)
        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
        lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = max(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 + max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3+ max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
 
 #ifdef ADVECT_YE_IABAR
        lammat(i_rhoye,i_rhoye) = max(rp0,l5)
@@ -1782,10 +1875,24 @@ contains
         end do
        end do
 
+#ifndef GRID_ALIGNMENT_FIX       
        lammat(i_rho,i_rho) = min(rp0,l1)
        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
        lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = min(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 - max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3 - max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
 
 #ifdef ADVECT_YE_IABAR
        lammat(i_rhoye,i_rhoye) = min(rp0,l5)
@@ -1932,10 +2039,24 @@ contains
         end do
        end do
 
+#ifndef GRID_ALIGNMENT_FIX       
        lammat(i_rho,i_rho) = max(rp0,l1)
        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
        lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = max(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 + max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3+ max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
 
 #ifdef ADVECT_YE_IABAR
        lammat(i_rhoye,i_rhoye) = max(rp0,l5)
@@ -2006,10 +2127,24 @@ contains
         end do
        end do
 
+#ifndef GRID_ALIGNMENT_FIX       
        lammat(i_rho,i_rho) = min(rp0,l1)
        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
        lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = min(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 - max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3 - max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
 
 #ifdef ADVECT_YE_IABAR
        lammat(i_rhoye,i_rhoye) = min(rp0,l5)
@@ -2113,10 +2248,23 @@ contains
         end do
        end do
        
+#ifndef GRID_ALIGNMENT_FIX       
        lammat(i_rho,i_rho) = max(rp0,l1)
        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
        lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = max(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 + max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3+ max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
 
 #ifdef ADVECT_YE_IABAR
        lammat(i_rhoye,i_rhoye) = max(rp0,l5)
@@ -2187,10 +2335,24 @@ contains
         end do
        end do
 
+#ifndef GRID_ALIGNMENT_FIX       
        lammat(i_rho,i_rho) = min(rp0,l1)
        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
        lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = min(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 - max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3 - max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
 
 #ifdef ADVECT_YE_IABAR
        lammat(i_rhoye,i_rhoye) = min(rp0,l5)
@@ -2388,6 +2550,44 @@ contains
       end do
      end do
 
+!deviation well balancing
+#ifdef WB_DEVIATION
+      !---------------------------------------------------------------------------------------!
+      ! WELL-BALANCING: Deviation wb (Subtract stationary background residuals)
+      !---------------------------------------------------------------------------------------!
+
+      do j=lx2,ux2
+       do i=lx1,ux1
+        do iv=1,nvars
+          lgrid%res_cc(iv,i,j) = lgrid%res_cc(iv,i,j) - lgrid%res_cc_bg(iv,i,j)
+        end do
+       end do
+      end do
+
+      do j=lx2,ux2
+       do i=lx1,ux1+1
+        do iv=1,nvars
+          lgrid%res_x1(iv,i,j) = lgrid%res_x1(iv,i,j) - lgrid%res_x1_bg(iv,i,j)
+        end do
+       end do
+      end do
+
+      do j=lx2,ux2+1
+       do i=lx1,ux1
+        do iv=1,nvars
+          lgrid%res_x2(iv,i,j) = lgrid%res_x2(iv,i,j) - lgrid%res_x2_bg(iv,i,j)
+        end do
+       end do
+      end do
+
+      do j=lx2,ux2+1
+       do i=lx1,ux1+1
+        do iv=1,nvars
+          lgrid%res_cor(iv,i,j) = lgrid%res_cor(iv,i,j) - lgrid%res_cor_bg(iv,i,j)
+        end do
+       end do
+      end do
+#endif                
 #endif
 
 #ifdef USE_EDOT
@@ -2489,6 +2689,1399 @@ contains
     end do
 
  end subroutine active_flux_step
+
+
+
+ !deviation wb
+ !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ ! COMPUTE STATIONARY BACKGROUND RESIDUALS                   !this step may be shortened using the existing stucture to compute residuals in active_flux_step 
+ 
+ subroutine compute_background_residuals(mgrid,lgrid)
+    type(mpigrid), intent(inout) :: mgrid
+    type(locgrid), intent(inout) :: lgrid
+
+    integer :: iv,i,j,ik,it
+    integer :: lx1,ux1,lx2,ux2
+    real(kind=rp) :: gm,gmm1,rho,inv_rho,p,rhoe,rhoeint,vx1,vx2
+    integer :: offset(2)
+
+    real(kind=rp), dimension(nvars,nvars) :: Rmat,Rimat,lammat,Amat,Jm,Jp
+    real(kind=rp), dimension(nvars) :: Dmq,Dpq,Dq
+    real(kind=rp), dimension(nvars,nvars) :: Jmat
+
+    real(kind=rp) :: beta,c,H,k,phi,tmp,v2,l1,l2,l3,l4, alpha
+    real(rp) :: rho_cc, rhovx1_cc, rhovx2_cc
+    real(rp) :: rhophi_bar, ehyd_bar
+
+    lx1 = mgrid%i1(1)
+    ux1 = mgrid%i2(1)
+    lx2 = mgrid%i1(2)
+    ux2 = mgrid%i2(2)
+
+    gm = lgrid%gm
+    gmm1 = gm-rp1
+
+    !---------------------------------------------------------------------------------------!
+
+    do iv=1,nvars
+     do it=1,nvars
+      Jmat(iv,it) = rp0
+     end do
+    end do
+
+
+    !---------------------------------------------------------------------------------------!
+
+    ! communicate background arrays
+
+    offset(1) = 0
+    offset(2) = 0
+    call communicate_array(mgrid,nvars,lx1,ux1,lx2,ux2,ngc,lgrid%qbar_cc_bg,offset,.false.)
+
+    offset(1) = 1
+    offset(2) = 0
+    call communicate_array(mgrid,nvars,lx1,ux1+1,lx2,ux2,ngc,lgrid%q_x1_bg,offset,.false.)
+
+    offset(1) = 0
+    offset(2) = 1
+    call communicate_array(mgrid,nvars,lx1,ux1,lx2,ux2+1,ngc,lgrid%q_x2_bg,offset,.false.)
+
+    offset(1) = 1
+    offset(2) = 1
+    call communicate_array(mgrid,nvars,lx1,ux1+1,lx2,ux2+1,ngc,lgrid%q_cor_bg,offset,.false.)
+
+    !---------------------------------------------------------------------------------------!
+
+    ! compute cell-centered background point values
+
+    do j=lbound(lgrid%q_cc_bg,3),ubound(lgrid%q_cc_bg,3)
+     do i=lbound(lgrid%q_cc_bg,2),ubound(lgrid%q_cc_bg,2)
+
+      do iv=1,nvars
+       lgrid%q_cc_bg(iv,i,j) = ( rp36*lgrid%qbar_cc_bg(iv,i,j) - &
+       rp4*(lgrid%q_x1_bg(iv,i,j)+lgrid%q_x1_bg(iv,i+1,j)+lgrid%q_x2_bg(iv,i,j)+lgrid%q_x2_bg(iv,i,j+1)) - &
+       (lgrid%q_cor_bg(iv,i,j)+lgrid%q_cor_bg(iv,i+1,j)+lgrid%q_cor_bg(iv,i,j+1)+lgrid%q_cor_bg(iv,i+1,j+1)) &
+       ) / rp16
+      end do
+
+
+     end do
+    end do
+
+    !---------------------------------------------------------------------------------------!
+
+    ! cell-centered background residuals
+
+    ! x1-fluxes
+
+    do j=lx2,ux2
+     do i=lx1,ux1+1
+
+      rho = lgrid%q_x1_bg(i_rho,i,j)
+      inv_rho = rp1/rho
+      vx1 = lgrid%q_x1_bg(i_rhovx1,i,j)*inv_rho
+      vx2 = lgrid%q_x1_bg(i_rhovx2,i,j)*inv_rho
+      rhoe = lgrid%q_x1_bg(i_rhoe,i,j)
+      rhoeint = rhoe-rph*rho*(vx1*vx1+vx2*vx2)
+       p = gmm1*rhoeint
+      lgrid%flux_x1(i_rho,i,j) = rho*vx1
+      lgrid%flux_x1(i_rhovx1,i,j) = rho*vx1*vx1+p
+      lgrid%flux_x1(i_rhovx2,i,j) = rho*vx1*vx2
+      lgrid%flux_x1(i_rhoe,i,j) = (rhoe+p)*vx1
+
+     end do
+    end do
+
+    do j=lx2,ux2+1
+     do i=lx1,ux1+1
+
+      rho = lgrid%q_cor_bg(i_rho,i,j)
+      inv_rho = rp1/rho
+      vx1 = lgrid%q_cor_bg(i_rhovx1,i,j)*inv_rho
+      vx2 = lgrid%q_cor_bg(i_rhovx2,i,j)*inv_rho
+      rhoe = lgrid%q_cor_bg(i_rhoe,i,j)
+      rhoeint = rhoe-rph*rho*(vx1*vx1+vx2*vx2)
+      p = gmm1*rhoeint
+      lgrid%flux_cor(i_rho,i,j) = rho*vx1
+      lgrid%flux_cor(i_rhovx1,i,j) = rho*vx1*vx1+p
+      lgrid%flux_cor(i_rhovx2,i,j) = rho*vx1*vx2
+      lgrid%flux_cor(i_rhoe,i,j) = (rhoe+p)*vx1
+
+     end do
+    end do
+    
+    do j=lx2,ux2
+     do i=lx1,ux1+1
+      do iv=1,nvars
+       lgrid%flux_x1(iv,i,j) = osixth*( &
+       lgrid%flux_cor(iv,i,j+1)+rp4*lgrid%flux_x1(iv,i,j)+lgrid%flux_cor(iv,i,j) &
+       ) 
+      end do
+     end do
+    end do
+    
+    ! x2-fluxes
+
+    do j=lx2,ux2+1
+     do i=lx1,ux1
+
+      rho = lgrid%q_x2_bg(i_rho,i,j)
+      inv_rho = rp1/rho
+      vx1 = lgrid%q_x2_bg(i_rhovx1,i,j)*inv_rho
+      vx2 = lgrid%q_x2_bg(i_rhovx2,i,j)*inv_rho
+      rhoe = lgrid%q_x2_bg(i_rhoe,i,j)
+      rhoeint = rhoe-rph*rho*(vx1*vx1+vx2*vx2)
+      p = gmm1*rhoeint
+
+      lgrid%flux_x2(i_rho,i,j) = rho*vx2
+      lgrid%flux_x2(i_rhovx1,i,j) = rho*vx1*vx2
+      lgrid%flux_x2(i_rhovx2,i,j) = rho*vx2*vx2+p
+      lgrid%flux_x2(i_rhoe,i,j) = (rhoe+p)*vx2
+
+     end do
+    end do
+
+    do j=lx2,ux2+1
+     do i=lx1,ux1+1
+
+      rho = lgrid%q_cor_bg(i_rho,i,j)
+      inv_rho = rp1/rho
+      vx1 = lgrid%q_cor_bg(i_rhovx1,i,j)*inv_rho
+      vx2 = lgrid%q_cor_bg(i_rhovx2,i,j)*inv_rho
+      rhoe = lgrid%q_cor_bg(i_rhoe,i,j)
+      rhoeint = rhoe-rph*rho*(vx1*vx1+vx2*vx2)
+      p = gmm1*rhoeint
+      lgrid%flux_cor(i_rho,i,j) = rho*vx2
+      lgrid%flux_cor(i_rhovx1,i,j) = rho*vx1*vx2
+      lgrid%flux_cor(i_rhovx2,i,j) = rho*vx2*vx2+p
+      lgrid%flux_cor(i_rhoe,i,j) = (rhoe+p)*vx2
+
+     end do
+    end do
+    
+    do j=lx2,ux2+1
+     do i=lx1,ux1
+      do iv=1,nvars
+       lgrid%flux_x2(iv,i,j) = osixth*( &
+       lgrid%flux_cor(iv,i+1,j)+rp4*lgrid%flux_x2(iv,i,j)+lgrid%flux_cor(iv,i,j) &
+       ) 
+      end do
+     end do
+    end do
+
+    do j=lx2,ux2
+     do i=lx1,ux1
+      do iv=1,nvars
+        lgrid%res_cc_bg(iv,i,j) = &
+        (lgrid%flux_x1(iv,i+1,j)-lgrid%flux_x1(iv,i,j))*lgrid%inv_dx1 + &
+        (lgrid%flux_x2(iv,i,j+1)-lgrid%flux_x2(iv,i,j))*lgrid%inv_dx2
+      end do
+
+#ifdef USE_GRAVITY    
+#ifdef WB_DEVIATION   
+
+      ! THIRD-ORDER DISCRETIZATION OF GRAVITY SOURCE
+       lgrid%res_cc_bg(i_rhovx1,i,j) = lgrid%res_cc_bg(i_rhovx1,i,j) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x1_bg(i_rho,i,j) * lgrid%grav_x1(1,i,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x1_bg(i_rho,i+1,j) * lgrid%grav_x1(1,i+1,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x2_bg(i_rho,i,j) * lgrid%grav_x2(1,i,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x2_bg(i_rho,i,j+1) * lgrid%grav_x2(1,i,j+1)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rho,i,j) * lgrid%grav_cor(1,i,j)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rho,i+1,j) * lgrid%grav_cor(1,i+1,j)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rho,i,j+1) * lgrid%grav_cor(1,i,j+1)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rho,i+1,j+1) * lgrid%grav_cor(1,i+1,j+1)) - &
+                                      (16.0_rp/36.0_rp)*(lgrid%q_cc_bg(i_rho,i,j) * lgrid%grav_cc(1,i,j))
+
+       lgrid%res_cc_bg(i_rhovx2,i,j) = lgrid%res_cc_bg(i_rhovx2,i,j) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x1_bg(i_rho,i,j) * lgrid%grav_x1(2,i,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x1_bg(i_rho,i+1,j) * lgrid%grav_x1(2,i+1,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x2_bg(i_rho,i,j) * lgrid%grav_x2(2,i,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x2_bg(i_rho,i,j+1) * lgrid%grav_x2(2,i,j+1)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rho,i,j) * lgrid%grav_cor(2,i,j)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rho,i+1,j) * lgrid%grav_cor(2,i+1,j)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rho,i,j+1) * lgrid%grav_cor(2,i,j+1)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rho,i+1,j+1) * lgrid%grav_cor(2,i+1,j+1)) - &
+                                      (16.0_rp/36.0_rp)*(lgrid%q_cc_bg(i_rho,i,j)* lgrid%grav_cc(2,i,j))
+
+
+       ! Standard Hydrodynamic source term
+       lgrid%res_cc_bg(i_rhoe,i,j)   = lgrid%res_cc_bg(i_rhoe,i,j) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x1_bg(i_rhovx1,i,j) * lgrid%grav_x1(1,i,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x1_bg(i_rhovx1,i+1,j) * lgrid%grav_x1(1,i+1,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x2_bg(i_rhovx1,i,j) * lgrid%grav_x2(1,i,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x2_bg(i_rhovx1,i,j+1) * lgrid%grav_x2(1,i,j+1)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rhovx1,i,j) * lgrid%grav_cor(1,i,j)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rhovx1,i+1,j) * lgrid%grav_cor(1,i+1,j)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rhovx1,i,j+1) * lgrid%grav_cor(1,i,j+1)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rhovx1,i+1,j+1) * lgrid%grav_cor(1,i+1,j+1)) - &
+                                      (16.0_rp/36.0_rp)*(lgrid%q_cc_bg(i_rhovx1,i,j) * lgrid%grav_cc(1,i,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x1_bg(i_rhovx2,i,j) * lgrid%grav_x1(2,i,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x1_bg(i_rhovx2,i+1,j) * lgrid%grav_x1(2,i+1,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x2_bg(i_rhovx2,i,j) * lgrid%grav_x2(2,i,j)) - &
+                                      (4.0_rp/36.0_rp)*(lgrid%q_x2_bg(i_rhovx2,i,j+1) * lgrid%grav_x2(2,i,j+1)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rhovx2,i,j) * lgrid%grav_cor(2,i,j)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rhovx2,i+1,j) * lgrid%grav_cor(2,i+1,j)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rhovx2,i,j+1) * lgrid%grav_cor(2,i,j+1)) - &
+                                      (1.0_rp/36.0_rp)*(lgrid%q_cor_bg(i_rhovx2,i+1,j+1) * lgrid%grav_cor(2,i+1,j+1)) - &
+                                      (16.0_rp/36.0_rp)*(lgrid%q_cc_bg(i_rhovx2,i,j) * lgrid%grav_cc(2,i,j))  
+                          
+#endif
+#endif
+                                                                                                        
+     end do
+    end do
+
+    !---------------------------------------------------------------------------------------!
+
+    ! x1 face-centered background residuals
+
+    do j=lx2,ux2
+     do i=lx1,ux1+1
+
+      !-----------------------------------------------!
+
+      ! compute useful quantities
+
+      rho = lgrid%q_x1_bg(i_rho,i,j)
+      inv_rho = rp1/rho
+      vx1 = lgrid%q_x1_bg(i_rhovx1,i,j)*inv_rho
+      vx2 = lgrid%q_x1_bg(i_rhovx2,i,j)*inv_rho
+      rhoe = lgrid%q_x1_bg(i_rhoe,i,j)
+      v2 = vx1*vx1+vx2*vx2
+      rhoeint = rhoe - rph*rho*v2
+       p = gmm1*rhoeint
+       H = (rhoe+p)*inv_rho
+       c = sqrt(gm*p*inv_rho)
+       k = rph*v2
+       phi = gmm1*k
+       beta = gmm1/(c*c) 
+
+
+      l1 = vx1-c
+      l2 = vx1
+      l3 = vx1
+      l4 = vx1+c
+
+       ! Rusanov / local Lax-Friedrichs spectral radius
+      alpha = max(abs(l1),abs(l2),abs(l3),abs(l4))
+
+
+      !-----------------------------------------------!
+
+      ! Jy
+
+      Jmat(i_rho,i_rho) = rp0
+      Jmat(i_rhovx1,i_rho) = -vx1*vx2
+      Jmat(i_rhovx2,i_rho) = phi-vx2*vx2
+      Jmat(i_rhoe,i_rho) = vx2*(phi-H)
+
+      Jmat(i_rho,i_rhovx1) = rp0
+      Jmat(i_rhovx1,i_rhovx1) = vx2
+      Jmat(i_rhovx2,i_rhovx1) = -gmm1*vx1
+      Jmat(i_rhoe,i_rhovx1) = -gmm1*vx1*vx2
+
+      Jmat(i_rho,i_rhovx2) = rp1
+      Jmat(i_rhovx1,i_rhovx2) = vx1
+      Jmat(i_rhovx2,i_rhovx2) = (rp3-gm)*vx2
+      Jmat(i_rhoe,i_rhovx2) = H-gmm1*vx2*vx2
+
+      Jmat(i_rho,i_rhoe) = rp0
+      Jmat(i_rhovx1,i_rhoe) = rp0
+      Jmat(i_rhovx2,i_rhoe) = gmm1
+      Jmat(i_rhoe,i_rhoe) = gm*vx2
+   
+      !-----------------------------------------------!
+
+      ! Dyq 
+
+      do iv=1,nvars
+       Dq(iv) = (lgrid%q_cor_bg(iv,i,j+1)-lgrid%q_cor_bg(iv,i,j))*lgrid%inv_dx2
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jy-Dyq
+
+      do iv=1,nvars
+       tmp = rp0
+       do ik=1,nvars
+        tmp = tmp + Jmat(iv,ik)*Dq(ik)
+       end do
+       lgrid%res_x1_bg(iv,i,j) = tmp
+      end do
+
+      !-----------------------------------------------!
+
+      ! R
+
+      Rmat(i_rho,i_rho) = rp1
+      Rmat(i_rhovx1,i_rho) = vx1-c
+      Rmat(i_rhovx2,i_rho) = vx2
+      Rmat(i_rhoe,i_rho) = H-c*vx1
+ 
+      Rmat(i_rho,i_rhovx1) = rp0
+      Rmat(i_rhovx1,i_rhovx1) = rp0
+      Rmat(i_rhovx2,i_rhovx1) = rp1
+      Rmat(i_rhoe,i_rhovx1) = vx2
+
+      Rmat(i_rho,i_rhovx2) = rp1
+      Rmat(i_rhovx1,i_rhovx2) = vx1
+      Rmat(i_rhovx2,i_rhovx2) = vx2
+      Rmat(i_rhoe,i_rhovx2) = k
+  
+      Rmat(i_rho,i_rhoe) = rp1
+      Rmat(i_rhovx1,i_rhoe) = vx1+c
+      Rmat(i_rhovx2,i_rhoe) = vx2
+      Rmat(i_rhoe,i_rhoe) = H+c*vx1
+
+      !-----------------------------------------------!
+
+      ! R^-1
+       Rimat(i_rho,i_rho) = rph*beta*(k+c*vx1/gmm1)
+      Rimat(i_rhovx1,i_rho) = -vx2
+      Rimat(i_rhovx2,i_rho) = rp1-beta*k
+      Rimat(i_rhoe,i_rho) = rph*beta*(k-c*vx1/gmm1)
+ 
+      Rimat(i_rho,i_rhovx1) = -rph*beta*(vx1+c/gmm1)
+      Rimat(i_rhovx1,i_rhovx1) = rp0
+      Rimat(i_rhovx2,i_rhovx1) = beta*vx1
+      Rimat(i_rhoe,i_rhovx1) = -rph*beta*(vx1-c/gmm1)
+ 
+      Rimat(i_rho,i_rhovx2) = -rph*beta*vx2
+      Rimat(i_rhovx1,i_rhovx2) = rp1
+      Rimat(i_rhovx2,i_rhovx2) = beta*vx2
+      Rimat(i_rhoe,i_rhovx2) = -rph*beta*vx2
+ 
+      Rimat(i_rho,i_rhoe) = rph*beta
+      Rimat(i_rhovx1,i_rhoe) = rp0
+      Rimat(i_rhovx2,i_rhoe) = -beta
+      Rimat(i_rhoe,i_rhoe) = rph*beta
+
+      !-----------------------------------------------!
+
+      ! lam+
+
+      do iv=1,nvars
+       do ik=1,nvars
+        lammat(ik,iv) = rp0
+       end do
+      end do
+
+!standard active flux splitting
+#ifndef GRID_ALIGNMENT_FIX       
+      lammat(i_rho,i_rho) = max(rp0,l1)
+      lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
+      lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
+      lammat(i_rhoe,i_rhoe) = max(rp0,l4)      
+#endif
+
+!a different splitting as a fix to the grid-alignment artefact in the hotbubble test
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = max(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 + max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3+ max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
+
+      !-----------------------------------------------!
+
+      ! R-lam+
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Rmat(iv,ik)*lammat(ik,it)
+        end do
+        Amat(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jxp = (R-lam+)-R^-1
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Amat(iv,ik)*Rimat(ik,it)
+        end do
+        Jp(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! ! Dpq
+
+      ! do iv=1,nvars
+
+      !  Dpq(iv) = lgrid%inv_dx1*(rp3*lgrid%q_x1_bg(iv,i,j)-rp4*lgrid%q_cc_bg(iv,i-1,j)+lgrid%q_x1_bg(iv,i-1,j))
+
+      ! end do
+
+
+       do iv=1,nvars
+        Dpq(iv) = oquart*lgrid%inv_dx1*( &
+        rp4*(-rp9*lgrid%qbar_cc_bg(iv,i-1,j)+rp2*(lgrid%q_x1_bg(iv,i-1,j)+rp2*lgrid%q_x1_bg(iv,i,j))) + &
+        rp4*(lgrid%q_x2_bg(iv,i-1,j)+lgrid%q_x2_bg(iv,i-1,j+1)) + &
+        lgrid%q_cor_bg(iv,i-1,j)+lgrid%q_cor_bg(iv,i,j)+lgrid%q_cor_bg(iv,i,j+1)+lgrid%q_cor_bg(iv,i-1,j+1) &
+        )
+       end do
+
+
+      !-----------------------------------------------!
+
+      ! Jxp-Dpq
+
+      do iv=1,nvars
+       tmp = rp0
+       do ik=1,nvars
+        tmp = tmp + Jp(iv,ik)*Dpq(ik)
+       end do
+       lgrid%res_x1_bg(iv,i,j) = lgrid%res_x1_bg(iv,i,j) + tmp
+      end do
+       
+      !-----------------------------------------------!
+
+      ! lam-
+
+      do iv=1,nvars
+       do ik=1,nvars
+        lammat(ik,iv) = rp0
+       end do
+      end do
+
+#ifndef GRID_ALIGNMENT_FIX 
+      lammat(i_rho,i_rho) = min(rp0,l1)
+      lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
+      lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
+      lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = min(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 - max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3 - max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif 
+
+      !-----------------------------------------------!
+
+      ! R-lam-
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Rmat(iv,ik)*lammat(ik,it)
+        end do
+        Amat(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jxm = (R-lam-)-R^-1
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Amat(iv,ik)*Rimat(ik,it)
+        end do
+        Jm(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! ! Dmq
+
+      ! do iv=1,nvars
+
+      !  Dmq(iv) = lgrid%inv_dx1*(-rp3*lgrid%q_x1_bg(iv,i,j)+rp4*lgrid%q_cc_bg(iv,i,j)-lgrid%q_x1_bg(iv,i+1,j))
+
+      ! end do
+
+       do iv=1,nvars
+        Dmq(iv) = -oquart*lgrid%inv_dx1*( &
+        -rp36*lgrid%qbar_cc_bg(iv,i,j) + &
+        rp8*(rp2*lgrid%q_x1_bg(iv,i,j)+lgrid%q_x1_bg(iv,i+1,j)) + &
+        lgrid%q_cor_bg(iv,i,j) + &
+        rp4*(lgrid%q_x2_bg(iv,i,j)+lgrid%q_x2_bg(iv,i,j+1)) + &
+        lgrid%q_cor_bg(iv,i+1,j) + lgrid%q_cor_bg(iv,i,j+1) + lgrid%q_cor_bg(iv,i+1,j+1) &
+        )
+       end do
+
+      !-----------------------------------------------!
+
+      ! Jxm-Dmq
+
+      do iv=1,nvars
+       tmp = rp0
+       do ik=1,nvars
+        tmp = tmp + Jm(iv,ik)*Dmq(ik)
+       end do
+       lgrid%res_x1_bg(iv,i,j) = lgrid%res_x1_bg(iv,i,j) + tmp
+      end do
+
+      !-----------------------------------------------!
+#ifdef USE_GRAVITY   
+#ifdef WB_DEVIATION    
+      ! Standard conservative source terms for Hydrodynamic Energy
+      lgrid%res_x1_bg(i_rhovx1,i,j) = lgrid%res_x1_bg(i_rhovx1,i,j) - &
+                                     lgrid%q_x1_bg(i_rho,i,j) * lgrid%grav_x1(1,i,j)
+      lgrid%res_x1_bg(i_rhovx2,i,j) = lgrid%res_x1_bg(i_rhovx2,i,j) - &
+                                     lgrid%q_x1_bg(i_rho,i,j) * lgrid%grav_x1(2,i,j)   
+                                                                    
+      lgrid%res_x1_bg(i_rhoe,i,j)   = lgrid%res_x1_bg(i_rhoe,i,j) - &
+                                     lgrid%q_x1_bg(i_rhovx1,i,j) * lgrid%grav_x1(1,i,j) - &
+                                     lgrid%q_x1_bg(i_rhovx2,i,j) * lgrid%grav_x1(2,i,j)
+#endif                                       
+#endif   
+     end do
+    end do
+
+    !---------------------------------------------------------------------------------------!
+
+    ! x2 face-centered background residuals
+
+    do j=lx2,ux2+1
+     do i=lx1,ux1
+
+      !-----------------------------------------------!
+
+      !compute useful quantities
+
+      rho = lgrid%q_x2_bg(i_rho,i,j)
+      inv_rho = rp1/rho
+      vx1 = lgrid%q_x2_bg(i_rhovx1,i,j)*inv_rho
+      vx2 = lgrid%q_x2_bg(i_rhovx2,i,j)*inv_rho
+      rhoe = lgrid%q_x2_bg(i_rhoe,i,j)
+      v2 = vx1*vx1+vx2*vx2
+      rhoeint = rhoe - rph*rho*v2
+      p = gmm1*rhoeint
+      H = (rhoe+p)*inv_rho
+      c = sqrt(gm*p*inv_rho)
+      k = rph*v2
+      phi = gmm1*k
+      beta = gmm1/(c*c)
+
+      l1 = vx2-c
+      l2 = vx2
+      l3 = vx2
+      l4 = vx2+c
+
+      ! Rusanov / local Lax-Friedrichs spectral radius
+      alpha = max(abs(l1),abs(l2),abs(l3),abs(l4))
+
+      !-----------------------------------------------!
+
+      !Jx
+
+      Jmat(i_rho,i_rho) = rp0
+      Jmat(i_rhovx1,i_rho) = phi-vx1*vx1
+      Jmat(i_rhovx2,i_rho) = -vx1*vx2
+      Jmat(i_rhoe,i_rho) = vx1*(phi-H)
+
+      Jmat(i_rho,i_rhovx1) = rp1
+      Jmat(i_rhovx1,i_rhovx1) = (rp3-gm)*vx1
+      Jmat(i_rhovx2,i_rhovx1) = vx2
+      Jmat(i_rhoe,i_rhovx1) = H-gmm1*vx1*vx1
+
+      Jmat(i_rho,i_rhovx2) = rp0
+      Jmat(i_rhovx1,i_rhovx2) = -gmm1*vx2
+      Jmat(i_rhovx2,i_rhovx2) = vx1
+      Jmat(i_rhoe,i_rhovx2) = -gmm1*vx1*vx2
+
+      Jmat(i_rho,i_rhoe) = rp0
+      Jmat(i_rhovx1,i_rhoe) = gmm1
+      Jmat(i_rhovx2,i_rhoe) = rp0
+      Jmat(i_rhoe,i_rhoe) = gm*vx1
+
+      !-----------------------------------------------!
+
+      !Dxq 
+
+      do iv=1,nvars
+       Dq(iv) = (lgrid%q_cor_bg(iv,i+1,j)-lgrid%q_cor_bg(iv,i,j))*lgrid%inv_dx1
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jx-Dxq
+
+      do iv=1,nvars
+       tmp = rp0
+       do ik=1,nvars
+        tmp = tmp + Jmat(iv,ik)*Dq(ik)
+       end do
+       lgrid%res_x2_bg(iv,i,j) = tmp
+      end do
+
+      !-----------------------------------------------!
+
+      ! R
+
+      Rmat(i_rho,i_rho) = rp1
+      Rmat(i_rhovx1,i_rho) = vx1
+      Rmat(i_rhovx2,i_rho) = vx2-c
+      Rmat(i_rhoe,i_rho) = H-c*vx2
+ 
+      Rmat(i_rho,i_rhovx1) = rp0
+      Rmat(i_rhovx1,i_rhovx1) = -rp1
+      Rmat(i_rhovx2,i_rhovx1) = rp0
+      Rmat(i_rhoe,i_rhovx1) = -vx1
+
+      Rmat(i_rho,i_rhovx2) = rp1
+      Rmat(i_rhovx1,i_rhovx2) = vx1
+      Rmat(i_rhovx2,i_rhovx2) = vx2
+      Rmat(i_rhoe,i_rhovx2) = k
+  
+      Rmat(i_rho,i_rhoe) = rp1
+      Rmat(i_rhovx1,i_rhoe) = vx1
+      Rmat(i_rhovx2,i_rhoe) = vx2+c
+      Rmat(i_rhoe,i_rhoe) = H+c*vx2
+ 
+      !-----------------------------------------------!
+
+      ! R^-1
+       Rimat(i_rho,i_rho) = rph*beta*(k+c*vx2/gmm1)
+      Rimat(i_rhovx1,i_rho) = vx1
+      Rimat(i_rhovx2,i_rho) = rp1-beta*k
+      Rimat(i_rhoe,i_rho) = rph*beta*(k-c*vx2/gmm1)
+ 
+      Rimat(i_rho,i_rhovx1) = -rph*beta*vx1
+      Rimat(i_rhovx1,i_rhovx1) = -rp1
+      Rimat(i_rhovx2,i_rhovx1) = beta*vx1
+      Rimat(i_rhoe,i_rhovx1) = -rph*beta*vx1
+ 
+      Rimat(i_rho,i_rhovx2) = -rph*beta*(vx2+c/gmm1)
+      Rimat(i_rhovx1,i_rhovx2) = rp0
+      Rimat(i_rhovx2,i_rhovx2) = beta*vx2
+      Rimat(i_rhoe,i_rhovx2) = -rph*beta*(vx2-c/gmm1)
+ 
+      Rimat(i_rho,i_rhoe) = rph*beta
+      Rimat(i_rhovx1,i_rhoe) = rp0
+      Rimat(i_rhovx2,i_rhoe) = -beta
+      Rimat(i_rhoe,i_rhoe) = rph*beta
+ 
+      !-----------------------------------------------!
+
+      ! lam+
+
+      do iv=1,nvars
+       do ik=1,nvars
+        lammat(ik,iv) = rp0
+       end do
+      end do
+#ifndef GRID_ALIGNMENT_FIX     
+      lammat(i_rho,i_rho) = max(rp0,l1)
+      lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
+      lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
+      lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = max(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 + max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3+ max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
+      !-----------------------------------------------!
+
+      ! R-lam+
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Rmat(iv,ik)*lammat(ik,it)
+        end do
+        Amat(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jyp = (R-lam+)-R^-1
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Amat(iv,ik)*Rimat(ik,it)
+        end do
+        Jp(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! ! Dpq
+
+      ! do iv=1,nvars
+
+      !  Dpq(iv) = lgrid%inv_dx2*(rp3*lgrid%q_x2_bg(iv,i,j)-rp4*lgrid%q_cc_bg(iv,i,j-1)+lgrid%q_x2_bg(iv,i,j-1))
+
+      ! end do
+
+        ! Dpq
+
+       do iv=1,nvars
+        Dpq(iv) = oquart*lgrid%inv_dx2*( &
+        rp4*(lgrid%q_x1_bg(iv,i,j-1)-rp9*lgrid%qbar_cc_bg(iv,i,j-1)+lgrid%q_x1_bg(iv,i+1,j-1)) + &
+        lgrid%q_cor_bg(iv,i,j)+lgrid%q_cor_bg(iv,i+1,j)+lgrid%q_cor_bg(iv,i,j-1)+lgrid%q_cor_bg(iv,i+1,j-1) + &
+        rp8*(lgrid%q_x2_bg(iv,i,j-1)+rp2*lgrid%q_x2_bg(iv,i,j)) &
+        )
+       end do
+
+      !-----------------------------------------------!
+
+      ! Jyp-Dpq
+
+      do iv=1,nvars
+       tmp = rp0
+       do ik=1,nvars
+        tmp = tmp + Jp(iv,ik)*Dpq(ik)
+       end do
+       lgrid%res_x2_bg(iv,i,j) = lgrid%res_x2_bg(iv,i,j) + tmp
+      end do
+
+      !-----------------------------------------------!
+
+      ! lam-
+
+      do iv=1,nvars
+       do ik=1,nvars
+        lammat(ik,iv) = rp0
+       end do
+      end do
+#ifndef GRID_ALIGNMENT_FIX      
+      lammat(i_rho,i_rho) = min(rp0,l1)
+      lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
+      lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
+      lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif 
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = min(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 - max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3 - max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
+      !-----------------------------------------------!
+
+      ! R-lam-
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Rmat(iv,ik)*lammat(ik,it)
+        end do
+        Amat(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jym = (R-lam-)-R^-1
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Amat(iv,ik)*Rimat(ik,it)
+        end do
+        Jm(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! ! Dmq
+
+      ! do iv=1,nvars
+
+      !  Dmq(iv) = lgrid%inv_dx2*(-rp3*lgrid%q_x2_bg(iv,i,j)+rp4*lgrid%q_cc_bg(iv,i,j)-lgrid%q_x2_bg(iv,i,j+1))
+
+      ! end do
+
+       ! Dmq
+
+       do iv=1,nvars
+        Dmq(iv) = -oquart*lgrid%inv_dx2*( &
+        rp4*(lgrid%q_x1_bg(iv,i,j)-rp9*lgrid%qbar_cc_bg(iv,i,j)+lgrid%q_x1_bg(iv,i+1,j)) + &
+        lgrid%q_cor_bg(iv,i,j)+lgrid%q_cor_bg(iv,i+1,j)+lgrid%q_cor_bg(iv,i,j+1)+lgrid%q_cor_bg(iv,i+1,j+1) + &
+        rp8*(rp2*lgrid%q_x2_bg(iv,i,j)+lgrid%q_x2_bg(iv,i,j+1)) &
+        )
+       end do
+
+
+      !-----------------------------------------------!
+
+      ! Jym-Dmq
+
+      do iv=1,nvars
+       tmp = rp0
+       do ik=1,nvars
+        tmp = tmp + Jm(iv,ik)*Dmq(ik)
+       end do
+       lgrid%res_x2_bg(iv,i,j) = lgrid%res_x2_bg(iv,i,j) + tmp
+      end do
+
+#ifdef USE_GRAVITY
+#ifdef WB_DEVIATION
+      !-----------------------------------------------!
+      ! Standard conservative source terms for Hydrodynamic Energy
+      lgrid%res_x2_bg(i_rhovx1,i,j) = lgrid%res_x2_bg(i_rhovx1,i,j) - &
+                                     lgrid%q_x2_bg(i_rho,i,j) * lgrid%grav_x2(1,i,j)
+      lgrid%res_x2_bg(i_rhovx2,i,j) = lgrid%res_x2_bg(i_rhovx2,i,j) - &
+                                     lgrid%q_x2_bg(i_rho,i,j) * lgrid%grav_x2(2,i,j)
+                                                                    
+      lgrid%res_x2_bg(i_rhoe,i,j)   = lgrid%res_x2_bg(i_rhoe,i,j) - &
+                                     lgrid%q_x2_bg(i_rhovx1,i,j) * lgrid%grav_x2(1,i,j) - &
+                                     lgrid%q_x2_bg(i_rhovx2,i,j) * lgrid%grav_x2(2,i,j)   
+#endif
+#endif       
+
+     end do
+    end do
+
+    !---------------------------------------------------------------------------------------!
+
+    ! corner-centered background residuals
+
+    do j=lx2,ux2+1
+     do i=lx1,ux1+1
+
+      !-----------------------------------------------!
+
+      ! compute useful quantities
+
+      rho = lgrid%q_cor_bg(i_rho,i,j)
+      inv_rho = rp1/rho
+      vx1 = lgrid%q_cor_bg(i_rhovx1,i,j)*inv_rho
+      vx2 = lgrid%q_cor_bg(i_rhovx2,i,j)*inv_rho
+      rhoe = lgrid%q_cor_bg(i_rhoe,i,j)
+      v2 = vx1*vx1+vx2*vx2
+      rhoeint = rhoe - rph*rho*v2
+      p = gmm1*rhoeint
+       H = (rhoe+p)*inv_rho
+       c = sqrt(gm*p*inv_rho)
+       k = rph*v2
+       phi = gmm1*k
+       beta = gmm1/(c*c)
+
+      !-----------------------------------------------!
+
+      ! x1-fluxes
+
+      !-----------------------------------------------!
+
+      l1 = vx1-c
+      l2 = vx1
+      l3 = vx1
+      l4 = vx1+c
+
+      ! Rusanov / local Lax-Friedrichs spectral radius
+      alpha = max(abs(l1),abs(l2),abs(l3),abs(l4))
+
+      ! R
+
+      Rmat(i_rho,i_rho) = rp1
+      Rmat(i_rhovx1,i_rho) = vx1-c
+      Rmat(i_rhovx2,i_rho) = vx2
+      Rmat(i_rhoe,i_rho) = H-c*vx1
+ 
+      Rmat(i_rho,i_rhovx1) = rp0
+      Rmat(i_rhovx1,i_rhovx1) = rp0
+      Rmat(i_rhovx2,i_rhovx1) = rp1
+      Rmat(i_rhoe,i_rhovx1) = vx2
+
+      Rmat(i_rho,i_rhovx2) = rp1
+      Rmat(i_rhovx1,i_rhovx2) = vx1
+      Rmat(i_rhovx2,i_rhovx2) = vx2
+      Rmat(i_rhoe,i_rhovx2) = k
+  
+      Rmat(i_rho,i_rhoe) = rp1
+      Rmat(i_rhovx1,i_rhoe) = vx1+c
+      Rmat(i_rhovx2,i_rhoe) = vx2
+      Rmat(i_rhoe,i_rhoe) = H+c*vx1
+ 
+      !-----------------------------------------------!
+
+      ! R^-1
+       Rimat(i_rho,i_rho) = rph*beta*(k+c*vx1/gmm1)
+      Rimat(i_rhovx1,i_rho) = -vx2
+      Rimat(i_rhovx2,i_rho) = rp1-beta*k
+      Rimat(i_rhoe,i_rho) = rph*beta*(k-c*vx1/gmm1)
+ 
+      Rimat(i_rho,i_rhovx1) = -rph*beta*(vx1+c/gmm1)
+      Rimat(i_rhovx1,i_rhovx1) = rp0
+      Rimat(i_rhovx2,i_rhovx1) = beta*vx1
+      Rimat(i_rhoe,i_rhovx1) = -rph*beta*(vx1-c/gmm1)
+ 
+      Rimat(i_rho,i_rhovx2) = -rph*beta*vx2
+      Rimat(i_rhovx1,i_rhovx2) = rp1
+      Rimat(i_rhovx2,i_rhovx2) = beta*vx2
+      Rimat(i_rhoe,i_rhovx2) = -rph*beta*vx2
+ 
+      Rimat(i_rho,i_rhoe) = rph*beta
+      Rimat(i_rhovx1,i_rhoe) = rp0
+      Rimat(i_rhovx2,i_rhoe) = -beta
+      Rimat(i_rhoe,i_rhoe) = rph*beta
+ 
+      !-----------------------------------------------!
+
+      ! lam+
+
+      do iv=1,nvars
+       do ik=1,nvars
+        lammat(ik,iv) = rp0
+       end do
+      end do
+#ifndef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = max(rp0,l1)
+      lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
+      lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
+      lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = max(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 + max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3+ max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
+      !-----------------------------------------------!
+
+      ! R-lam+
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Rmat(iv,ik)*lammat(ik,it)
+        end do
+        Amat(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jxp = (R-lam+)-R^-1
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Amat(iv,ik)*Rimat(ik,it)
+        end do
+        Jp(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! Dpq
+
+      do iv=1,nvars
+       Dpq(iv) = lgrid%inv_dx1*( &
+       lgrid%q_cor_bg(iv,i-1,j)-rp4*lgrid%q_x2_bg(iv,i-1,j)+rp3*lgrid%q_cor_bg(iv,i,j) &
+       )
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jxp-Dpq
+
+      do iv=1,nvars
+       tmp = rp0
+       do ik=1,nvars
+        tmp = tmp + Jp(iv,ik)*Dpq(ik)
+       end do
+       lgrid%res_cor_bg(iv,i,j) = tmp
+      end do
+ 
+      !-----------------------------------------------!
+
+      ! lam-
+
+      do iv=1,nvars
+       do ik=1,nvars
+        lammat(ik,iv) = rp0
+       end do
+      end do
+
+#ifndef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = min(rp0,l1)
+      lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
+      lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
+      lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif 
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = min(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 - max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3 - max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
+
+      !-----------------------------------------------!
+
+      ! R-lam-
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Rmat(iv,ik)*lammat(ik,it)
+        end do
+        Amat(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jxm = (R-lam-)-R^-1
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Amat(iv,ik)*Rimat(ik,it)
+        end do
+        Jm(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! Dmq
+
+      do iv=1,nvars
+       Dmq(iv) = lgrid%inv_dx1*( &
+       rp4*lgrid%q_x2_bg(iv,i,j)-rp3*lgrid%q_cor_bg(iv,i,j)-lgrid%q_cor_bg(iv,i+1,j) &
+       )
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jxm-Dmq
+
+      do iv=1,nvars
+       tmp = rp0
+       do ik=1,nvars
+        tmp = tmp + Jm(iv,ik)*Dmq(ik)
+       end do
+       lgrid%res_cor_bg(iv,i,j) = lgrid%res_cor_bg(iv,i,j) + tmp
+      end do
+
+      !-----------------------------------------------!
+
+      ! x2-fluxes
+
+      !-----------------------------------------------!
+
+      l1 = vx2-c
+      l2 = vx2
+      l3 = vx2
+      l4 = vx2+c
+
+      ! Rusanov / local Lax-Friedrichs spectral radius
+      alpha = max(abs(l1),abs(l2),abs(l3),abs(l4))
+
+
+      ! R
+
+      Rmat(i_rho,i_rho) = rp1
+      Rmat(i_rhovx1,i_rho) = vx1
+      Rmat(i_rhovx2,i_rho) = vx2-c
+      Rmat(i_rhoe,i_rho) = H-c*vx2
+ 
+      Rmat(i_rho,i_rhovx1) = rp0
+      Rmat(i_rhovx1,i_rhovx1) = -rp1
+      Rmat(i_rhovx2,i_rhovx1) = rp0
+      Rmat(i_rhoe,i_rhovx1) = -vx1
+
+      Rmat(i_rho,i_rhovx2) = rp1
+      Rmat(i_rhovx1,i_rhovx2) = vx1
+      Rmat(i_rhovx2,i_rhovx2) = vx2
+      Rmat(i_rhoe,i_rhovx2) = k
+  
+      Rmat(i_rho,i_rhoe) = rp1
+      Rmat(i_rhovx1,i_rhoe) = vx1
+      Rmat(i_rhovx2,i_rhoe) = vx2+c
+      Rmat(i_rhoe,i_rhoe) = H+c*vx2
+ 
+      !-----------------------------------------------!
+
+      ! R^-1
+       Rimat(i_rho,i_rho) = rph*beta*(k+c*vx2/gmm1)
+      Rimat(i_rhovx1,i_rho) = vx1
+      Rimat(i_rhovx2,i_rho) = rp1-beta*k
+      Rimat(i_rhoe,i_rho) = rph*beta*(k-c*vx2/gmm1)
+ 
+      Rimat(i_rho,i_rhovx1) = -rph*beta*vx1
+      Rimat(i_rhovx1,i_rhovx1) = -rp1
+      Rimat(i_rhovx2,i_rhovx1) = beta*vx1
+      Rimat(i_rhoe,i_rhovx1) = -rph*beta*vx1
+ 
+      Rimat(i_rho,i_rhovx2) = -rph*beta*(vx2+c/gmm1)
+      Rimat(i_rhovx1,i_rhovx2) = rp0
+      Rimat(i_rhovx2,i_rhovx2) = beta*vx2
+      Rimat(i_rhoe,i_rhovx2) = -rph*beta*(vx2-c/gmm1)
+ 
+      Rimat(i_rho,i_rhoe) = rph*beta
+      Rimat(i_rhovx1,i_rhoe) = rp0
+      Rimat(i_rhovx2,i_rhoe) = -beta
+      Rimat(i_rhoe,i_rhoe) = rph*beta
+ 
+      !-----------------------------------------------!
+
+      ! lam+
+
+      do iv=1,nvars
+       do ik=1,nvars
+        lammat(ik,iv) = rp0
+       end do
+      end do
+    
+#ifndef GRID_ALIGNMENT_FIX      
+      lammat(i_rho,i_rho) = max(rp0,l1)
+      lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
+      lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
+      lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = max(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 + max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3+ max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = max(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = max(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = max(rp0,l4)
+#endif
+
+      !-----------------------------------------------!
+
+      ! R-lam+
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Rmat(iv,ik)*lammat(ik,it)
+        end do
+        Amat(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jyp = (R-lam+)-R^-1
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Amat(iv,ik)*Rimat(ik,it)
+        end do
+        Jp(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! Dpq
+
+      do iv=1,nvars
+       Dpq(iv) = lgrid%inv_dx2*( &
+       lgrid%q_cor_bg(iv,i,j-1)-rp4*lgrid%q_x1_bg(iv,i,j-1)+rp3*lgrid%q_cor_bg(iv,i,j) &
+       )
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jyp-Dpq
+
+      do iv=1,nvars
+       tmp = rp0
+       do ik=1,nvars
+        tmp = tmp + Jp(iv,ik)*Dpq(ik)
+       end do
+       lgrid%res_cor_bg(iv,i,j) = lgrid%res_cor_bg(iv,i,j) + tmp
+      end do
+ 
+      !-----------------------------------------------!
+
+      ! lam-
+
+      do iv=1,nvars
+       do ik=1,nvars
+        lammat(ik,iv) = rp0
+       end do
+      end do
+
+#ifndef GRID_ALIGNMENT_FIX      
+      lammat(i_rho,i_rho) = min(rp0,l1)
+      lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
+      lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
+      lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
+
+#ifdef GRID_ALIGNMENT_FIX
+      lammat(i_rho,i_rho) = min(rp0,l1)
+      if (abs(l2) < ga_par) then
+        lammat(i_rhovx1,i_rhovx1) = 0.5d0*(l2 - max(0.5d0*sqrt(v2), abs(l2)))
+        lammat(i_rhovx2,i_rhovx2) = 0.5d0*(l3 - max(0.5d0*sqrt(v2), abs(l3)))
+      else
+        lammat(i_rhovx1,i_rhovx1) = min(rp0,l2)
+        lammat(i_rhovx2,i_rhovx2) = min(rp0,l3)
+      end if
+      lammat(i_rhoe,i_rhoe) = min(rp0,l4)
+#endif
+
+ !-----------------------------------------------!
+
+      ! R-lam-
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Rmat(iv,ik)*lammat(ik,it)
+        end do
+        Amat(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jym = (R-lam-)-R^-1
+
+      do it=1,nvars
+
+       do iv=1,nvars
+        tmp = rp0
+        do ik=1,nvars
+         tmp = tmp + Amat(iv,ik)*Rimat(ik,it)
+        end do
+        Jm(iv,it) = tmp
+       end do
+
+      end do
+
+      !-----------------------------------------------!
+
+      ! Dmq
+
+      do iv=1,nvars
+       Dmq(iv) = lgrid%inv_dx2*( &
+       rp4*lgrid%q_x1_bg(iv,i,j)-rp3*lgrid%q_cor_bg(iv,i,j)-lgrid%q_cor_bg(iv,i,j+1) &              
+       )
+      end do
+
+      !-----------------------------------------------!
+
+      ! Jym-Dmq
+
+      do iv=1,nvars
+       tmp = rp0
+       do ik=1,nvars
+        tmp = tmp + Jm(iv,ik)*Dmq(ik)
+       end do
+       lgrid%res_cor_bg(iv,i,j) = lgrid%res_cor_bg(iv,i,j) + tmp
+      end do
+
+#ifdef USE_GRAVITY
+#ifdef WB_DEVIATION
+      !-----------------------------------------------!
+      ! Standard conservative source terms for Hydrodynamic Energy
+      lgrid%res_cor_bg(i_rhovx1,i,j) = lgrid%res_cor_bg(i_rhovx1,i,j) - &
+                                      lgrid%q_cor_bg(i_rho,i,j) * lgrid%grav_cor(1,i,j)
+      lgrid%res_cor_bg(i_rhovx2,i,j) = lgrid%res_cor_bg(i_rhovx2,i,j) - &
+                                      lgrid%q_cor_bg(i_rho,i,j) * lgrid%grav_cor(2,i,j)
+                                                                      
+      lgrid%res_cor_bg(i_rhoe,i,j)   = lgrid%res_cor_bg(i_rhoe,i,j) - &
+                                      lgrid%q_cor_bg(i_rhovx1,i,j) * lgrid%grav_cor(1,i,j) - &
+                                      lgrid%q_cor_bg(i_rhovx2,i,j) * lgrid%grav_cor(2,i,j)       
+#endif                      
+#endif 
+     end do
+    end do
+ 
+ end subroutine compute_background_residuals
+
+
+
 
  !>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
  ! HYPERBOLIC TIME STEP
