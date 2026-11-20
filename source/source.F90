@@ -13076,7 +13076,7 @@ contains
 
         lgrid%res(i_rhovx3,i,j,k) = lgrid%res(i_rhovx3,i,j,k) &
 #ifdef USE_MHD
-        - (bx1*bx3-tmp*bx3*bx2)*inv_r  &
+        - (bx1*bx3+tmp*bx3*bx2)*inv_r  &
 #endif
         + rho*(vx1*vx3 + tmp*vx3*vx2)*inv_r
 
