@@ -22023,8 +22023,7 @@ subroutine visres_rhs(mgrid,lgrid)
      bx3L = lgrid%b_cc(3,i-1,j,k)
      bx3R = lgrid%b_cc(3,i,j,k)
      bx3f = rph*(bx3L+bx3R)
-     jetax1 = rph*(lgrid%Jeta_cor_x1(i,j,k+1)+lgrid%Jeta_cor_x1(i,j,k))
-     jetax2 = rph*(lgrid%Jeta_cor_x2(i+1,j,k)+lgrid%Jeta_cor_x2(i,j,k))
+     jetax2 = rph*(lgrid%Jeta_cor_x2(i,j,k+1)+lgrid%Jeta_cor_x2(i,j,k))
      eflux_res = jetax2*bx3f - jetax3*bx2f
 #else
      eflux_res = -jetax3*bx2f
