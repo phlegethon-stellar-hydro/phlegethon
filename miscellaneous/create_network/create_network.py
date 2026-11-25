@@ -1114,7 +1114,7 @@ for i in range(nreacc):
   Reac = netc.reactions[i]
 
   #if reaction is reversed
-  if(Reac.reverse):
+  if(Reac.reverse and not Reac.is_weak):
 
    fac0 = '  R(%d)=R(%d)'%(i+1,i+1)
    fac = fac0
